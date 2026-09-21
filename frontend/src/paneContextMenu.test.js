@@ -15,6 +15,8 @@ test('blank canvas action menu contains exactly the requested node types', () =>
       { label: '智能拆分器', nodeType: 'smartSplitter', dividerBefore: true },
       { label: '分镜工作台', nodeType: 'generateStoryboardScript', dividerBefore: true },
       { label: '视频编辑器', nodeType: 'videoEditor', dividerBefore: false },
+      { label: 'Playlist', nodeType: 'playlist', dividerBefore: false },
+      { label: '3D Viewfinder', nodeType: 'threeD', dividerBefore: false },
     ],
   );
 });

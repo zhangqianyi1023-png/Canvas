@@ -14,14 +14,19 @@ test('lists only implemented image actions for the current toolbar', () => {
     'perspective',
     'crop',
     'rotate',
+    'outpaint',
+    'erase',
+    'cutout',
+    'enhance',
+    'split',
     'download',
     'save-to-library',
   ]);
 });
 
-test('keeps TapNow target actions registered but not falsely enabled', () => {
+test('keeps TapNow prototype actions registered and enabled', () => {
   assert.equal(getCanvasToolbarAction('outpaint').operation, 'outpaint');
-  assert.equal(isCanvasToolbarActionImplemented('outpaint'), false);
+  assert.equal(isCanvasToolbarActionImplemented('outpaint'), true);
   assert.equal(isCanvasToolbarActionImplemented('inpaint'), true);
 });
 

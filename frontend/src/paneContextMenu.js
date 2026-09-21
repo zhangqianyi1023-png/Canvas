@@ -8,4 +8,6 @@ export const PANE_CONTEXT_MENU = [
   { label: '智能拆分器', icon: 'smartSplitter', nodeType: 'smartSplitter', dividerBefore: true },
   { label: '分镜工作台', icon: 'storyboardWorkbench', nodeType: 'generateStoryboardScript', dividerBefore: true },
   { label: '视频编辑器', icon: 'movieAi', nodeType: 'videoEditor' },
+  { label: 'Playlist', icon: 'playlist', nodeType: 'playlist' },
+  { label: '3D Viewfinder', icon: 'cube', nodeType: 'threeD' },
 ];

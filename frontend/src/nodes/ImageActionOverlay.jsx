@@ -4,6 +4,7 @@ import Icon from '../components/Icon';
 import InlineImageAnnotationEditor from '../components/InlineImageAnnotationEditor';
 import InlineImageInpaintEditor from '../components/InlineImageInpaintEditor';
 import InlineImagePerspectiveEditor from '../components/InlineImagePerspectiveEditor';
+import CanvasImagePrototype from '../components/CanvasImagePrototype';
 import { API_BASE } from '../apiBase';
 import { useCanvasWheelHandoff } from '../canvasWheelHandoff';
 import { resolveImageActionPortalPosition } from '../imageActionOverlayPosition';
@@ -31,6 +32,11 @@ const actionItems = [
   { action: 'perspective', label: '角度控制', icon: 'compass', sourceTypes: ['result'] },
   { action: 'crop', label: '裁剪', icon: 'crop', toolbarIcon: toolbarCropIcon, separatorBefore: true },
   { action: 'rotate', label: '旋转', icon: 'rotateRight', toolbarIcon: toolbarRotateIcon, sourceTypes: ['result'] },
+  { action: 'outpaint', label: '扩图', icon: 'image' },
+  { action: 'erase', label: '擦除', icon: 'erase' },
+  { action: 'cutout', label: '抠图', icon: 'scissors' },
+  { action: 'enhance', label: '增强', icon: 'spark' },
+  { action: 'split', label: 'Quick Split', icon: 'grid' },
   { action: 'favorite', label: '收藏', icon: 'layers', toolbarIcon: toolbarFavoriteIcon, iconOnly: true },
   { action: 'download', label: '下载', icon: 'save', toolbarIcon: toolbarDownloadIcon, iconOnly: true },
 ];
@@ -472,6 +478,7 @@ function ImageActionOverlay({
   const [perspectiveOpen, setPerspectiveOpen] = useState(false);
   const [rotationOpen, setRotationOpen] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
+  const [prototypeOperation, setPrototypeOperation] = useState(null);
   const [cropDraft, setCropDraft] = useState({ ...DEFAULT_CROP });
   const [cropPreset, setCropPreset] = useState('free');
   const [cropImageSize, setCropImageSize] = useState({ width: 1, height: 1 });
@@ -647,6 +654,16 @@ function ImageActionOverlay({
       return;
     }
 
+    if (['outpaint', 'erase', 'cutout', 'enhance', 'split'].includes(action)) {
+      setAnnotationOpen(false);
+      setInpaintOpen(false);
+      setPerspectiveOpen(false);
+      setRotationOpen(false);
+      setCropOpen(false);
+      setPrototypeOperation(action);
+      return;
+    }
+
     if (action === 'perspective') {
       setAnnotationOpen(false);
       setInpaintOpen(false);
@@ -716,6 +733,19 @@ function ImageActionOverlay({
       ...extra,
     });
   }, [enableCropEditor, imageIndex, imageUrl, nodeId, onAction, onUpload, sourceHandle, sourceType]);
+
+  const closePrototype = useCallback(() => setPrototypeOperation(null), []);
+  const confirmPrototype = useCallback(async (settings) => {
+    await onAction?.('prototypeCreate', {
+      imageUrl,
+      nodeId,
+      sourceType,
+      imageIndex,
+      sourceHandle,
+      ...settings,
+    });
+    setPrototypeOperation(null);
+  }, [imageIndex, imageUrl, nodeId, onAction, sourceHandle, sourceType]);
 
   const cancelCrop = useCallback(() => {
     if (isCropSaving) return;
@@ -978,6 +1008,7 @@ function ImageActionOverlay({
     && !annotationOpen
     && !inpaintOpen
     && !perspectiveOpen
+    && !prototypeOperation
     && !suppressToolbar
     && (!portalToolbar || (forceVisible && Boolean(portalPosition)));
 
@@ -987,7 +1018,7 @@ function ImageActionOverlay({
 
   return (
     <div ref={layerRef} className={`image-action-layer ${forceVisible ? 'is-open' : ''} ${annotationOpen ? 'is-annotating' : ''} ${inpaintOpen ? 'is-inpainting' : ''} ${perspectiveOpen ? 'is-perspective' : ''} ${cropOpen ? 'is-cropping' : ''}`}>
-      {!suppressToolbar && !annotationOpen && !inpaintOpen && !perspectiveOpen && !rotationOpen && !cropOpen && !portalToolbar ? toolbar : null}
+      {!suppressToolbar && !annotationOpen && !inpaintOpen && !perspectiveOpen && !rotationOpen && !cropOpen && !prototypeOperation && !portalToolbar ? toolbar : null}
       {!suppressToolbar && !annotationOpen && !inpaintOpen && !perspectiveOpen && !rotationOpen && !cropOpen && portalToolbar && forceVisible && portalPosition && typeof document !== 'undefined'
         ? createPortal(toolbar, document.body)
         : null}
@@ -1056,6 +1087,9 @@ function ImageActionOverlay({
           onCancel={cancelRotation}
           onSave={saveRotation}
         />
+      ) : null}
+      {prototypeOperation && imageUrl ? (
+        <CanvasImagePrototype operation={prototypeOperation} imageUrl={imageUrl} onCancel={closePrototype} onConfirm={confirmPrototype} />
       ) : null}
     </div>
   );

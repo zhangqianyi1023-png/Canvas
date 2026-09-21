@@ -21,4 +21,8 @@
 
 第一批基础代码位于 `frontend/src/canvasNodeContract.js` 和 `frontend/src/canvasOperationRunner.js`，只处理可序列化的图数据，不耦合具体模型供应商。
 
-第二阶段从 `frontend/src/canvasToolbarActions.js` 开始：已将当前已实现操作与 TapNow 目标操作统一登记；未实现的扩图、擦除、抠图、增强、快速切分和 Playlist 不会提前显示为可用按钮。
+第二阶段从 `frontend/src/canvasToolbarActions.js` 开始：已将当前已实现操作与 TapNow 目标操作统一登记；原型操作已经显示为可用按钮，并明确标记“原型预览 · 待接真实模型”。
+
+当前原型已补齐：扩图、擦除、抠图、增强、Quick Split 图片操作；Playlist 多视频排序节点；3D Viewfinder（Three.js 视角预览、Yaw/Pitch/Distance 调整、截图回画布）。这些结果会保留 `canvas.operation`、`prototypeSettings` 和来源连线，便于后续替换成真实异步模型任务。
+
+下一步接真实能力：图片操作接 provider adapter，Quick Split 接裁剪/上传流水线，Playlist 接视频拼接渲染器，3D Viewfinder 接 glTF/GLB 资产、持久化 scene graph 和真实 framebuffer 导出。

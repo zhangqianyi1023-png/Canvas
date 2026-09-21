@@ -41,6 +41,8 @@ import SmartSplitterProcessor from './nodes/SmartSplitterProcessor';
 import StoryboardCardNode from './nodes/StoryboardCardNode';
 import GroupNode from './nodes/GroupNode';
 import StackNode from './nodes/StackNode';
+import PlaylistNode from './nodes/PlaylistNode';
+import ThreeDNode from './nodes/ThreeDNode';
 import DeletableEdge from './nodes/DeletableEdge';
 import { setEdgeDeleteHandler } from './edgeRegistry';
 import ChatView from './ChatView';
@@ -267,6 +269,8 @@ const nodeTypes = {
   storyboardCard: StoryboardCardNode,
   group: GroupNode,
   stack: StackNode,
+  playlist: PlaylistNode,
+  threeD: ThreeDNode,
 };
 
 const REMOVED_NODE_TYPES = new Set([
@@ -1203,6 +1207,8 @@ const getDefaultNodeLabel = (node) => {
   if (node.type === 'shotDirector') return '已移除镜头导演';
   if (node.type === 'videoAssembler') return '已移除成片编排';
   if (node.type === 'smartSplitter') return '智能拆分器';
+  if (node.type === 'playlist') return 'Playlist';
+  if (node.type === 'threeD') return '3D Viewfinder';
   if (node.type === 'result') {
     if (node.data?.resultType === 'generateImage') return '图片';
     if (node.data?.resultType === 'generateVideo') return '视频';
@@ -1234,6 +1240,8 @@ const INPUT_NODE_DEFAULT_SIZES = {
   generateVideo: { width: 320, height: 180 },
   generateAudio: { width: 300, height: 150 },
   videoEditor: { width: 300, height: 210 },
+  playlist: { width: 360, height: 220 },
+  threeD: { width: 360, height: 330 },
   character: { width: 320, height: 560 },
 };
 
@@ -7823,6 +7831,72 @@ const ALIGN_SNAP_THRESHOLD = 5;
       return { ok: true, resultId };
     }
 
+    if (action === 'prototypeCreate') {
+      if ((sourceType || 'result') !== 'result') {
+        throw new Error('当前图片不支持该原型操作');
+      }
+      const sourceNode = nodesRef.current.find(node => node.id === nodeId);
+      if (!sourceNode || sourceNode.type !== 'result' || sourceNode.data?.resultType !== 'generateImage') {
+        throw new Error('来源图片已不存在');
+      }
+      const operation = String(payload?.operation || '').trim();
+      const imageSize = sourceNode.data?.imageDimensions
+        || sourceNode.data?.imageSize
+        || { width: 1024, height: 1024 };
+      const sourcePosition = getNodeDownstreamPosition(nodeId);
+      const createPrototypeResult = (label, extra = {}, position = sourcePosition) => createGeneratePair(
+        'generateImage',
+        position,
+        nodeId,
+        {
+          label,
+          imageUrl,
+          imageUrls: [imageUrl],
+          imageSource: 'canvas-prototype',
+          imageSize: sourceNode.data?.imageSize,
+          imageDimensions: sourceNode.data?.imageDimensions,
+          connectedImages: [imageUrl],
+          suppressImagePrompt: true,
+          activate: false,
+          selected: true,
+          operation,
+          prototype: true,
+          prototypeSettings: extra,
+          style: sourceNode.style,
+        },
+      );
+
+      if (operation === 'split') {
+        const cells = Array.isArray(payload?.cells) ? payload.cells : [];
+        const columns = Number(String(payload?.grid || '2x2').split('x')[0]) || 2;
+        const gap = 28;
+        const width = Number(sourceNode.style?.width) || 280;
+        const results = cells.map((cell, index) => createPrototypeResult(`Quick Split ${index + 1}`, {
+          grid: payload.grid,
+          cropRegion: {
+            x: Number(cell.x) || 0,
+            y: Number(cell.y) || 0,
+            width: Number(cell.width) || 1 / columns,
+            height: Number(cell.height) || 1 / columns,
+          },
+          sourceDimensions: imageSize,
+        }, {
+          x: sourcePosition.x + (index % columns) * (width + gap),
+          y: sourcePosition.y + Math.floor(index / columns) * 420,
+        }));
+        return { ok: true, resultIds: results };
+      }
+
+      const labels = { outpaint: '扩图结果', erase: '擦除结果', cutout: '抠图结果', enhance: '增强结果' };
+      const resultId = createPrototypeResult(labels[operation] || '画布原型结果', {
+        ratio: payload.outpaintRatio,
+        brushSize: payload.brushSize,
+        enhanceLevel: payload.enhanceLevel,
+        previewOnly: true,
+      });
+      return { ok: true, resultId };
+    }
+
     if (action === 'annotationSubmit') {
       if (!annotatedImageDataUrl) throw new Error('未能生成标记图片，请重新绘制后再试');
 
@@ -8907,6 +8981,66 @@ const ALIGN_SNAP_THRESHOLD = 5;
   }, []); // mount-only：通过 ref 调用最新函数，永不陈旧
 
   // 添加节点
+  const createPlaylistFromNodeIds = useCallback((nodeIds) => {
+    const selectedVideos = nodesRef.current.filter(node => (
+      nodeIds.includes(node.id)
+      && ['videoInput', 'videoEditor', 'result'].includes(node.type)
+      && (node.data?.videoUrl || node.data?.videoUrls?.length || node.data?.resultType === 'generateVideo')
+    ));
+    if (selectedVideos.length < 1) {
+      window.alert('请选择至少一个视频节点来创建 Playlist');
+      return null;
+    }
+    const clips = selectedVideos.map((node, index) => ({
+      id: node.id,
+      url: node.data?.videoUrl || node.data?.videoUrls?.[0] || node.data?.videoUrls?.[0] || '',
+      label: node.data?.label || `片段 ${index + 1}`,
+      duration: Number(node.data?.duration || node.data?.videoDuration || 5),
+    }));
+    const position = getNodeDownstreamPosition(selectedVideos[0].id);
+    const playlistId = `playlist_${Date.now()}`;
+    setNodes(nds => [...nds.map(node => ({ ...node, selected: false })), {
+      id: playlistId,
+      type: 'playlist',
+      position,
+      style: { width: 360 },
+      selected: true,
+      data: {
+        label: 'Playlist',
+        clips,
+        canvas: createCanvasOperation({ operation: 'playlist', sourceNodeIds: selectedVideos.map(node => node.id), outputType: 'video' }),
+        onPlaylistChange: (id, nextClips) => setNodes(current => current.map(node => node.id === id ? { ...node, data: { ...node.data, clips: nextClips } } : node)),
+        onNodeTitleChange,
+        onInteractiveDragCreate,
+        onDeleteNode: deleteCanvasNode,
+      },
+    }]);
+    setEdges(edges => [...edges, ...selectedVideos.map(node => ({
+      id: `e_${node.id}_${playlistId}`,
+      source: node.id,
+      target: playlistId,
+      style: { stroke: 'var(--edge-stroke)', strokeWidth: 2 },
+    }))]);
+    return playlistId;
+  }, [deleteCanvasNode, getNodeDownstreamPosition, onInteractiveDragCreate, onNodeTitleChange, setEdges, setNodes]);
+
+  const createViewfinderCapture = useCallback((nodeId, camera = {}) => {
+    const position = getNodeDownstreamPosition(nodeId);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540"><rect width="960" height="540" fill="#131820"/><path d="M0 430L240 230 430 360 650 120 960 390V540H0Z" fill="#273746"/><circle cx="480" cy="270" r="82" fill="none" stroke="#62b7ff" stroke-width="3"/><path d="M480 164V376M374 270H586" stroke="#62b7ff" stroke-width="2" opacity=".8"/><text x="32" y="48" fill="#e8edf4" font-family="Arial" font-size="22">3D VIEWFINDER · YAW ${Math.round(camera.yaw || 0)}° · PITCH ${Math.round(camera.pitch || 0)}°</text></svg>`;
+    return createGeneratePair('generateImage', position, nodeId, {
+      label: 'Viewfinder 截图',
+      imageUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+      imageUrls: [`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`],
+      operation: 'capture-frame',
+      imageSource: '3d-viewfinder',
+      suppressImagePrompt: true,
+      activate: false,
+      selected: true,
+      prototype: true,
+      prototypeSettings: camera,
+    });
+  }, [createGeneratePair, getNodeDownstreamPosition]);
+
   const addNode = useCallback((type, position, extraData = {}, options = {}) => {
     const ts = Date.now();
     let createdNodeId = null;
@@ -8942,6 +9076,24 @@ const ALIGN_SNAP_THRESHOLD = 5;
           onDeleteNode: deleteCanvasNode,
           ...extraData,
         },
+      }]);
+    } else if (type === 'playlist') {
+      createdNodeId = `playlist_${ts}`;
+      setNodes(nds => [...nds, {
+        id: createdNodeId,
+        type: 'playlist',
+        position,
+        style: { width: 360 },
+        data: { label: 'Playlist', clips: extraData.clips || [], onPlaylistChange: (id, clips) => setNodes(current => current.map(node => node.id === id ? { ...node, data: { ...node.data, clips } } : node)), onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, ...extraData },
+      }]);
+    } else if (type === 'threeD') {
+      createdNodeId = `three_d_${ts}`;
+      setNodes(nds => [...nds, {
+        id: createdNodeId,
+        type: 'threeD',
+        position,
+        style: { width: 360, height: 330 },
+        data: { label: '3D Viewfinder', onCaptureViewfinder: createViewfinderCapture, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, ...extraData },
       }]);
     } else if (type === 'character') {
       createdNodeId = `character_${ts}`;
@@ -9028,13 +9180,13 @@ const ALIGN_SNAP_THRESHOLD = 5;
     }
     if (createdNodeId && batchSourceIds.length > 0) {
       connectMultipleCanvasNodes(batchSourceIds, createdNodeId);
-    } else if (createdNodeId && (type === 'smartSplitter' || type === 'videoEditor' || type === 'character') && menu?.dragSourceId) {
+    } else if (createdNodeId && (type === 'smartSplitter' || type === 'videoEditor' || type === 'playlist' || type === 'threeD' || type === 'character') && menu?.dragSourceId) {
       connectCanvasNodes(menu.dragSourceId, createdNodeId, menu?.dragSourceHandle || null);
     }
 
     setMenu(null);
     return createdNodeId;
-  }, [setNodes, onVideoInputChange, onOpenVideoEditor, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, handleImageAction, onImageActionEditingChange, runtimeSettings.activeProviderId, runtimeSettings.providers, onNodeTitleChange, onInteractiveDragCreate, deleteCanvasNode, onNodeResize, downloadNodeVideos, createGeneratePair, menu, connectCanvasNodes, connectMultipleCanvasNodes, createSmartSplitterRuntimeData]);
+  }, [setNodes, onVideoInputChange, onOpenVideoEditor, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, handleImageAction, onImageActionEditingChange, runtimeSettings.activeProviderId, runtimeSettings.providers, onNodeTitleChange, onInteractiveDragCreate, deleteCanvasNode, onNodeResize, downloadNodeVideos, createGeneratePair, createViewfinderCapture, menu, connectCanvasNodes, connectMultipleCanvasNodes, createSmartSplitterRuntimeData]);
 
   const getCopilotCanvasState = useCallback(() => {
     const currentNodes = nodesRef.current;
@@ -9502,6 +9654,14 @@ const ALIGN_SNAP_THRESHOLD = 5;
           return { ...n, data: createSmartSplitterRuntimeData(n.data) };
         }
 
+        if (n.type === 'playlist') {
+          return { ...n, data: { ...n.data, onPlaylistChange: (id, clips) => setNodes(current => current.map(node => node.id === id ? { ...node, data: { ...node.data, clips } } : node)), onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+        }
+
+        if (n.type === 'threeD') {
+          return { ...n, data: { ...n.data, onCaptureViewfinder: createViewfinderCapture, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+        }
+
         if (n.type === 'storyboardCard') {
           return { ...n, data: { ...n.data, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onStoryboardCardUpdate, onCardPlaceholderClick } };
         }
@@ -9531,6 +9691,12 @@ const ALIGN_SNAP_THRESHOLD = 5;
       }
       if (n.type === 'smartSplitter') {
         return { ...n, data: createSmartSplitterRuntimeData(n.data) };
+      }
+      if (n.type === 'playlist') {
+        return { ...n, data: { ...n.data, onPlaylistChange: (id, clips) => setNodes(current => current.map(node => node.id === id ? { ...node, data: { ...node.data, clips } } : node)), onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+      }
+      if (n.type === 'threeD') {
+        return { ...n, data: { ...n.data, onCaptureViewfinder: createViewfinderCapture, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
       }
       if (n.type === 'videoInput') {
         return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), onVideosChange: onVideoInputChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onNodeResize, onVideoAspectChange, onDownloadVideo: downloadNodeVideos } };
@@ -11339,6 +11505,10 @@ const ALIGN_SNAP_THRESHOLD = 5;
         onStackSelected={() => {
           const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
           createStackFromNodeIds(selectedIds);
+        }}
+        onPlaylistSelected={() => {
+          const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
+          createPlaylistFromNodeIds(selectedIds);
         }}
         onDownloadSelected={async () => {
           const selected = nodes.filter(n => n.selected);

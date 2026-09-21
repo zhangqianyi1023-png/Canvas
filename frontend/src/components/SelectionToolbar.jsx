@@ -20,6 +20,7 @@ export default function SelectionToolbar({
   onDownloadSelected,
   onGroupSelected,
   onStackSelected,
+  onPlaylistSelected,
   onDeleteSelected,
 }) {
   const [pos, setPos] = useState(null);
@@ -97,6 +98,11 @@ export default function SelectionToolbar({
       <button type="button" className="image-action-btn" title="堆叠选中" onClick={onStackSelected}>
         <Icon name="layers" size={14} />
         <span>堆叠</span>
+      </button>
+      <span className="image-action-sep" aria-hidden="true" />
+      <button type="button" className="image-action-btn" title="创建 Playlist" onClick={onPlaylistSelected}>
+        <Icon name="playlist" size={14} />
+        <span>Playlist</span>
       </button>
       <span className="image-action-sep" aria-hidden="true" />
       <button type="button" className="image-action-btn danger" title="删除选中" onClick={onDeleteSelected}>

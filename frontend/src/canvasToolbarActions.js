@@ -6,11 +6,11 @@ const ACTIONS = [
   { id: 'perspective', operation: 'perspective', label: '角度控制', nodeTypes: ['image'], implemented: true },
   { id: 'crop', operation: 'crop', label: '裁剪', nodeTypes: ['image'], implemented: true },
   { id: 'rotate', operation: 'crop', label: '旋转', nodeTypes: ['image'], implemented: true },
-  { id: 'outpaint', operation: 'outpaint', label: '扩图', nodeTypes: ['image'], implemented: false },
-  { id: 'erase', operation: 'erase', label: '擦除', nodeTypes: ['image'], implemented: false },
-  { id: 'cutout', operation: 'cutout', label: '抠图', nodeTypes: ['image'], implemented: false },
-  { id: 'enhance', operation: 'enhance', label: '增强', nodeTypes: ['image'], implemented: false },
-  { id: 'split', operation: 'split', label: '快速切分', nodeTypes: ['image'], implemented: false },
+  { id: 'outpaint', operation: 'outpaint', label: '扩图', nodeTypes: ['image'], implemented: true },
+  { id: 'erase', operation: 'erase', label: '擦除', nodeTypes: ['image'], implemented: true },
+  { id: 'cutout', operation: 'cutout', label: '抠图', nodeTypes: ['image'], implemented: true },
+  { id: 'enhance', operation: 'enhance', label: '增强', nodeTypes: ['image'], implemented: true },
+  { id: 'split', operation: 'split', label: '快速切分', nodeTypes: ['image'], implemented: true },
   { id: 'trim', operation: 'trim', label: '裁剪片段', nodeTypes: ['video'], implemented: true },
   { id: 'capture-frame', operation: 'capture-frame', label: '截取画面', nodeTypes: ['video'], implemented: true },
   { id: 'playlist', operation: 'playlist', label: '创建播放列表', nodeTypes: ['video'], implemented: false },
@@ -39,4 +39,3 @@ export const listCanvasToolbarActions = ({
 export const isCanvasToolbarActionImplemented = (id) => Boolean(
   getCanvasToolbarAction(id)?.implemented,
 );
-
