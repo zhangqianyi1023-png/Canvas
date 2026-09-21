@@ -387,14 +387,14 @@
   --border-strong:  rgba(255, 255, 255, 0.18);
   --edge-stroke:    rgba(255, 255, 255, 0.22);
 
-  --accent:        #7137f5;
-  --accent-soft:   rgba(113, 55, 245, 0.14);
+  --accent:        #A78BFA;
+  --accent-soft:   rgba(167, 139, 250, 0.18);
 
   /* 全局交互动效：统一为细线、纯紫，不再混用青色和彩虹流光。 */
-  --motion-purple:      #7137f5;
-  --motion-purple-soft: rgba(113, 55, 245, 0.14);
-  --motion-purple-halo: rgba(113, 55, 245, 0.24);
-  --motion-purple-gradient: linear-gradient(110deg, #5525c8 0%, #7137f5 48%, #a47cff 100%);
+  --motion-purple:      #A78BFA;
+  --motion-purple-soft: rgba(167, 139, 250, 0.18);
+  --motion-purple-halo: rgba(167, 139, 250, 0.26);
+  --motion-purple-gradient: linear-gradient(110deg, #7C5CFF 0%, #A78BFA 48%, #D5C8FF 100%);
 
   --brand-bg:      #f2f2f2;
   --brand-fg:      #101010;
@@ -426,8 +426,8 @@
   --node-hover-border: rgba(255, 255, 255, 0.16);
   --node-hover-outline: rgba(255, 255, 255, 0.04);
   --node-hover-shadow: 0 16px 34px rgba(0, 0, 0, 0.26);
-  --node-selected-shadow: 0 0 0 1px rgba(113, 55, 245, 0.34), 0 18px 38px rgba(0, 0, 0, 0.30);
-  --node-running-shadow: 0 0 0 1px rgba(113, 55, 245, 0.32), 0 18px 38px rgba(0, 0, 0, 0.30);
+  --node-selected-shadow: 0 0 0 1px rgba(167, 139, 250, 0.38), 0 18px 38px rgba(0, 0, 0, 0.30);
+  --node-running-shadow: 0 0 0 1px rgba(167, 139, 250, 0.34), 0 18px 38px rgba(0, 0, 0, 0.30);
   --group-border: rgba(255, 255, 255, 0.08);
   --group-border-active: rgba(255, 255, 255, 0.18);
   --group-outline: rgba(255, 255, 255, 0.045);
@@ -2437,7 +2437,7 @@ body {
   border-color: var(--motion-purple) !important;
   box-shadow:
     0 0 0 2px var(--motion-purple-halo),
-    0 16px 38px rgba(113, 55, 245, 0.10) !important;
+    0 16px 38px rgba(167, 139, 250, 0.12) !important;
 }
 
 .hover-glow-active.custom-node.selected,
@@ -2446,7 +2446,7 @@ body {
 .hover-glow-active.result-video-wrap {
   box-shadow:
     0 0 0 2px var(--motion-purple-halo),
-    0 16px 38px rgba(113, 55, 245, 0.12) !important;
+    0 16px 38px rgba(167, 139, 250, 0.14) !important;
 }
 
 @keyframes canvas-flow-field-a {
@@ -2468,7 +2468,7 @@ body {
   padding: 1px;
   overflow: hidden;
   background: transparent;
-  filter: drop-shadow(0 0 4px rgba(113, 55, 245, 0.28));
+  filter: drop-shadow(0 0 4px rgba(167, 139, 250, 0.34));
   opacity: 0;
   pointer-events: none;
   -webkit-mask:
@@ -9869,7 +9869,7 @@ body {
   background: var(--motion-purple-gradient);
   background-size: 180% 100%;
   animation: motion-purple-flow 2.8s ease-in-out infinite alternate;
-  filter: drop-shadow(0 0 4px rgba(113, 55, 245, 0.28));
+  filter: drop-shadow(0 0 4px rgba(167, 139, 250, 0.34));
 }
 
 .inline-annotation-toolbar button.canvas-flow-hover-target:hover:not(:disabled)::after,

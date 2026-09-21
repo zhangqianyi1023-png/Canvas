@@ -9026,7 +9026,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
 
   const createViewfinderCapture = useCallback((nodeId, camera = {}) => {
     const position = getNodeDownstreamPosition(nodeId);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540"><rect width="960" height="540" fill="#131820"/><path d="M0 430L240 230 430 360 650 120 960 390V540H0Z" fill="#273746"/><circle cx="480" cy="270" r="82" fill="none" stroke="#7137f5" stroke-width="3"/><path d="M480 164V376M374 270H586" stroke="#7137f5" stroke-width="2" opacity=".8"/><text x="32" y="48" fill="#e8edf4" font-family="Arial" font-size="22">3D VIEWFINDER · YAW ${Math.round(camera.yaw || 0)}° · PITCH ${Math.round(camera.pitch || 0)}°</text></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540"><rect width="960" height="540" fill="#131820"/><path d="M0 430L240 230 430 360 650 120 960 390V540H0Z" fill="#273746"/><circle cx="480" cy="270" r="82" fill="none" stroke="#A78BFA" stroke-width="3"/><path d="M480 164V376M374 270H586" stroke="#A78BFA" stroke-width="2" opacity=".8"/><text x="32" y="48" fill="#e8edf4" font-family="Arial" font-size="22">3D VIEWFINDER · YAW ${Math.round(camera.yaw || 0)}° · PITCH ${Math.round(camera.pitch || 0)}°</text></svg>`;
     return createGeneratePair('generateImage', position, nodeId, {
       label: 'Viewfinder 截图',
       imageUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
