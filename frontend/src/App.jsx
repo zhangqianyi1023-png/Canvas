@@ -121,6 +121,7 @@ import {
   replaceTemplateMediaUrls,
   stripRuntimeNodeData,
 } from './workflowTemplates';
+import { createCanvasOperation } from './canvasNodeContract.js';
 import {
   applyWorkflowTemplateRunInputs,
   getWorkflowTemplateRunInputs,
@@ -7119,6 +7120,18 @@ const ALIGN_SNAP_THRESHOLD = 5;
           result: options.resultText || '',
           resultType: type,
           pairedGeneratorId: generatorId,
+          canvas: {
+            ...createCanvasOperation({
+              operation: options.operation || 'generate',
+              sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
+              references: options.references || [],
+              input: { prompt: promptDraft },
+              outputType: type.replace(/^generate/, '').toLowerCase() || 'result',
+              taskId: options.taskId || '',
+              parentVersion: options.parentVersion || '',
+            }),
+            status: 'idle',
+          },
           promptDraft,
           image_prompt: type === 'generateImage' ? imagePrompt : undefined,
           image_negative_prompt: type === 'generateImage'
