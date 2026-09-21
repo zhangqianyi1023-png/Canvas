@@ -37,7 +37,7 @@ jobs:
         run: npm run build
         working-directory: frontend
         env:
-          VITE_BASE_PATH: /infinite-canvas/
+          VITE_BASE_PATH: /Canvas/
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
