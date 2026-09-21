@@ -11,7 +11,6 @@ import { resolveImageActionPortalPosition } from '../imageActionOverlayPosition'
 import toolbarAnnotateIcon from '../assets/figma-image-actions/toolbar-annotate.svg';
 import toolbarInpaintIcon from '../assets/figma-image-actions/toolbar-inpaint.svg';
 import toolbarCropIcon from '../assets/figma-image-actions/toolbar-crop.svg';
-import toolbarRotateIcon from '../assets/figma-image-actions/toolbar-rotate.svg';
 import toolbarUploadIcon from '../assets/figma-image-actions/toolbar-upload.svg';
 import toolbarFavoriteIcon from '../assets/figma-image-actions/toolbar-favorite.svg';
 import toolbarDownloadIcon from '../assets/figma-image-actions/toolbar-download.svg';
@@ -29,9 +28,9 @@ import { listCanvasToolbarActions } from '../canvasToolbarActions.js';
 const actionItems = [
   { action: 'annotate', label: '标记', icon: 'palette', toolbarIcon: toolbarAnnotateIcon, sourceTypes: ['result'] },
   { action: 'inpaint', label: '局部修改', icon: 'edit', toolbarIcon: toolbarInpaintIcon, sourceTypes: ['result'] },
-  { action: 'perspective', label: '角度控制', icon: 'compass', sourceTypes: ['result'] },
+  { action: 'perspective', label: '角度控制', icon: 'angleControl', sourceTypes: ['result'] },
   { action: 'crop', label: '裁剪', icon: 'crop', toolbarIcon: toolbarCropIcon, separatorBefore: true },
-  { action: 'rotate', label: '旋转', icon: 'rotateRight', toolbarIcon: toolbarRotateIcon, sourceTypes: ['result'] },
+  { action: 'rotate', label: '旋转', icon: 'rotateImage', sourceTypes: ['result'] },
   { action: 'outpaint', label: '扩图', icon: 'image' },
   { action: 'erase', label: '擦除', icon: 'erase' },
   { action: 'cutout', label: '抠图', icon: 'scissors' },

@@ -297,12 +297,21 @@
 
 .video-quick-trim-scrim {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
+  top: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   pointer-events: none;
+}
+
+.video-quick-trim-scrim.is-before {
+  left: 0;
+  border-radius: 12px 0 0 12px;
+}
+
+.video-quick-trim-scrim.is-after {
+  border-radius: 0 12px 12px 0;
 }
 
 .video-quick-trim-selection {

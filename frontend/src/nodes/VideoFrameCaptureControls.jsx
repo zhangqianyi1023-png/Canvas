@@ -444,6 +444,8 @@ export default function VideoFrameCaptureControls({
     left: `${(normalizedDraft.start / sourceDuration) * 100}%`,
     width: `${(normalizedDraft.duration / sourceDuration) * 100}%`,
   } : { left: '0%', width: '0%' };
+  const selectionStartPercent = sourceDuration > 0 ? (normalizedDraft.start / sourceDuration) * 100 : 0;
+  const selectionEndPercent = sourceDuration > 0 ? (normalizedDraft.end / sourceDuration) * 100 : 0;
 
   return (
     <div
@@ -536,7 +538,16 @@ export default function VideoFrameCaptureControls({
                 受视频跨域策略限制，缩略帧不可用；仍可按时间区间正常裁剪
               </span>
             )}
-            <div className="video-quick-trim-scrim" aria-hidden="true" />
+            <div
+              className="video-quick-trim-scrim is-before"
+              style={{ width: `${selectionStartPercent}%` }}
+              aria-hidden="true"
+            />
+            <div
+              className="video-quick-trim-scrim is-after"
+              style={{ left: `${selectionEndPercent}%`, width: `${Math.max(0, 100 - selectionEndPercent)}%` }}
+              aria-hidden="true"
+            />
             <div
               ref={selectionRef}
               className="video-quick-trim-selection"

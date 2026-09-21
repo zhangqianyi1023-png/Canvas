@@ -3419,14 +3419,14 @@ function ResultNode({ id, selected, data }) {
               id: 'edit-video',
               label: '剪辑',
               title: '剪辑视频',
-              icon: 'edit',
+              icon: 'videoEdit',
               onClick: () => setVideoTrimRequestId(current => current + 1),
             },
             {
               id: 'enhance-video',
               label: '增强',
               title: '视频增强',
-              icon: 'aed',
+              icon: 'videoEnhance',
               active: videoEnhancementOpen,
               onClick: (event) => {
                 event.stopPropagation();
@@ -3441,7 +3441,7 @@ function ResultNode({ id, selected, data }) {
               id: 'replace-subject',
               label: '替换主体',
               title: '替换主体',
-              icon: 'focus',
+              icon: 'replaceSubject',
               active: subjectReplacementOpen,
               onClick: (event) => {
                 event.stopPropagation();
@@ -3455,7 +3455,7 @@ function ResultNode({ id, selected, data }) {
               id: 'remove-subject',
               label: '移除主体',
               title: '移除主体',
-              icon: 'crop',
+              icon: 'removeSubject',
               active: subjectRemovalOpen,
               onClick: (event) => {
                 event.stopPropagation();
@@ -3469,7 +3469,7 @@ function ResultNode({ id, selected, data }) {
               id: 'extend-video',
               label: '视频延长',
               title: '视频延长',
-              icon: 'movieAi',
+              icon: 'videoExtend',
               active: videoExtensionOpen,
               onClick: (event) => {
                 event.stopPropagation();
@@ -3486,7 +3486,7 @@ function ResultNode({ id, selected, data }) {
               id: 'capture-video-frame',
               label: '截取画面帧',
               title: '截取画面帧',
-              icon: 'scissors',
+              icon: 'captureFrame',
               menuItems: [
                 { id: 'current', label: '截取当前帧', onClick: () => { void captureVideoFrame('current'); } },
                 { id: 'first', label: '截取首帧', onClick: () => { void captureVideoFrame('first'); } },
