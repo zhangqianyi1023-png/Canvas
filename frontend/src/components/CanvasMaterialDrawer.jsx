@@ -41,6 +41,19 @@ const getMaterialKindLabel = (material) => {
   return '图片';
 };
 
+const formatBytes = value => {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) return '—';
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const getMaterialMeta = material => {
+  const size = formatBytes(material?.size || material?.fileSize || material?.bytes);
+  const mime = material?.mimeType || material?.contentType || (material?.type === 'video' ? 'video/mp4' : 'image/png');
+  return `${size} · ${mime}`;
+};
+
 export default function CanvasMaterialDrawer({
   open,
   mode = 'materials',
@@ -154,26 +167,28 @@ export default function CanvasMaterialDrawer({
             <h2>{isCharacterMode ? '角色' : '素材库'}</h2>
             <span>{currentCount} 个{currentCountLabel}</span>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label={`关闭${isCharacterMode ? '角色' : '素材库'}`}>
-            <Icon name="x" size={18} />
-          </button>
+          <div className="canvas-material-drawer-actions">
+            <button type="button" className="icon-button" onClick={() => window.dispatchEvent(new Event('focus'))} aria-label="刷新素材库">
+              <Icon name="refresh" size={20} />
+            </button>
+            <button type="button" className="icon-button" onClick={onClose} aria-label={`关闭${isCharacterMode ? '角色' : '素材库'}`}>
+              <Icon name="x" size={20} />
+            </button>
+          </div>
         </div>
 
         {!isCharacterMode && (
-          <div className="canvas-material-tabs" role="tablist" aria-label="素材类型">
-            {tabs.map((tab, index) => (
+          <div className="canvas-material-tabs" role="tablist" aria-label="素材归属">
+            {[{ id: 'personal', label: '个人' }, { id: 'team', label: '团队' }].map((tab, index) => (
               <button
                 key={tab.id}
                 ref={element => { tabRefs.current[index] = element; }}
                 type="button"
                 role="tab"
-                aria-selected={activeTab === tab.id}
-                tabIndex={activeTab === tab.id ? 0 : -1}
-                className={activeTab === tab.id ? 'active' : ''}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  setDetailMaterial(null);
-                }}
+                aria-selected={index === 0}
+                tabIndex={index === 0 ? 0 : -1}
+                className={index === 0 ? 'active' : ''}
+                onClick={() => setDetailMaterial(null)}
                 onKeyDown={event => handleTabKeyDown(event, index)}
               >
                 {tab.label}
@@ -233,8 +248,10 @@ export default function CanvasMaterialDrawer({
                   <button type="button" className="canvas-material-title" onClick={() => setDetailMaterial(material)}>
                     {material.name || '未命名素材'}
                   </button>
-                  {material.prompt && <p>{material.prompt}</p>}
-                  <button type="button" className="canvas-material-add" onClick={() => onAddMaterial(material)}>添加</button>
+                  <p>{getMaterialMeta(material)}</p>
+                  <button type="button" className="canvas-material-favorite" onClick={() => onAddMaterial(material)} aria-label={`添加${material.name || '素材'}到画布`}>
+                    <Icon name="star" size={20} />
+                  </button>
                 </div>
               </article>
             ))
