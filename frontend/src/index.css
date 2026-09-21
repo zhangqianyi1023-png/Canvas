@@ -16753,8 +16753,8 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
 .subject-replacement-mask-dim {
   position: absolute;
   inset: 0;
-  background: rgba(4, 5, 7, 0.48);
-  backdrop-filter: blur(1px);
+  background: transparent;
+  pointer-events: none;
 }
 
 .subject-replacement-mask-hint {
@@ -16775,24 +16775,46 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
 .subject-replacement-mask-box {
   position: absolute;
   border: 2px solid rgba(255, 255, 255, 0.95);
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow:
-    0 0 0 999px rgba(0, 0, 0, 0.16),
+    0 0 0 999px rgba(0, 0, 0, 0.48),
     0 12px 30px rgba(0, 0, 0, 0.22);
   pointer-events: none;
 }
 
+.subject-replacement-mask-handle {
+  position: absolute;
+  display: block;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid rgba(26, 27, 30, 0.62);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.24);
+}
+
+.subject-replacement-mask-handle.is-nw { top: -5px; left: -5px; }
+.subject-replacement-mask-handle.is-n { top: -5px; left: calc(50% - 4.5px); }
+.subject-replacement-mask-handle.is-ne { top: -5px; right: -5px; }
+.subject-replacement-mask-handle.is-e { top: calc(50% - 4.5px); right: -5px; }
+.subject-replacement-mask-handle.is-se { right: -5px; bottom: -5px; }
+.subject-replacement-mask-handle.is-s { bottom: -5px; left: calc(50% - 4.5px); }
+.subject-replacement-mask-handle.is-sw { bottom: -5px; left: -5px; }
+.subject-replacement-mask-handle.is-w { top: calc(50% - 4.5px); left: -5px; }
+
 .subject-replacement-mask-actions {
   position: absolute;
-  left: 50%;
-  bottom: 18px;
   display: inline-flex;
   gap: 12px;
   padding: 8px 12px;
   border-radius: 18px;
   background: rgba(244, 244, 245, 0.94);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
-  transform: translateX(-50%);
+  transform: translate(-50%, 12px);
+}
+
+.subject-replacement-mask-actions.is-above {
+  transform: translate(-50%, calc(-100% - 12px));
 }
 
 .subject-replacement-mask-actions button {
@@ -17077,6 +17099,30 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
 
 .subject-replacement-prototype-footer {
   margin-top: 14px;
+}
+
+.subject-removal-prototype-panel {
+  padding-inline: 16px;
+}
+
+.subject-removal-prototype-body {
+  display: grid;
+  place-items: center;
+}
+
+.subject-removal-slot {
+  width: min(220px, 100%);
+}
+
+.subject-removal-preview {
+  width: 168px;
+  min-height: 168px;
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
+}
+
+.subject-removal-preview img {
+  border-radius: inherit;
 }
 
 .node-hover-toolbar-btn.danger {

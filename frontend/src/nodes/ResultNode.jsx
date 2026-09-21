@@ -856,16 +856,26 @@ function ResultNode({ id, selected, data }) {
   const [subjectReplacementOpen, setSubjectReplacementOpen] = useState(false);
   const [subjectReplacementPosition, setSubjectReplacementPosition] = useState(null);
   const [subjectReplacementStatus, setSubjectReplacementStatus] = useState('');
+  const [subjectRemovalOpen, setSubjectRemovalOpen] = useState(false);
+  const [subjectRemovalPosition, setSubjectRemovalPosition] = useState(null);
+  const [subjectRemovalStatus, setSubjectRemovalStatus] = useState('');
   const [sourceSubject, setSourceSubject] = useState(null);
+  const [removalSubject, setRemovalSubject] = useState(null);
   const [targetSubject, setTargetSubject] = useState(null);
   const [isSubjectMaskSelecting, setIsSubjectMaskSelecting] = useState(false);
+  const [subjectMaskPurpose, setSubjectMaskPurpose] = useState('replacement');
   const [subjectMaskDraft, setSubjectMaskDraft] = useState(null);
+  const [subjectMaskCursor, setSubjectMaskCursor] = useState('crosshair');
   const [isSubjectMaskDragging, setIsSubjectMaskDragging] = useState(false);
   const [isSubjectRecognizing, setIsSubjectRecognizing] = useState(false);
   const [replacementSourceMenuOpen, setReplacementSourceMenuOpen] = useState(false);
   const subjectReplacementPanelRef = useRef(null);
+  const subjectRemovalPanelRef = useRef(null);
   const subjectReplacementStatusTimerRef = useRef(null);
+  const subjectRemovalStatusTimerRef = useRef(null);
   const subjectMaskDragStartRef = useRef(null);
+  const subjectMaskDragModeRef = useRef('draw');
+  const subjectMaskResizeHandleRef = useRef('');
   const subjectReplacementUploadInputRef = useRef(null);
   const targetSubjectObjectUrlRef = useRef('');
   const isTextFormatEditing = isTextEditing || isTextExpandedEditing;
@@ -929,6 +939,9 @@ function ResultNode({ id, selected, data }) {
   const subjectReplacementCredits = useMemo(() => (
     640 + (sourceSubject ? 100 : 0) + (targetSubject ? 100 : 0)
   ), [sourceSubject, targetSubject]);
+  const subjectRemovalCredits = useMemo(() => (
+    520 + (removalSubject ? 120 : 0)
+  ), [removalSubject]);
   const canvasImageChoices = useMemo(() => (
     subjectReplacementOpen
       ? data?.onGetCanvasImageChoices?.(id) || []
@@ -1007,6 +1020,40 @@ function ResultNode({ id, selected, data }) {
     return () => window.cancelAnimationFrame(frameId);
   }, [isVideoResult, subjectReplacementOpen]);
 
+  useLayoutEffect(() => {
+    if (!subjectRemovalOpen || !isVideoResult) {
+      return undefined;
+    }
+
+    let frameId = 0;
+    const updatePosition = () => {
+      const anchor = resultNodeRef.current?.querySelector?.('.result-video-wrap')
+        || resultNodeRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const panelWidth = Math.min(380, Math.max(320, rect.width + 40));
+      const left = Math.max(12 + panelWidth / 2, Math.min(window.innerWidth - 12 - panelWidth / 2, rect.left + rect.width / 2));
+      const top = Math.min(window.innerHeight - 16, rect.bottom + 10);
+      const nextPosition = {
+        left: Math.round(left * 10) / 10,
+        top: Math.round(top * 10) / 10,
+        width: Math.round(panelWidth),
+      };
+      setSubjectRemovalPosition(current => (
+        current
+        && current.left === nextPosition.left
+        && current.top === nextPosition.top
+        && current.width === nextPosition.width
+          ? current
+          : nextPosition
+      ));
+      frameId = window.requestAnimationFrame(updatePosition);
+    };
+
+    updatePosition();
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isVideoResult, subjectRemovalOpen]);
+
   useEffect(() => {
     if (!videoEnhancementOpen) return undefined;
 
@@ -1057,6 +1104,31 @@ function ResultNode({ id, selected, data }) {
   }, [subjectReplacementOpen]);
 
   useEffect(() => {
+    if (!subjectRemovalOpen) return undefined;
+
+    const closeOnOutsidePointer = event => {
+      const target = event.target;
+      if (subjectRemovalPanelRef.current?.contains(target)) return;
+      if (target?.closest?.('.node-hover-toolbar-portal, .node-hover-toolbar-anchor')) return;
+      if (resultNodeRef.current?.contains(target)) return;
+      setSubjectRemovalOpen(false);
+      setIsSubjectMaskSelecting(false);
+    };
+    const closeOnEscape = event => {
+      if (event.key !== 'Escape') return;
+      setSubjectRemovalOpen(false);
+      setIsSubjectMaskSelecting(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer, true);
+    document.addEventListener('keydown', closeOnEscape, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer, true);
+      document.removeEventListener('keydown', closeOnEscape, true);
+    };
+  }, [subjectRemovalOpen]);
+
+  useEffect(() => {
     if (selected && isVideoResult) return undefined;
     const timer = window.setTimeout(() => setVideoEnhancementOpen(false), 0);
     return () => window.clearTimeout(timer);
@@ -1066,6 +1138,7 @@ function ResultNode({ id, selected, data }) {
     if (selected && isVideoResult) return undefined;
     const timer = window.setTimeout(() => {
       setSubjectReplacementOpen(false);
+      setSubjectRemovalOpen(false);
       setIsSubjectMaskSelecting(false);
       setReplacementSourceMenuOpen(false);
     }, 0);
@@ -1075,6 +1148,7 @@ function ResultNode({ id, selected, data }) {
   useEffect(() => () => {
     window.clearTimeout(videoEnhancementStatusTimerRef.current);
     window.clearTimeout(subjectReplacementStatusTimerRef.current);
+    window.clearTimeout(subjectRemovalStatusTimerRef.current);
     if (targetSubjectObjectUrlRef.current) {
       URL.revokeObjectURL(targetSubjectObjectUrlRef.current);
       targetSubjectObjectUrlRef.current = '';
@@ -1861,16 +1935,41 @@ function ResultNode({ id, selected, data }) {
     }, duration);
   }, []);
 
+  const showSubjectRemovalStatus = useCallback((message, duration = 1800) => {
+    setSubjectRemovalStatus(message);
+    window.clearTimeout(subjectRemovalStatusTimerRef.current);
+    subjectRemovalStatusTimerRef.current = window.setTimeout(() => {
+      setSubjectRemovalStatus('');
+    }, duration);
+  }, []);
+
   const beginSubjectMaskSelection = useCallback((event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     if (!isVideoResult || !videoUrl) return;
+    setSubjectMaskPurpose('replacement');
     setSubjectReplacementOpen(true);
+    setSubjectRemovalOpen(false);
     setVideoEnhancementOpen(false);
     setIsSubjectMaskSelecting(true);
     setSubjectMaskDraft(null);
+    setSubjectMaskCursor('crosshair');
     showSubjectReplacementStatus('请在视频画面中拖拽框选主体');
   }, [isVideoResult, showSubjectReplacementStatus, videoUrl]);
+
+  const beginSubjectRemovalMaskSelection = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (!isVideoResult || !videoUrl) return;
+    setSubjectMaskPurpose('removal');
+    setSubjectRemovalOpen(true);
+    setSubjectReplacementOpen(false);
+    setVideoEnhancementOpen(false);
+    setIsSubjectMaskSelecting(true);
+    setSubjectMaskDraft(null);
+    setSubjectMaskCursor('crosshair');
+    showSubjectRemovalStatus('请在视频画面中框选需要移除的主体');
+  }, [isVideoResult, showSubjectRemovalStatus, videoUrl]);
 
   const cancelSubjectMaskSelection = useCallback((event) => {
     event?.preventDefault?.();
@@ -1878,6 +1977,7 @@ function ResultNode({ id, selected, data }) {
     setIsSubjectMaskSelecting(false);
     setIsSubjectMaskDragging(false);
     setSubjectMaskDraft(null);
+    setSubjectMaskCursor('crosshair');
   }, []);
 
   const getSubjectMaskRectFromPointer = useCallback((event, startPoint) => {
@@ -1898,6 +1998,70 @@ function ResultNode({ id, selected, data }) {
     };
   }, []);
 
+  const clampSubjectMaskDraft = useCallback((draft) => {
+    const width = Math.max(1, Math.min(100, Number(draft?.width) || 1));
+    const height = Math.max(1, Math.min(100, Number(draft?.height) || 1));
+    return {
+      x: Math.round(Math.max(0, Math.min(100 - width, Number(draft?.x) || 0)) * 10) / 10,
+      y: Math.round(Math.max(0, Math.min(100 - height, Number(draft?.y) || 0)) * 10) / 10,
+      width: Math.round(width * 10) / 10,
+      height: Math.round(height * 10) / 10,
+    };
+  }, []);
+
+  const clampSubjectMaskDraftLive = useCallback((draft) => {
+    const width = Math.max(1, Math.min(100, Number(draft?.width) || 1));
+    const height = Math.max(1, Math.min(100, Number(draft?.height) || 1));
+    return {
+      x: Math.max(0, Math.min(100 - width, Number(draft?.x) || 0)),
+      y: Math.max(0, Math.min(100 - height, Number(draft?.y) || 0)),
+      width,
+      height,
+    };
+  }, []);
+
+  const getSubjectMaskResizeHandle = useCallback((pointerPercent, draft, videoRect) => {
+    if (!draft || !videoRect) return '';
+    const thresholdX = Math.max(1.5, Math.min(4, (10 / videoRect.width) * 100));
+    const thresholdY = Math.max(1.5, Math.min(4, (10 / videoRect.height) * 100));
+    const nearLeft = Math.abs(pointerPercent.x - draft.x) <= thresholdX;
+    const nearRight = Math.abs(pointerPercent.x - (draft.x + draft.width)) <= thresholdX;
+    const nearTop = Math.abs(pointerPercent.y - draft.y) <= thresholdY;
+    const nearBottom = Math.abs(pointerPercent.y - (draft.y + draft.height)) <= thresholdY;
+    const withinX = pointerPercent.x >= draft.x - thresholdX && pointerPercent.x <= draft.x + draft.width + thresholdX;
+    const withinY = pointerPercent.y >= draft.y - thresholdY && pointerPercent.y <= draft.y + draft.height + thresholdY;
+    if (!withinX || !withinY) return '';
+    const vertical = nearTop ? 'n' : nearBottom ? 's' : '';
+    const horizontal = nearLeft ? 'w' : nearRight ? 'e' : '';
+    return `${vertical}${horizontal}`;
+  }, []);
+
+  const getSubjectMaskCursor = useCallback((handle, insideMask) => {
+    if (handle === 'n' || handle === 's') return 'ns-resize';
+    if (handle === 'e' || handle === 'w') return 'ew-resize';
+    if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
+    if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+    return insideMask ? 'move' : 'crosshair';
+  }, []);
+
+  const resizeSubjectMaskDraft = useCallback((draft, pointerPercent, handle) => {
+    const minSize = 8;
+    let left = draft.x;
+    let top = draft.y;
+    let right = draft.x + draft.width;
+    let bottom = draft.y + draft.height;
+    if (handle.includes('w')) left = Math.max(0, Math.min(pointerPercent.x, right - minSize));
+    if (handle.includes('e')) right = Math.min(100, Math.max(pointerPercent.x, left + minSize));
+    if (handle.includes('n')) top = Math.max(0, Math.min(pointerPercent.y, bottom - minSize));
+    if (handle.includes('s')) bottom = Math.min(100, Math.max(pointerPercent.y, top + minSize));
+    return clampSubjectMaskDraft({
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+    });
+  }, [clampSubjectMaskDraft]);
+
   const handleSubjectMaskPointerDown = useCallback((event) => {
     if (!isSubjectMaskSelecting || event.button !== 0) return;
     event.preventDefault();
@@ -1910,34 +2074,129 @@ function ResultNode({ id, selected, data }) {
       x: Math.max(0, Math.min(rect.width, event.clientX - rect.left)),
       y: Math.max(0, Math.min(rect.height, event.clientY - rect.top)),
     };
-    subjectMaskDragStartRef.current = startPoint;
+    const pointerPercent = {
+      x: (startPoint.x / rect.width) * 100,
+      y: (startPoint.y / rect.height) * 100,
+    };
+    const isMovingExistingMask = subjectMaskDraft
+      && pointerPercent.x >= subjectMaskDraft.x
+      && pointerPercent.x <= subjectMaskDraft.x + subjectMaskDraft.width
+      && pointerPercent.y >= subjectMaskDraft.y
+      && pointerPercent.y <= subjectMaskDraft.y + subjectMaskDraft.height;
+    const resizeHandle = getSubjectMaskResizeHandle(pointerPercent, subjectMaskDraft, rect);
+    subjectMaskResizeHandleRef.current = resizeHandle;
+    subjectMaskDragModeRef.current = resizeHandle ? 'resize' : isMovingExistingMask ? 'move' : 'draw';
+    setSubjectMaskCursor(getSubjectMaskCursor(resizeHandle, isMovingExistingMask));
+    subjectMaskDragStartRef.current = resizeHandle || isMovingExistingMask
+      ? {
+        ...startPoint,
+        draft: subjectMaskDraft,
+        rect,
+        grabOffset: subjectMaskDraft ? {
+          x: pointerPercent.x - subjectMaskDraft.x,
+          y: pointerPercent.y - subjectMaskDraft.y,
+        } : { x: 0, y: 0 },
+      }
+      : startPoint;
     setIsSubjectMaskDragging(true);
-    setSubjectMaskDraft({
-      x: Math.round((startPoint.x / rect.width) * 1000) / 10,
-      y: Math.round((startPoint.y / rect.height) * 1000) / 10,
-      width: 12,
-      height: 12,
-    });
-  }, [isSubjectMaskSelecting]);
+    if (!resizeHandle && !isMovingExistingMask) {
+      setSubjectMaskDraft({
+        x: Math.round((startPoint.x / rect.width) * 1000) / 10,
+        y: Math.round((startPoint.y / rect.height) * 1000) / 10,
+        width: 12,
+        height: 12,
+      });
+    }
+  }, [getSubjectMaskCursor, getSubjectMaskResizeHandle, isSubjectMaskSelecting, subjectMaskDraft]);
 
   const handleSubjectMaskPointerMove = useCallback((event) => {
-    if (!isSubjectMaskSelecting || !isSubjectMaskDragging || !subjectMaskDragStartRef.current) return;
+    if (!isSubjectMaskSelecting) return;
     event.preventDefault();
     event.stopPropagation();
+    if (!isSubjectMaskDragging || !subjectMaskDragStartRef.current) {
+      const wrap = resultNodeRef.current?.querySelector?.('.result-video-wrap');
+      const rect = wrap?.getBoundingClientRect();
+      if (!rect) return;
+      const pointerPercent = {
+        x: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
+        y: Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100)),
+      };
+      const handle = getSubjectMaskResizeHandle(pointerPercent, subjectMaskDraft, rect);
+      const insideMask = Boolean(subjectMaskDraft)
+        && pointerPercent.x >= subjectMaskDraft.x
+        && pointerPercent.x <= subjectMaskDraft.x + subjectMaskDraft.width
+        && pointerPercent.y >= subjectMaskDraft.y
+        && pointerPercent.y <= subjectMaskDraft.y + subjectMaskDraft.height;
+      setSubjectMaskCursor(getSubjectMaskCursor(handle, insideMask));
+      return;
+    }
+    if (subjectMaskDragModeRef.current === 'move') {
+      const start = subjectMaskDragStartRef.current;
+      const rect = start?.rect;
+      if (!rect || !start?.draft) return;
+      const pointerPercent = {
+        x: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
+        y: Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100)),
+      };
+      setSubjectMaskDraft(clampSubjectMaskDraftLive({
+        ...start.draft,
+        x: pointerPercent.x - (start.grabOffset?.x || 0),
+        y: pointerPercent.y - (start.grabOffset?.y || 0),
+      }));
+      return;
+    }
+    if (subjectMaskDragModeRef.current === 'resize') {
+      const start = subjectMaskDragStartRef.current;
+      const rect = start?.rect;
+      if (!rect || !start?.draft || !subjectMaskResizeHandleRef.current) return;
+      setSubjectMaskDraft(resizeSubjectMaskDraft(start.draft, {
+        x: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
+        y: Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100)),
+      }, subjectMaskResizeHandleRef.current));
+      return;
+    }
     const nextRect = getSubjectMaskRectFromPointer(event, subjectMaskDragStartRef.current);
     if (nextRect) setSubjectMaskDraft(nextRect);
-  }, [getSubjectMaskRectFromPointer, isSubjectMaskDragging, isSubjectMaskSelecting]);
+  }, [clampSubjectMaskDraftLive, getSubjectMaskCursor, getSubjectMaskRectFromPointer, getSubjectMaskResizeHandle, isSubjectMaskDragging, isSubjectMaskSelecting, resizeSubjectMaskDraft, subjectMaskDraft]);
 
   const handleSubjectMaskPointerUp = useCallback((event) => {
     if (!isSubjectMaskSelecting || !isSubjectMaskDragging || !subjectMaskDragStartRef.current) return;
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.releasePointerCapture?.(event.pointerId);
-    const nextRect = getSubjectMaskRectFromPointer(event, subjectMaskDragStartRef.current);
-    if (nextRect) setSubjectMaskDraft(nextRect);
+    if (subjectMaskDragModeRef.current === 'move') {
+      const start = subjectMaskDragStartRef.current;
+      const rect = start?.rect;
+      if (rect && start?.draft) {
+        const pointerPercent = {
+          x: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
+          y: Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100)),
+        };
+        setSubjectMaskDraft(clampSubjectMaskDraft({
+          ...start.draft,
+          x: pointerPercent.x - (start.grabOffset?.x || 0),
+          y: pointerPercent.y - (start.grabOffset?.y || 0),
+        }));
+      }
+    } else if (subjectMaskDragModeRef.current === 'resize') {
+      const start = subjectMaskDragStartRef.current;
+      const rect = start?.rect;
+      if (rect && start?.draft && subjectMaskResizeHandleRef.current) {
+        setSubjectMaskDraft(resizeSubjectMaskDraft(start.draft, {
+          x: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
+          y: Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100)),
+        }, subjectMaskResizeHandleRef.current));
+      }
+    } else {
+      const nextRect = getSubjectMaskRectFromPointer(event, subjectMaskDragStartRef.current);
+      if (nextRect) setSubjectMaskDraft(nextRect);
+    }
     setIsSubjectMaskDragging(false);
     subjectMaskDragStartRef.current = null;
-  }, [getSubjectMaskRectFromPointer, isSubjectMaskDragging, isSubjectMaskSelecting]);
+    subjectMaskDragModeRef.current = 'draw';
+    subjectMaskResizeHandleRef.current = '';
+    setSubjectMaskCursor('crosshair');
+  }, [clampSubjectMaskDraft, getSubjectMaskRectFromPointer, isSubjectMaskDragging, isSubjectMaskSelecting, resizeSubjectMaskDraft]);
 
   const captureSubjectMaskPreview = useCallback((maskRect) => {
     const video = resultVideoRef.current;
@@ -1965,24 +2224,40 @@ function ResultNode({ id, selected, data }) {
     setIsSubjectMaskDragging(false);
     setSubjectMaskDraft(null);
     setIsSubjectRecognizing(true);
-    showSubjectReplacementStatus('正在识别框选主体...', 900);
+    if (subjectMaskPurpose === 'removal') {
+      showSubjectRemovalStatus('正在识别需要移除的主体...', 900);
+    } else {
+      showSubjectReplacementStatus('正在识别框选主体...', 900);
+    }
     window.setTimeout(() => {
       const previewUrl = captureSubjectMaskPreview(maskRect);
-      setSourceSubject({
+      const nextSubject = {
         previewUrl,
         rect: maskRect,
         label: '已选择主体',
         createdAt: Date.now(),
-      });
+      };
+      if (subjectMaskPurpose === 'removal') {
+        setRemovalSubject(nextSubject);
+        showSubjectRemovalStatus('已识别需要移除的主体');
+      } else {
+        setSourceSubject(nextSubject);
+        showSubjectReplacementStatus('已识别主体');
+      }
       setIsSubjectRecognizing(false);
-      showSubjectReplacementStatus('已识别主体');
     }, 520);
-  }, [captureSubjectMaskPreview, showSubjectReplacementStatus, subjectMaskDraft]);
+  }, [captureSubjectMaskPreview, showSubjectRemovalStatus, showSubjectReplacementStatus, subjectMaskDraft, subjectMaskPurpose]);
 
   const clearSourceSubject = useCallback((event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     setSourceSubject(null);
+  }, []);
+
+  const clearRemovalSubject = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setRemovalSubject(null);
   }, []);
 
   const clearTargetSubject = useCallback((event) => {
@@ -2063,6 +2338,29 @@ function ResultNode({ id, selected, data }) {
     }
     showSubjectReplacementStatus('仅原型展示，暂未接入真实替换');
   }, [data, id, showSubjectReplacementStatus, sourceSubject, subjectReplacementCredits, targetSubject, videoUrl]);
+
+  const runSubjectRemovalPrototype = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (!removalSubject) {
+      showSubjectRemovalStatus('请先选择需要移除的主体');
+      return;
+    }
+    // Prototype only: this simulates subject removal by creating a connected
+    // downstream video node. It never calls backend removal APIs or spends credits.
+    const result = data?.onCreateVideoSubjectRemovalPrototype?.(id, {
+      removalSubject,
+      removalSubjectLabel: removalSubject.label,
+      credits: subjectRemovalCredits,
+      videoUrl,
+    });
+    if (result?.ok) {
+      setSubjectRemovalOpen(false);
+      setIsSubjectMaskSelecting(false);
+      return;
+    }
+    showSubjectRemovalStatus('仅原型展示，暂未接入真实移除');
+  }, [data, id, removalSubject, showSubjectRemovalStatus, subjectRemovalCredits, videoUrl]);
 
   const toggleCard = useCallback((index) => {
     setExpandedCardIndex(prev => prev === index ? null : index);
@@ -2385,30 +2683,49 @@ function ResultNode({ id, selected, data }) {
           <video ref={resultVideoRef} src={videoUrl} controls onLoadedMetadata={handleVideoLoadedMetadata} />
           {isSubjectMaskSelecting && (
             <div
-              className="subject-replacement-mask-layer nodrag nopan"
+              className={`subject-replacement-mask-layer nodrag nopan ${subjectMaskDraft ? 'has-mask-draft' : ''}`}
+              style={{ cursor: subjectMaskCursor }}
               onPointerDown={handleSubjectMaskPointerDown}
               onPointerMove={handleSubjectMaskPointerMove}
               onPointerUp={handleSubjectMaskPointerUp}
               onPointerCancel={cancelSubjectMaskSelection}
+              onPointerLeave={() => {
+                if (!isSubjectMaskDragging) setSubjectMaskCursor('crosshair');
+              }}
             >
               <div className="subject-replacement-mask-dim" />
               <div className="subject-replacement-mask-hint">
-                {subjectMaskDraft ? '调整框选区域后确认' : '拖拽框选需要替换的主体'}
+                {subjectMaskDraft
+                  ? '拖动选区或边框调整，确认后继续'
+                  : subjectMaskPurpose === 'removal'
+                    ? '拖拽框选需要移除的主体'
+                    : '拖拽框选需要替换的主体'}
               </div>
               {subjectMaskDraft && (
                 <div
                   className="subject-replacement-mask-box"
+                  data-dragging={isSubjectMaskDragging ? 'true' : undefined}
                   style={{
                     left: `${subjectMaskDraft.x}%`,
                     top: `${subjectMaskDraft.y}%`,
                     width: `${subjectMaskDraft.width}%`,
                     height: `${subjectMaskDraft.height}%`,
                   }}
-                />
+                >
+                  {['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(handle => (
+                    <span key={handle} className={`subject-replacement-mask-handle is-${handle}`} />
+                  ))}
+                </div>
               )}
               {subjectMaskDraft && !isSubjectMaskDragging && (
                 <div
-                  className="subject-replacement-mask-actions"
+                  className={`subject-replacement-mask-actions ${subjectMaskDraft.y + subjectMaskDraft.height > 78 ? 'is-above' : ''}`}
+                  style={{
+                    left: `${subjectMaskDraft.x + subjectMaskDraft.width / 2}%`,
+                    top: subjectMaskDraft.y + subjectMaskDraft.height > 78
+                      ? `${subjectMaskDraft.y}%`
+                      : `${subjectMaskDraft.y + subjectMaskDraft.height}%`,
+                  }}
                   onPointerDown={(event) => event.stopPropagation()}
                   onPointerUp={(event) => event.stopPropagation()}
                   onClick={(event) => event.stopPropagation()}
@@ -2881,6 +3198,7 @@ function ResultNode({ id, selected, data }) {
               onClick: (event) => {
                 event.stopPropagation();
                 setSubjectReplacementOpen(false);
+                setSubjectRemovalOpen(false);
                 setIsSubjectMaskSelecting(false);
                 setVideoEnhancementOpen(current => !current);
               },
@@ -2894,7 +3212,21 @@ function ResultNode({ id, selected, data }) {
               onClick: (event) => {
                 event.stopPropagation();
                 setVideoEnhancementOpen(false);
+                setSubjectRemovalOpen(false);
                 setSubjectReplacementOpen(current => !current);
+              },
+            },
+            {
+              id: 'remove-subject',
+              label: '移除主体',
+              title: '移除主体',
+              icon: 'crop',
+              active: subjectRemovalOpen,
+              onClick: (event) => {
+                event.stopPropagation();
+                setVideoEnhancementOpen(false);
+                setSubjectReplacementOpen(false);
+                setSubjectRemovalOpen(current => !current);
               },
             },
             {
@@ -3177,6 +3509,99 @@ function ResultNode({ id, selected, data }) {
               className="video-enhancement-prototype-generate"
               onClick={runSubjectReplacementPrototype}
               aria-label="生成主体替换原型"
+              title="生成"
+            >
+              <Icon name="arrowUp" size={20} />
+            </button>
+          </footer>
+        </section>,
+        document.body,
+      )}
+      {isVideoResult && subjectRemovalOpen && subjectRemovalPosition && typeof document !== 'undefined' && createPortal(
+        <section
+          ref={subjectRemovalPanelRef}
+          className="subject-replacement-prototype-panel subject-removal-prototype-panel nodrag nopan"
+          style={{
+            left: subjectRemovalPosition.left,
+            top: subjectRemovalPosition.top,
+            width: subjectRemovalPosition.width,
+          }}
+          role="dialog"
+          aria-label="移除主体"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <header className="subject-replacement-prototype-header">
+            <strong>移除主体</strong>
+            <button
+              type="button"
+              className="video-enhancement-prototype-close"
+              onClick={() => {
+                setSubjectRemovalOpen(false);
+                setIsSubjectMaskSelecting(false);
+              }}
+              aria-label="关闭移除主体"
+              title="关闭"
+            >
+              <Icon name="x" size={16} />
+            </button>
+          </header>
+
+          <div className="subject-removal-prototype-body">
+            <div className="subject-replacement-slot subject-removal-slot">
+              <div className={`subject-replacement-preview subject-removal-preview ${removalSubject ? 'has-media' : ''}`}>
+                {removalSubject?.previewUrl ? (
+                  <img src={removalSubject.previewUrl} alt="需要移除的主体预览" />
+                ) : removalSubject ? (
+                  <div className="subject-replacement-fallback-subject">
+                    <span />
+                    <strong>已识别主体</strong>
+                  </div>
+                ) : (
+                  <div className="subject-replacement-empty">
+                    <Icon name="crop" size={28} />
+                    <span>框选需要移除的主体</span>
+                  </div>
+                )}
+                {removalSubject && (
+                  <button
+                    type="button"
+                    className="subject-replacement-remove"
+                    onClick={clearRemovalSubject}
+                    aria-label="清空需要移除的主体"
+                    title="清空"
+                  >
+                    <Icon name="trash" size={14} />
+                  </button>
+                )}
+                {isSubjectRecognizing && subjectMaskPurpose === 'removal' && (
+                  <span className="subject-replacement-recognizing">识别中...</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="subject-replacement-slot-action"
+                onClick={beginSubjectRemovalMaskSelection}
+              >
+                选择主体
+              </button>
+              <span>需要移除的主体</span>
+            </div>
+          </div>
+
+          <footer className="video-enhancement-prototype-footer subject-replacement-prototype-footer">
+            <span className="video-enhancement-prototype-status" role="status">{subjectRemovalStatus}</span>
+            <div className="video-enhancement-prototype-action-pill" aria-label={`需要消耗 ${subjectRemovalCredits} 积分`}>
+              <span className="video-enhancement-prototype-credit-icon" aria-hidden="true">
+                <Icon name="aed" size={18} />
+              </span>
+              <strong>{subjectRemovalCredits}</strong>
+            </div>
+            <button
+              type="button"
+              className="video-enhancement-prototype-generate"
+              onClick={runSubjectRemovalPrototype}
+              aria-label="生成移除主体原型"
               title="生成"
             >
               <Icon name="arrowUp" size={20} />

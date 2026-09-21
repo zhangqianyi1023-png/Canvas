@@ -1,93 +1,93 @@
 # InUx Canvas
 
-InUx Canvas is a local-first AI canvas application. It runs as a React frontend with a local FastAPI backend during development, and is intended for Web use.
+InUx Canvas 是一个本地优先的 AI 画布应用。开发时由 React 前端和本地 FastAPI 后端组成，主要面向 Web 使用。
 
-## What It Contains
+## 项目结构
 
-- `frontend/`: React + Vite canvas UI.
-- `backend/`: FastAPI API service, provider adapters, local media storage, task center, and tests.
-- `backend/data/`: local runtime settings and databases in development.
-- `backend/uploads/`: local uploaded and generated media in development.
+- `frontend/`：React + Vite 画布前端。
+- `backend/`：FastAPI API 服务、模型供应商适配、本地媒体存储、任务中心和测试。
+- `backend/data/`：开发环境中的本地运行配置和数据库。
+- `backend/uploads/`：开发环境中的本地上传和生成媒体。
 
-`backend/data/` and `backend/uploads/` should stay out of git.
+`backend/data/` 和 `backend/uploads/` 应保持在 Git 管理之外。
 
-## Local Development
+## 本地开发
 
-Install frontend dependencies:
+安装前端依赖：
 
 ```bash
 npm --prefix frontend install
 ```
 
-Install the isolated DeepSeek Harness runtime used by Canvas Copilot:
+安装 Canvas Copilot 使用的独立 DeepSeek Harness 运行环境：
 
 ```bash
 npm --prefix backend/copilot-runtime install
 ```
 
-Create the backend virtual environment:
+创建后端虚拟环境：
 
 ```bash
 python3 -m venv backend/.venv
 backend/.venv/bin/pip install -r backend/requirements.txt
 ```
 
-Start the backend:
+启动后端：
 
 ```bash
 cd backend
 ../backend/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Start the frontend:
+启动前端：
 
 ```bash
 npm --prefix frontend run dev
 ```
 
-Open:
+打开：
 
 ```text
 http://127.0.0.1:5173/
 ```
 
-## API Provider Setup
+## API 供应商配置
 
-Users configure providers in the app settings page:
+用户可以在应用设置页配置供应商：
 
-- provider name
-- protocol
+- 供应商名称
+- 协议
 - Base URL
 - API Key
-- available models
-- default models per capability
+- 可用模型
+- 各能力的默认模型
 
-The app should not require one specific API relay platform. APIMart remains a supported provider option, but it is not required for the app to run.
+应用不应强依赖某一个特定的 API 中转平台。APIMart 仍然是一个受支持的供应商选项，但不是应用运行的必要条件。
 
-Do not commit real API keys. Development keys live in ignored local data files such as `backend/data/runtime-settings.json`.
+不要提交真实 API Key。开发环境的密钥应保存在被忽略的本地数据文件中，例如 `backend/data/runtime-settings.json`。
 
-## Local Data
+## 本地数据
 
-In development:
+开发环境中：
 
-- uploaded and generated media: `backend/uploads/`
-- runtime settings and task history: `backend/data/`
+- 上传和生成的媒体：`backend/uploads/`
+- 运行配置和任务历史：`backend/data/`
 
-## Tests
+## 测试
 
-Backend:
+后端：
 
 ```bash
 PYTHONPATH=backend:. python3 -m unittest discover -s backend/tests -v
 ```
 
-Frontend:
+前端：
 
 ```bash
 npm --prefix frontend test -- --run
 ```
 
-Frontend production build:
+前端生产构建：
 
 ```bash
 npm --prefix frontend run build
