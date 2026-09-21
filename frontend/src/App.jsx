@@ -12120,7 +12120,7 @@ function Sidebar({ view, onNavigate }) {
         data-tooltip="返回画布"
         aria-label="返回画布"
       >
-        <img src="/sidebar-logo.png" alt="" aria-hidden="true" />
+        <img src="/infinite-canvas-logo.png" alt="Infinite Canvas" />
       </button>
       <div className="sidebar-nav">
         <button
@@ -12157,14 +12157,6 @@ function Sidebar({ view, onNavigate }) {
         </button>
       </div>
       <div className="sidebar-bottom">
-        <button
-          className="sidebar-button sidebar-feedback-button"
-          onClick={openFeedbackForm}
-          data-tooltip="反馈"
-          aria-label="反馈"
-        >
-          反馈
-        </button>
         <div className="sidebar-version">V1.1.10</div>
       </div>
     </aside>
