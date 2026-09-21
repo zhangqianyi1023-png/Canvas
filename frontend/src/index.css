@@ -390,6 +390,11 @@
   --accent:        #2a82ff;
   --accent-soft:   rgba(42, 130, 255, 0.14);
 
+  /* 全局交互动效：统一为细线、纯紫，不再混用青色和彩虹流光。 */
+  --motion-purple:      #7137f5;
+  --motion-purple-soft: rgba(113, 55, 245, 0.14);
+  --motion-purple-halo: rgba(113, 55, 245, 0.24);
+
   --brand-bg:      #f2f2f2;
   --brand-fg:      #101010;
 
@@ -2291,9 +2296,9 @@ body {
 .canvas-flow-shell {
   --hover-glow-x: 50%;
   --hover-glow-y: 50%;
-  --hover-glow-border: color-mix(in srgb, var(--accent) 68%, #58c7e8);
-  --hover-glow-core: color-mix(in srgb, var(--accent) 72%, #58c7e8);
-  --hover-glow-halo: color-mix(in srgb, var(--accent) 16%, transparent);
+  --hover-glow-border: var(--motion-purple);
+  --hover-glow-core: var(--motion-purple);
+  --hover-glow-halo: var(--motion-purple-halo);
   isolation: isolate;
   background: var(--rf-bg);
 }
@@ -2345,7 +2350,7 @@ body {
   .image-action-toolbar button,
   .result-image-portal-toolbar,
   .result-image-portal-toolbar button,
-  .canvas-flow-hover-target {
+.canvas-flow-hover-target {
   --hover-glow-radius: 130px;
 }
 
@@ -2382,13 +2387,7 @@ body {
   z-index: 2;
   padding: 1px;
   border-radius: inherit;
-  background:
-    radial-gradient(
-      var(--hover-glow-radius) circle at var(--hover-glow-x) var(--hover-glow-y),
-      color-mix(in srgb, var(--hover-glow-core) 92%, transparent) 0%,
-      color-mix(in srgb, var(--hover-glow-core) 48%, transparent) 32%,
-      transparent 68%
-    );
+  background: var(--motion-purple);
   content: '';
   opacity: 0;
   pointer-events: none;
@@ -2434,19 +2433,19 @@ body {
 }
 
 .hover-glow-active {
-  border-color: color-mix(in srgb, var(--hover-glow-border) 54%, var(--border-default)) !important;
+  border-color: var(--motion-purple) !important;
   box-shadow:
-    0 0 0 3px var(--hover-glow-halo),
-    0 16px 38px color-mix(in srgb, var(--accent) 14%, transparent) !important;
+    0 0 0 2px var(--motion-purple-halo),
+    0 16px 38px rgba(113, 55, 245, 0.10) !important;
 }
 
 .hover-glow-active.custom-node.selected,
 .hover-glow-active.result-text-output,
-.hover-glow-active.result-image-wrap,
+  .hover-glow-active.result-image-wrap,
 .hover-glow-active.result-video-wrap {
   box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--accent-soft) 70%, transparent),
-    0 16px 38px color-mix(in srgb, var(--accent) 16%, transparent) !important;
+    0 0 0 2px var(--motion-purple-halo),
+    0 16px 38px rgba(113, 55, 245, 0.12) !important;
 }
 
 @keyframes canvas-flow-field-a {
@@ -2465,12 +2464,10 @@ body {
   position: fixed;
   z-index: 20080;
   box-sizing: border-box;
-  padding: 2px;
+  padding: 1px;
   overflow: hidden;
   background: transparent;
-  filter:
-    drop-shadow(0 0 5px rgba(78, 228, 255, 0.34))
-    drop-shadow(0 0 8px rgba(141, 3, 199, 0.2));
+  filter: drop-shadow(0 0 4px rgba(113, 55, 245, 0.28));
   opacity: 0;
   pointer-events: none;
   -webkit-mask:
@@ -2491,14 +2488,8 @@ body {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 1) 18%,
-    rgba(78, 228, 255, 0.98) 36%,
-    rgba(141, 3, 199, 0.92) 52%,
-    transparent 72%
-  );
-  opacity: 0.96;
+  background: var(--motion-purple);
+  opacity: 0.92;
   pointer-events: none;
   will-change: transform;
 }
@@ -2508,14 +2499,8 @@ body {
 }
 
 .canvas-flow-hover-field.field-b {
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.94) 16%,
-    rgba(141, 3, 199, 0.9) 34%,
-    rgba(78, 228, 255, 0.92) 52%,
-    transparent 74%
-  );
-  opacity: 0.82;
+  background: var(--motion-purple);
+  opacity: 0.72;
   animation: canvas-flow-field-b 6s linear infinite;
 }
 
@@ -9751,14 +9736,8 @@ body {
   inset: -5px;
   padding: 2px;
   border-radius: 45px;
-  background:
-    radial-gradient(90px circle at 12% 18%, rgba(255, 255, 255, 1) 0%, rgba(78, 228, 255, 0.98) 30%, rgba(141, 3, 199, 0.92) 50%, transparent 72%),
-    radial-gradient(90px circle at 88% 82%, rgba(255, 255, 255, 0.94) 0%, rgba(141, 3, 199, 0.9) 32%, rgba(78, 228, 255, 0.92) 52%, transparent 74%);
-  background-position: 0 0, 100% 100%;
-  background-size: 180% 180%;
-  filter:
-    drop-shadow(0 0 5px rgba(78, 228, 255, 0.34))
-    drop-shadow(0 0 8px rgba(141, 3, 199, 0.2));
+  background: var(--motion-purple);
+  filter: drop-shadow(0 0 4px rgba(113, 55, 245, 0.28));
 }
 
 .inline-annotation-toolbar button.canvas-flow-hover-target:hover:not(:disabled)::after,
@@ -9766,15 +9745,15 @@ body {
 .inline-inpaint-toolbar button.canvas-flow-hover-target:hover:not(:disabled)::after,
 .inline-inpaint-toolbar button.canvas-flow-hover-target:focus-visible:not(:disabled)::after {
   opacity: 1;
-  animation: inline-annotation-border-flow 2.4s ease-in-out infinite alternate;
+  animation: inline-annotation-border-flow 1.8s ease-in-out infinite alternate;
 }
 
 @keyframes inline-annotation-border-flow {
   from {
-    background-position: 0 0, 100% 100%;
+    opacity: 0.68;
   }
   to {
-    background-position: 100% 100%, 0 0;
+    opacity: 1;
   }
 }
 
@@ -17575,9 +17554,9 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
 }
 
 [data-theme='dark'] .canvas-flow-shell {
-  --hover-glow-border: rgba(255, 255, 255, 0.16);
-  --hover-glow-core: rgba(255, 255, 255, 0.14);
-  --hover-glow-halo: rgba(255, 255, 255, 0.035);
+  --hover-glow-border: var(--motion-purple);
+  --hover-glow-core: var(--motion-purple);
+  --hover-glow-halo: var(--motion-purple-halo);
 }
 
 [data-theme='dark'] .canvas-page:not(.official-template-editor) > .canvas-topbar,
