@@ -11197,6 +11197,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           snapGrid={[20, 20]}
           multiSelectionKeyCode={['Shift']}
           deleteKeyCode={activeVideoEditorNodeId ? null : undefined}
+          proOptions={{ hideAttribution: true }}
           defaultViewport={initialViewport}
           fitView={!initialViewport}
           onlyRenderVisibleElements
