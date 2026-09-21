@@ -67,6 +67,12 @@ const DEFAULT_SUBJECT_REPLACEMENT_BOX = {
   width: 38,
   height: 56,
 };
+const VIDEO_EXTENSION_DIRECTIONS = ['片尾延长', '片头延长'];
+const VIDEO_EXTENSION_DURATIONS = Array.from({ length: 12 }, (_, index) => index + 4);
+const VIDEO_EXTENSION_METHODS = ['自然延续', '动作延续', '延续运镜', '推进场景'];
+const REFERENCE_IMAGE_PREVIEW_MAX_SIZE = 220;
+const REFERENCE_IMAGE_PREVIEW_MARGIN = 12;
+const REFERENCE_IMAGE_PREVIEW_GAP = 10;
 
 const getViewportSize = () => ({
   width: typeof window !== 'undefined' ? window.innerWidth : 1280,
@@ -859,6 +865,17 @@ function ResultNode({ id, selected, data }) {
   const [subjectRemovalOpen, setSubjectRemovalOpen] = useState(false);
   const [subjectRemovalPosition, setSubjectRemovalPosition] = useState(null);
   const [subjectRemovalStatus, setSubjectRemovalStatus] = useState('');
+  const [videoExtensionOpen, setVideoExtensionOpen] = useState(false);
+  const [videoExtensionPosition, setVideoExtensionPosition] = useState(null);
+  const [videoExtensionStatus, setVideoExtensionStatus] = useState('');
+  const [videoExtensionPrompt, setVideoExtensionPrompt] = useState('');
+  const [videoExtensionDirection, setVideoExtensionDirection] = useState('片尾延长');
+  const [videoExtensionDuration, setVideoExtensionDuration] = useState(8);
+  const [videoExtensionMethod, setVideoExtensionMethod] = useState('自然延续');
+  const [videoExtensionSettingsOpen, setVideoExtensionSettingsOpen] = useState(false);
+  const [videoExtensionReferences, setVideoExtensionReferences] = useState([]);
+  const [videoExtensionReferencePreview, setVideoExtensionReferencePreview] = useState(null);
+  const [videoExtensionMentionOpen, setVideoExtensionMentionOpen] = useState(false);
   const [sourceSubject, setSourceSubject] = useState(null);
   const [removalSubject, setRemovalSubject] = useState(null);
   const [targetSubject, setTargetSubject] = useState(null);
@@ -871,13 +888,17 @@ function ResultNode({ id, selected, data }) {
   const [replacementSourceMenuOpen, setReplacementSourceMenuOpen] = useState(false);
   const subjectReplacementPanelRef = useRef(null);
   const subjectRemovalPanelRef = useRef(null);
+  const videoExtensionPanelRef = useRef(null);
   const subjectReplacementStatusTimerRef = useRef(null);
   const subjectRemovalStatusTimerRef = useRef(null);
+  const videoExtensionStatusTimerRef = useRef(null);
   const subjectMaskDragStartRef = useRef(null);
   const subjectMaskDragModeRef = useRef('draw');
   const subjectMaskResizeHandleRef = useRef('');
   const subjectReplacementUploadInputRef = useRef(null);
+  const videoExtensionUploadInputRef = useRef(null);
   const targetSubjectObjectUrlRef = useRef('');
+  const videoExtensionObjectUrlsRef = useRef(new Set());
   const isTextFormatEditing = isTextEditing || isTextExpandedEditing;
   const shouldShowTextFormatToolbar = isTextResult
     && !isMultiSelected
@@ -942,11 +963,19 @@ function ResultNode({ id, selected, data }) {
   const subjectRemovalCredits = useMemo(() => (
     520 + (removalSubject ? 120 : 0)
   ), [removalSubject]);
+  const videoExtensionCredits = useMemo(() => (
+    420 + videoExtensionDuration * 28 + videoExtensionReferences.length * 24
+  ), [videoExtensionDuration, videoExtensionReferences.length]);
   const canvasImageChoices = useMemo(() => (
     subjectReplacementOpen
       ? data?.onGetCanvasImageChoices?.(id) || []
       : []
   ), [data, id, subjectReplacementOpen]);
+  const canvasMediaChoices = useMemo(() => (
+    videoExtensionOpen || videoExtensionMentionOpen
+      ? data?.onGetCanvasMediaChoices?.(id) || []
+      : []
+  ), [data, id, videoExtensionMentionOpen, videoExtensionOpen]);
 
   useCanvasWheelHandoff(resultNodeRef, {
     enabled: isTextResult,
@@ -1054,6 +1083,40 @@ function ResultNode({ id, selected, data }) {
     return () => window.cancelAnimationFrame(frameId);
   }, [isVideoResult, subjectRemovalOpen]);
 
+  useLayoutEffect(() => {
+    if (!videoExtensionOpen || !isVideoResult) {
+      return undefined;
+    }
+
+    let frameId = 0;
+    const updatePosition = () => {
+      const anchor = resultNodeRef.current?.querySelector?.('.result-video-wrap')
+        || resultNodeRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const panelWidth = Math.min(620, Math.max(460, rect.width + 220));
+      const left = Math.max(12 + panelWidth / 2, Math.min(window.innerWidth - 12 - panelWidth / 2, rect.left + rect.width / 2));
+      const top = Math.min(window.innerHeight - 16, rect.bottom + 12);
+      const nextPosition = {
+        left: Math.round(left * 10) / 10,
+        top: Math.round(top * 10) / 10,
+        width: Math.round(panelWidth),
+      };
+      setVideoExtensionPosition(current => (
+        current
+        && current.left === nextPosition.left
+        && current.top === nextPosition.top
+        && current.width === nextPosition.width
+          ? current
+          : nextPosition
+      ));
+      frameId = window.requestAnimationFrame(updatePosition);
+    };
+
+    updatePosition();
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isVideoResult, videoExtensionOpen]);
+
   useEffect(() => {
     if (!videoEnhancementOpen) return undefined;
 
@@ -1129,6 +1192,36 @@ function ResultNode({ id, selected, data }) {
   }, [subjectRemovalOpen]);
 
   useEffect(() => {
+    if (!videoExtensionOpen) return undefined;
+
+    const closeOnOutsidePointer = event => {
+      const target = event.target;
+      if (videoExtensionPanelRef.current?.contains(target)) return;
+      if (target?.closest?.('.node-hover-toolbar-portal, .node-hover-toolbar-anchor, .reference-image-preview-portal')) return;
+      if (resultNodeRef.current?.contains(target)) return;
+      setVideoExtensionOpen(false);
+      setVideoExtensionSettingsOpen(false);
+      setVideoExtensionMentionOpen(false);
+    };
+    const closeOnEscape = event => {
+      if (event.key !== 'Escape') return;
+      if (videoExtensionSettingsOpen || videoExtensionMentionOpen) {
+        setVideoExtensionSettingsOpen(false);
+        setVideoExtensionMentionOpen(false);
+      } else {
+        setVideoExtensionOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer, true);
+    document.addEventListener('keydown', closeOnEscape, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer, true);
+      document.removeEventListener('keydown', closeOnEscape, true);
+    };
+  }, [videoExtensionMentionOpen, videoExtensionOpen, videoExtensionSettingsOpen]);
+
+  useEffect(() => {
     if (selected && isVideoResult) return undefined;
     const timer = window.setTimeout(() => setVideoEnhancementOpen(false), 0);
     return () => window.clearTimeout(timer);
@@ -1139,6 +1232,7 @@ function ResultNode({ id, selected, data }) {
     const timer = window.setTimeout(() => {
       setSubjectReplacementOpen(false);
       setSubjectRemovalOpen(false);
+      setVideoExtensionOpen(false);
       setIsSubjectMaskSelecting(false);
       setReplacementSourceMenuOpen(false);
     }, 0);
@@ -1149,10 +1243,13 @@ function ResultNode({ id, selected, data }) {
     window.clearTimeout(videoEnhancementStatusTimerRef.current);
     window.clearTimeout(subjectReplacementStatusTimerRef.current);
     window.clearTimeout(subjectRemovalStatusTimerRef.current);
+    window.clearTimeout(videoExtensionStatusTimerRef.current);
     if (targetSubjectObjectUrlRef.current) {
       URL.revokeObjectURL(targetSubjectObjectUrlRef.current);
       targetSubjectObjectUrlRef.current = '';
     }
+    videoExtensionObjectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    videoExtensionObjectUrlsRef.current.clear();
   }, []);
 
   const expandedAspect = useMemo(() => parseImageAspect(imageSize), [imageSize]);
@@ -2362,6 +2459,131 @@ function ResultNode({ id, selected, data }) {
     showSubjectRemovalStatus('仅原型展示，暂未接入真实移除');
   }, [data, id, removalSubject, showSubjectRemovalStatus, subjectRemovalCredits, videoUrl]);
 
+  const showVideoExtensionStatus = useCallback((message, duration = 1800) => {
+    setVideoExtensionStatus(message);
+    window.clearTimeout(videoExtensionStatusTimerRef.current);
+    videoExtensionStatusTimerRef.current = window.setTimeout(() => {
+      setVideoExtensionStatus('');
+    }, duration);
+  }, []);
+
+  const showVideoExtensionReferencePreview = useCallback((event, reference) => {
+    if (!reference?.url || reference.kind !== 'image') return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const availableAbove = rect.top - REFERENCE_IMAGE_PREVIEW_MARGIN - REFERENCE_IMAGE_PREVIEW_GAP;
+    const availableBelow = window.innerHeight - rect.bottom - REFERENCE_IMAGE_PREVIEW_MARGIN - REFERENCE_IMAGE_PREVIEW_GAP;
+    const placeAbove = availableAbove >= REFERENCE_IMAGE_PREVIEW_MAX_SIZE || availableAbove >= availableBelow;
+    const previewHalfSize = REFERENCE_IMAGE_PREVIEW_MAX_SIZE / 2;
+    const left = Math.max(
+      REFERENCE_IMAGE_PREVIEW_MARGIN + previewHalfSize,
+      Math.min(window.innerWidth - REFERENCE_IMAGE_PREVIEW_MARGIN - previewHalfSize, rect.left + rect.width / 2),
+    );
+    setVideoExtensionReferencePreview({
+      src: reference.url,
+      left,
+      top: placeAbove ? rect.top - REFERENCE_IMAGE_PREVIEW_GAP : rect.bottom + REFERENCE_IMAGE_PREVIEW_GAP,
+      placement: placeAbove ? 'above' : 'below',
+    });
+  }, []);
+
+  const hideVideoExtensionReferencePreview = useCallback(() => {
+    setVideoExtensionReferencePreview(null);
+  }, []);
+
+  const addVideoExtensionReference = useCallback((reference) => {
+    if (!reference?.url) return;
+    setVideoExtensionReferences(current => {
+      if (current.some(item => item.url === reference.url)) return current;
+      return [...current, {
+        id: reference.id || `ref-${Date.now()}`,
+        kind: reference.kind || 'image',
+        url: reference.url,
+        label: reference.label || (reference.kind === 'video' ? '视频素材' : '图片素材'),
+        local: Boolean(reference.local),
+      }].slice(0, 6);
+    });
+  }, []);
+
+  const removeVideoExtensionReference = useCallback((event, referenceId) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setVideoExtensionReferences(current => {
+      const target = current.find(item => item.id === referenceId);
+      if (target?.local && videoExtensionObjectUrlsRef.current.has(target.url)) {
+        URL.revokeObjectURL(target.url);
+        videoExtensionObjectUrlsRef.current.delete(target.url);
+      }
+      return current.filter(item => item.id !== referenceId);
+    });
+    hideVideoExtensionReferencePreview();
+  }, [hideVideoExtensionReferencePreview]);
+
+  const handleVideoExtensionUploadChange = useCallback((event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    const availableSlots = Math.max(0, 6 - videoExtensionReferences.length);
+    if (availableSlots <= 0) {
+      showVideoExtensionStatus('最多添加 6 个参考素材');
+      return;
+    }
+    if (files.length > availableSlots) {
+      showVideoExtensionStatus(`最多添加 6 个参考素材，已取前 ${availableSlots} 个`);
+    }
+    files.slice(0, availableSlots).forEach(file => {
+      const isImage = isSupportedImageFile(file);
+      const isVideo = isSupportedVideoFile(file);
+      if (!isImage && !isVideo) {
+        showVideoExtensionStatus(isImage ? getUnsupportedImageMessage(file) : getUnsupportedVideoMessage(file));
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      videoExtensionObjectUrlsRef.current.add(url);
+      addVideoExtensionReference({
+        id: `local-${Date.now()}-${file.name}`,
+        kind: isVideo ? 'video' : 'image',
+        url,
+        label: file.name || (isVideo ? '本地视频' : '本地图片'),
+        local: true,
+      });
+    });
+  }, [addVideoExtensionReference, showVideoExtensionStatus, videoExtensionReferences.length]);
+
+  const handleVideoExtensionPromptChange = useCallback((event) => {
+    const nextValue = event.target.value;
+    setVideoExtensionPrompt(nextValue);
+    setVideoExtensionMentionOpen(nextValue.endsWith('@'));
+  }, []);
+
+  const insertVideoExtensionMention = useCallback((choice) => {
+    if (!choice) return;
+    addVideoExtensionReference(choice);
+    setVideoExtensionPrompt(current => `${current.replace(/@$/, '')}@${choice.label} `);
+    setVideoExtensionMentionOpen(false);
+  }, [addVideoExtensionReference]);
+
+  const runVideoExtensionPrototype = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    // Prototype only: this creates a connected downstream video node for the
+    // extension flow. It never calls backend generation APIs or spends credits.
+    const result = data?.onCreateVideoExtensionPrototype?.(id, {
+      direction: videoExtensionDirection,
+      duration: videoExtensionDuration,
+      method: videoExtensionMethod,
+      prompt: videoExtensionPrompt.trim(),
+      references: videoExtensionReferences,
+      credits: videoExtensionCredits,
+      videoUrl,
+    });
+    if (result?.ok) {
+      setVideoExtensionOpen(false);
+      setVideoExtensionSettingsOpen(false);
+      setVideoExtensionMentionOpen(false);
+      return;
+    }
+    showVideoExtensionStatus('仅原型展示，暂未接入真实延长');
+  }, [data, id, showVideoExtensionStatus, videoExtensionCredits, videoExtensionDirection, videoExtensionDuration, videoExtensionMethod, videoExtensionPrompt, videoExtensionReferences, videoUrl]);
+
   const toggleCard = useCallback((index) => {
     setExpandedCardIndex(prev => prev === index ? null : index);
   }, []);
@@ -3045,6 +3267,17 @@ function ResultNode({ id, selected, data }) {
           onClick={(event) => event.stopPropagation()}
         />
       )}
+      {isVideoResult && (
+        <input
+          ref={videoExtensionUploadInputRef}
+          className="result-image-upload-input"
+          type="file"
+          accept={`${SUPPORTED_IMAGE_ACCEPT},${SUPPORTED_VIDEO_ACCEPT}`}
+          multiple
+          onChange={handleVideoExtensionUploadChange}
+          onClick={(event) => event.stopPropagation()}
+        />
+      )}
       {isAudioResult && (
         <input
           ref={audioUploadInputRef}
@@ -3200,6 +3433,7 @@ function ResultNode({ id, selected, data }) {
                 setSubjectReplacementOpen(false);
                 setSubjectRemovalOpen(false);
                 setIsSubjectMaskSelecting(false);
+                setVideoExtensionOpen(false);
                 setVideoEnhancementOpen(current => !current);
               },
             },
@@ -3213,6 +3447,7 @@ function ResultNode({ id, selected, data }) {
                 event.stopPropagation();
                 setVideoEnhancementOpen(false);
                 setSubjectRemovalOpen(false);
+                setVideoExtensionOpen(false);
                 setSubjectReplacementOpen(current => !current);
               },
             },
@@ -3226,7 +3461,25 @@ function ResultNode({ id, selected, data }) {
                 event.stopPropagation();
                 setVideoEnhancementOpen(false);
                 setSubjectReplacementOpen(false);
+                setVideoExtensionOpen(false);
                 setSubjectRemovalOpen(current => !current);
+              },
+            },
+            {
+              id: 'extend-video',
+              label: '视频延长',
+              title: '视频延长',
+              icon: 'movieAi',
+              active: videoExtensionOpen,
+              onClick: (event) => {
+                event.stopPropagation();
+                setVideoEnhancementOpen(false);
+                setSubjectReplacementOpen(false);
+                setSubjectRemovalOpen(false);
+                setIsSubjectMaskSelecting(false);
+                setVideoExtensionSettingsOpen(false);
+                setVideoExtensionMentionOpen(false);
+                setVideoExtensionOpen(current => !current);
               },
             },
             {
@@ -3608,6 +3861,218 @@ function ResultNode({ id, selected, data }) {
             </button>
           </footer>
         </section>,
+        document.body,
+      )}
+      {isVideoResult && videoExtensionOpen && videoExtensionPosition && typeof document !== 'undefined' && createPortal(
+        <section
+          ref={videoExtensionPanelRef}
+          className="video-extension-prototype-panel nodrag nopan"
+          style={{
+            left: videoExtensionPosition.left,
+            top: videoExtensionPosition.top,
+            width: videoExtensionPosition.width,
+          }}
+          role="dialog"
+          aria-label="视频延长"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <header className="video-extension-prototype-header">
+            <strong>视频延长</strong>
+            <button
+              type="button"
+              className="video-enhancement-prototype-close"
+              onClick={() => {
+                setVideoExtensionOpen(false);
+                setVideoExtensionSettingsOpen(false);
+                setVideoExtensionMentionOpen(false);
+              }}
+              aria-label="关闭视频延长"
+              title="关闭"
+            >
+              <Icon name="x" size={16} />
+            </button>
+          </header>
+
+          <div className="video-extension-prototype-body">
+            <section className="video-extension-reference-section" aria-label="参考素材">
+              <div className="reference-card-row video-extension-reference-row">
+                {videoExtensionReferences.map(reference => (
+                  <div
+                    key={reference.id}
+                    className={`reference-card reference-image-card video-extension-reference-card ${reference.kind === 'video' ? 'is-video' : ''}`}
+                    tabIndex={0}
+                    onMouseEnter={(event) => showVideoExtensionReferencePreview(event, reference)}
+                    onMouseLeave={hideVideoExtensionReferencePreview}
+                    onFocus={(event) => showVideoExtensionReferencePreview(event, reference)}
+                    onBlur={hideVideoExtensionReferencePreview}
+                  >
+                    {reference.kind === 'video' ? (
+                      <>
+                        <video src={reference.url} muted playsInline preload="metadata" />
+                        <span className="video-extension-reference-type">视频</span>
+                      </>
+                    ) : (
+                      <img src={reference.url} alt={reference.label || '参考图片'} />
+                    )}
+                    <button
+                      type="button"
+                      className="thumb-remove"
+                      onClick={(event) => removeVideoExtensionReference(event, reference.id)}
+                      aria-label="删除参考素材"
+                      title="删除"
+                    >
+                      <Icon name="x" size={13} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="reference-add-card video-extension-add-card"
+                  onClick={() => videoExtensionUploadInputRef.current?.click()}
+                  disabled={videoExtensionReferences.length >= 6}
+                  aria-label="上传参考素材"
+                  title="上传参考素材"
+                >
+                  <Icon name="upload" size={18} />
+                  <span className="reference-add-count">上传</span>
+                </button>
+              </div>
+            </section>
+
+            <section className="video-extension-prompt-section">
+              <div className="video-extension-prompt-wrap">
+                <textarea
+                  className="video-extension-prompt-input"
+                  value={videoExtensionPrompt}
+                  onChange={handleVideoExtensionPromptChange}
+                  placeholder="描述希望延长出来的画面、动作或运镜..."
+                  rows={3}
+                />
+                {videoExtensionMentionOpen && (
+                  <div className="video-extension-mention-menu">
+                    {canvasMediaChoices.length > 0 ? canvasMediaChoices.map(choice => (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        onClick={() => insertVideoExtensionMention(choice)}
+                      >
+                        {choice.kind === 'video' ? (
+                          <video src={choice.url} muted playsInline preload="metadata" />
+                        ) : (
+                          <img src={choice.url} alt="" />
+                        )}
+                        <span>{choice.label}</span>
+                      </button>
+                    )) : (
+                      <span className="video-extension-empty-choice">暂无可选画布素材</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+
+          </div>
+
+          <footer className="video-enhancement-prototype-footer video-extension-prototype-footer">
+            <div className="video-extension-footer-left">
+              <section className="video-extension-settings-section">
+                <button
+                  type="button"
+                  className="video-extension-settings-trigger"
+                  onClick={() => setVideoExtensionSettingsOpen(current => !current)}
+                  aria-expanded={videoExtensionSettingsOpen}
+                >
+                  <span>{videoExtensionDirection} · {videoExtensionDuration}s · {videoExtensionMethod}</span>
+                  <Icon name="chevronDown" size={16} />
+                </button>
+                {videoExtensionSettingsOpen && (
+                  <div className="video-extension-settings-popover">
+                    <div className="video-extension-setting-group">
+                      <span>延长模式</span>
+                      <div className="video-extension-option-row" role="radiogroup" aria-label="延长模式">
+                        {VIDEO_EXTENSION_DIRECTIONS.map(direction => (
+                          <button
+                            key={direction}
+                            type="button"
+                            className={videoExtensionDirection === direction ? 'active' : ''}
+                            role="radio"
+                            aria-checked={videoExtensionDirection === direction}
+                            onClick={() => setVideoExtensionDirection(direction)}
+                          >
+                            {direction}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="video-extension-setting-group">
+                      <span>延长时长</span>
+                      <div className="video-extension-duration-grid" role="radiogroup" aria-label="延长时长">
+                        {VIDEO_EXTENSION_DURATIONS.map(duration => (
+                          <button
+                            key={duration}
+                            type="button"
+                            className={videoExtensionDuration === duration ? 'active' : ''}
+                            role="radio"
+                            aria-checked={videoExtensionDuration === duration}
+                            onClick={() => setVideoExtensionDuration(duration)}
+                          >
+                            {duration}s
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="video-extension-setting-group">
+                      <span>延长方式</span>
+                      <div className="video-extension-option-row video-extension-method-row" role="radiogroup" aria-label="延长方式">
+                        {VIDEO_EXTENSION_METHODS.map(method => (
+                          <button
+                            key={method}
+                            type="button"
+                            className={videoExtensionMethod === method ? 'active' : ''}
+                            role="radio"
+                            aria-checked={videoExtensionMethod === method}
+                            onClick={() => setVideoExtensionMethod(method)}
+                          >
+                            {method}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+              <span className="video-enhancement-prototype-status" role="status">{videoExtensionStatus}</span>
+            </div>
+            <div className="video-enhancement-prototype-action-pill" aria-label={`需要消耗 ${videoExtensionCredits} 积分`}>
+              <span className="video-enhancement-prototype-credit-icon" aria-hidden="true">
+                <Icon name="aed" size={18} />
+              </span>
+              <strong>{videoExtensionCredits}</strong>
+            </div>
+            <button
+              type="button"
+              className="video-enhancement-prototype-generate"
+              onClick={runVideoExtensionPrototype}
+              aria-label="生成视频延长原型"
+              title="生成"
+            >
+              <Icon name="arrowUp" size={20} />
+            </button>
+          </footer>
+        </section>,
+        document.body,
+      )}
+      {videoExtensionReferencePreview && typeof document !== 'undefined' && createPortal(
+        <div
+          className={`reference-image-preview-portal ${videoExtensionReferencePreview.placement}`}
+          style={{
+            left: videoExtensionReferencePreview.left,
+            top: videoExtensionReferencePreview.top,
+          }}
+        >
+          <img src={videoExtensionReferencePreview.src} alt="参考图预览" />
+        </div>,
         document.body,
       )}
       {/* 多图展开时：单图 handle 仍然可用，但用户也可以从每张图右侧的小 dot 拖出（指向特定图） */}

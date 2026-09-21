@@ -2072,6 +2072,10 @@ const ALIGN_SNAP_THRESHOLD = 5;
   const callCreateVideoSubjectRemovalPrototype = useCallback((...args) => (
     createVideoSubjectRemovalPrototypeRef.current?.(...args)
   ), []);
+  const createVideoExtensionPrototypeRef = useRef(null);
+  const callCreateVideoExtensionPrototype = useCallback((...args) => (
+    createVideoExtensionPrototypeRef.current?.(...args)
+  ), []);
   const getCanvasImageChoices = useCallback((excludeNodeId) => (
     nodesRef.current
       .filter(node => node.type === 'result' && node.id !== excludeNodeId && node.data?.resultType === 'generateImage')
@@ -2089,6 +2093,37 @@ const ALIGN_SNAP_THRESHOLD = 5;
         }));
       })
       .slice(0, 8)
+  ), []);
+  const getCanvasMediaChoices = useCallback((excludeNodeId) => (
+    nodesRef.current
+      .filter(node => node.type === 'result' && node.id !== excludeNodeId)
+      .flatMap(node => {
+        if (node.data?.resultType === 'generateImage') {
+          const urls = Array.isArray(node.data?.imageUrls) && node.data.imageUrls.length > 0
+            ? node.data.imageUrls
+            : node.data?.imageUrl
+              ? [node.data.imageUrl]
+              : [];
+          return urls.filter(Boolean).map((url, index) => ({
+            id: `image-${node.id}-${index}`,
+            kind: 'image',
+            nodeId: node.id,
+            url,
+            label: node.data?.label || `图片素材 ${index + 1}`,
+          }));
+        }
+        if (node.data?.resultType === 'generateVideo' && node.data?.videoUrl) {
+          return [{
+            id: `video-${node.id}`,
+            kind: 'video',
+            nodeId: node.id,
+            url: node.data.videoUrl,
+            label: node.data?.label || '视频素材',
+          }];
+        }
+        return [];
+      })
+      .slice(0, 10)
   ), []);
 // generatorId → running generation task
   const generationTasksRef = useRef({});
@@ -7233,7 +7268,9 @@ const ALIGN_SNAP_THRESHOLD = 5;
           onCreateVideoEnhancementPrototype: callCreateVideoEnhancementPrototype,
           onCreateVideoSubjectReplacementPrototype: callCreateVideoSubjectReplacementPrototype,
           onCreateVideoSubjectRemovalPrototype: callCreateVideoSubjectRemovalPrototype,
+          onCreateVideoExtensionPrototype: callCreateVideoExtensionPrototype,
           onGetCanvasImageChoices: getCanvasImageChoices,
+          onGetCanvasMediaChoices: getCanvasMediaChoices,
           onImageAction: (...args) => imageActionHandlerRef.current?.(...args),
           onImageActionEditingChange,
           ...(textSource ? { textSource } : {}),
@@ -7415,7 +7452,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
 
     setMenu(null);
     return resultId;
-  }, [apiConfigs, apiProviders, callCreateVideoEnhancementPrototype, callCreateVideoSubjectRemovalPrototype, callCreateVideoSubjectReplacementPrototype, cancelGenerationTask, certifiedAvatarAssets, certifiedAvatarPackages, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, officialPromptStyles, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onInteractiveDragCreate, onNodeResize, onResultAudioUpload, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, setEdges, setGenerating, setNodes, updateGeneratorVisibility, onImageActionEditingChange, runtimeSettings]);
+  }, [apiConfigs, apiProviders, callCreateVideoEnhancementPrototype, callCreateVideoExtensionPrototype, callCreateVideoSubjectRemovalPrototype, callCreateVideoSubjectReplacementPrototype, cancelGenerationTask, certifiedAvatarAssets, certifiedAvatarPackages, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, officialPromptStyles, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onInteractiveDragCreate, onNodeResize, onResultAudioUpload, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, setEdges, setGenerating, setNodes, updateGeneratorVisibility, onImageActionEditingChange, runtimeSettings]);
 
   const getNodeDownstreamPosition = useCallback((sourceNodeId, offsetX = 72) => {
     const sourceNode = nodesRef.current.find(node => node.id === sourceNodeId);
@@ -7617,6 +7654,79 @@ const ALIGN_SNAP_THRESHOLD = 5;
   useEffect(() => {
     createVideoSubjectRemovalPrototypeRef.current = createVideoSubjectRemovalPrototype;
   }, [createVideoSubjectRemovalPrototype]);
+
+  const createVideoExtensionPrototype = useCallback((sourceNodeId, settings = {}) => {
+    const sourceNode = nodesRef.current.find(node => node.id === sourceNodeId);
+    if (!sourceNode || sourceNode.type !== 'result' || sourceNode.data?.resultType !== 'generateVideo') {
+      return { ok: false };
+    }
+    const sourceVideoUrl = settings.videoUrl || sourceNode.data?.videoUrl || '';
+    if (!sourceVideoUrl) return { ok: false };
+
+    const direction = settings.direction || '片尾延长';
+    const duration = Number(settings.duration) || 8;
+    const method = settings.method || '自然延续';
+    const promptDraft = [
+      '视频延长原型',
+      `延长方向：${direction}`,
+      `延长时长：${duration}s`,
+      `延长方式：${method}`,
+      settings.prompt ? `提示词：${settings.prompt}` : '',
+    ].filter(Boolean).join('\n');
+    const references = Array.isArray(settings.references) ? settings.references : [];
+    // 仅用于原型串联：复用原视频创建一个下游视频结果，不调用真实视频延长接口。
+    const resultId = createGeneratePair('generateVideo', getNodeDownstreamPosition(sourceNodeId, 96), sourceNodeId, {
+      label: '视频延长',
+      videoUrl: sourceVideoUrl,
+      videoSource: 'extension-prototype',
+      connectedVideos: [sourceVideoUrl, ...references.filter(ref => ref.kind === 'video').map(ref => ref.url).filter(Boolean)],
+      connectedImages: references.filter(ref => ref.kind === 'image').map(ref => ref.url).filter(Boolean),
+      promptDraft,
+      videoPrompt: promptDraft,
+      operation: 'video-extension-prototype',
+      activate: false,
+      selected: true,
+      style: sourceNode.style || { width: 320, height: 180 },
+    });
+
+    setNodes(current => current.map(node => {
+      if (node.id === resultId) {
+        return {
+          ...node,
+          selected: true,
+          data: {
+            ...node.data,
+            videoExtensionPrototype: {
+              direction,
+              duration,
+              method,
+              prompt: settings.prompt || '',
+              references,
+              credits: Number(settings.credits) || 0,
+              createdAt: Date.now(),
+            },
+          },
+        };
+      }
+      return node.selected ? { ...node, selected: false } : node;
+    }));
+
+    window.setTimeout(() => {
+      fitView({
+        nodes: [{ id: sourceNodeId }, { id: resultId }],
+        duration: 520,
+        padding: 0.24,
+        minZoom: 0.3,
+        maxZoom: 1.15,
+      });
+    });
+
+    return { ok: true, resultId };
+  }, [createGeneratePair, fitView, getNodeDownstreamPosition, setNodes]);
+
+  useEffect(() => {
+    createVideoExtensionPrototypeRef.current = createVideoExtensionPrototype;
+  }, [createVideoExtensionPrototype]);
 
   const handleImageAction = useCallback(async (action, payload) => {
     const {
@@ -9814,7 +9924,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           const normalizedData = n.data?.resultType === 'generateImage'
             ? { ...n.data, ...normalizeImageResultData(n.data) }
             : n.data;
-          return { ...n, data: { ...normalizedData, label: normalizedData?.label || getDefaultNodeLabel(n), apiConfigs, apiProviders, onDeleteNode: deleteCanvasNode, onInteractiveDragCreate, onNodeResize, onResultMediaAspectChange, onResultCardUpdate, onResultDataChange, onResultImageUpload, onResultVideoUpload, onResultAudioUpload, onDownloadVideo: downloadNodeVideos, onResultExpandStateChange, onResultTextChange, onTextEditingChange: onResultTextEditingChange, onStoryboardCardClickPlaceholder, onStoryboardCoverBatchGenerate: runStoryboardCoverBatchGeneration, onOpenVideoWorkbench: openVideoWorkbench, onCreateVideoEnhancementPrototype: createVideoEnhancementPrototype, onCreateVideoSubjectReplacementPrototype: createVideoSubjectReplacementPrototype, onCreateVideoSubjectRemovalPrototype: createVideoSubjectRemovalPrototype, onGetCanvasImageChoices: getCanvasImageChoices, onImageAction: handleImageAction, onImageActionEditingChange, allowedModels: runtimeSettings.allowedModels } };
+          return { ...n, data: { ...normalizedData, label: normalizedData?.label || getDefaultNodeLabel(n), apiConfigs, apiProviders, onDeleteNode: deleteCanvasNode, onInteractiveDragCreate, onNodeResize, onResultMediaAspectChange, onResultCardUpdate, onResultDataChange, onResultImageUpload, onResultVideoUpload, onResultAudioUpload, onDownloadVideo: downloadNodeVideos, onResultExpandStateChange, onResultTextChange, onTextEditingChange: onResultTextEditingChange, onStoryboardCardClickPlaceholder, onStoryboardCoverBatchGenerate: runStoryboardCoverBatchGeneration, onOpenVideoWorkbench: openVideoWorkbench, onCreateVideoEnhancementPrototype: createVideoEnhancementPrototype, onCreateVideoSubjectReplacementPrototype: createVideoSubjectReplacementPrototype, onCreateVideoSubjectRemovalPrototype: createVideoSubjectRemovalPrototype, onCreateVideoExtensionPrototype: createVideoExtensionPrototype, onGetCanvasImageChoices: getCanvasImageChoices, onGetCanvasMediaChoices: getCanvasMediaChoices, onImageAction: handleImageAction, onImageActionEditingChange, allowedModels: runtimeSettings.allowedModels } };
         }
 
         if (n.type === 'videoInput') {
@@ -9904,7 +10014,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
 
       return hydrated;
     });
-  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onGroupNameChange, onGroupResize, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onInteractiveDragCreate, onWorkflowNodeDataChange, openSaveTemplateDialog, openVideoWorkbench, runImageGeneration, runTextGeneration, runVideoGeneration, setGenerating, setNodes, ungroupNodes, runtimeSettings]);
+  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onGroupNameChange, onGroupResize, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onInteractiveDragCreate, onWorkflowNodeDataChange, openSaveTemplateDialog, openVideoWorkbench, runImageGeneration, runTextGeneration, runVideoGeneration, setGenerating, setNodes, ungroupNodes, runtimeSettings]);
 
   useEffect(() => {
     setNodes(nds => nds.map(n => {
@@ -9915,7 +10025,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         return { ...n, data: { ...n.data, onStoryboardCardUpdate, onCardPlaceholderClick, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
       }
       if (n.type === 'result') {
-        return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), apiConfigs, apiProviders, onDeleteNode: deleteCanvasNode, onResultCardUpdate, onResultDataChange, onResultImageUpload, onResultVideoUpload, onDownloadVideo: downloadNodeVideos, onResultExpandStateChange, onResultTextChange, onTextEditingChange: onResultTextEditingChange, onStoryboardCardClickPlaceholder, onStoryboardCoverBatchGenerate: runStoryboardCoverBatchGeneration, onOpenVideoWorkbench: openVideoWorkbench, onCreateVideoEnhancementPrototype: createVideoEnhancementPrototype, onCreateVideoSubjectReplacementPrototype: createVideoSubjectReplacementPrototype, onCreateVideoSubjectRemovalPrototype: createVideoSubjectRemovalPrototype, onGetCanvasImageChoices: getCanvasImageChoices, onInteractiveDragCreate, onNodeResize, onResultMediaAspectChange, onImageAction: handleImageAction, onImageActionEditingChange, allowedModels: runtimeSettings.allowedModels } };
+        return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), apiConfigs, apiProviders, onDeleteNode: deleteCanvasNode, onResultCardUpdate, onResultDataChange, onResultImageUpload, onResultVideoUpload, onDownloadVideo: downloadNodeVideos, onResultExpandStateChange, onResultTextChange, onTextEditingChange: onResultTextEditingChange, onStoryboardCardClickPlaceholder, onStoryboardCoverBatchGenerate: runStoryboardCoverBatchGeneration, onOpenVideoWorkbench: openVideoWorkbench, onCreateVideoEnhancementPrototype: createVideoEnhancementPrototype, onCreateVideoSubjectReplacementPrototype: createVideoSubjectReplacementPrototype, onCreateVideoSubjectRemovalPrototype: createVideoSubjectRemovalPrototype, onCreateVideoExtensionPrototype: createVideoExtensionPrototype, onGetCanvasImageChoices: getCanvasImageChoices, onGetCanvasMediaChoices: getCanvasMediaChoices, onInteractiveDragCreate, onNodeResize, onResultMediaAspectChange, onImageAction: handleImageAction, onImageActionEditingChange, allowedModels: runtimeSettings.allowedModels } };
       }
       if (n.type === 'smartSplitter') {
         return { ...n, data: createSmartSplitterRuntimeData(n.data) };
@@ -9981,7 +10091,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
       }
       return n;
     }));
-  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGroupNameChange, onGroupResize, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, openSaveTemplateDialog, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, setNodes, ungroupNodes, runtimeSettings]);
+  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGroupNameChange, onGroupResize, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, openSaveTemplateDialog, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, setNodes, ungroupNodes, runtimeSettings]);
 
   const hydrateTemplateNode = useCallback((node) => {
     if (node.type === 'result') {
@@ -10013,7 +10123,9 @@ const ALIGN_SNAP_THRESHOLD = 5;
           onCreateVideoEnhancementPrototype: createVideoEnhancementPrototype,
           onCreateVideoSubjectReplacementPrototype: createVideoSubjectReplacementPrototype,
           onCreateVideoSubjectRemovalPrototype: createVideoSubjectRemovalPrototype,
+          onCreateVideoExtensionPrototype: createVideoExtensionPrototype,
           onGetCanvasImageChoices: getCanvasImageChoices,
+          onGetCanvasMediaChoices: getCanvasMediaChoices,
           onImageAction: handleImageAction, onImageActionEditingChange, allowedModels: runtimeSettings.allowedModels,
         },
       };
@@ -10101,7 +10213,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
       return { ...node, data: { ...node.data, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onStoryboardCardUpdate, onCardPlaceholderClick } };
     }
     return { ...node, data: { ...node.data, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
-  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasNode, getCanvasImageChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, runtimeSettings.activeProviderId, runtimeSettings.allowedModels, runtimeSettings.maxTextTokens]);
+  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, runtimeSettings.activeProviderId, runtimeSettings.allowedModels, runtimeSettings.maxTextTokens]);
 
   const addWorkflowTemplateToCanvas = useCallback((template) => {
     if (!template) return;

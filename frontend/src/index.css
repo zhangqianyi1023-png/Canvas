@@ -16742,6 +16742,370 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   outline: none;
 }
 
+.video-extension-prototype-panel {
+  position: fixed;
+  z-index: 10008;
+  max-width: calc(100vw - 24px);
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(19, 20, 22, 0.97);
+  color: var(--fg-primary);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.42);
+  pointer-events: auto;
+  transform: translateX(-50%);
+  backdrop-filter: blur(18px);
+}
+
+.video-extension-prototype-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.video-extension-prototype-header strong {
+  font-size: 16px;
+  font-weight: var(--fw-bold);
+  line-height: 22px;
+}
+
+.video-extension-prototype-body {
+  display: grid;
+  gap: 12px;
+}
+
+.video-extension-reference-section,
+.video-extension-prompt-section,
+.video-extension-settings-section {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.video-extension-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--fg-tertiary);
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  line-height: 16px;
+}
+
+.video-extension-section-title small {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 11px;
+  font-weight: var(--fw-regular);
+}
+
+.video-extension-reference-row {
+  padding-block: 0;
+}
+
+.video-extension-reference-card {
+  overflow: visible;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.video-extension-reference-card img,
+.video-extension-reference-card video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.video-extension-reference-card:hover,
+.video-extension-reference-card:focus-within {
+  z-index: 20;
+  border-color: rgba(255, 255, 255, 0.24);
+  outline: none;
+}
+
+.video-extension-reference-card .thumb-remove {
+  top: 3px;
+  right: 3px;
+  z-index: 3;
+  visibility: hidden;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(8, 8, 9, 0.88);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 120ms ease, visibility 120ms, background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.video-extension-reference-card:hover .thumb-remove,
+.video-extension-reference-card:focus-within .thumb-remove {
+  visibility: visible;
+  opacity: 1;
+}
+
+.video-extension-reference-card .thumb-remove:hover,
+.video-extension-reference-card .thumb-remove:focus-visible {
+  border-color: var(--error);
+  background: var(--error);
+  transform: scale(1.06);
+  outline: none;
+}
+
+.video-extension-reference-type {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.58);
+  color: #fff;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.video-extension-add-card {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.075);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.video-extension-add-card:hover:not(:disabled),
+.video-extension-add-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 54%, rgba(255, 255, 255, 0.2));
+  background: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.08));
+  color: color-mix(in srgb, var(--accent) 70%, #fff);
+  outline: none;
+}
+
+.video-extension-prompt-wrap {
+  position: relative;
+}
+
+.video-extension-prompt-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--fg-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.video-extension-prompt-input::placeholder {
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.video-extension-prompt-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 48%, rgba(255, 255, 255, 0.18));
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.video-extension-mention-menu {
+  position: absolute;
+  z-index: 6;
+  left: 8px;
+  bottom: calc(100% + 8px);
+  display: grid;
+  gap: 4px;
+  width: min(260px, calc(100% - 16px));
+  max-height: 210px;
+  overflow: auto;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(28, 29, 31, 0.98);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32);
+}
+
+.video-extension-mention-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+
+.video-extension-mention-menu button:hover,
+.video-extension-mention-menu button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.video-extension-mention-menu img,
+.video-extension-mention-menu video {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.video-extension-mention-menu button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-extension-empty-choice {
+  padding: 8px;
+  color: var(--fg-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.video-extension-settings-section {
+  position: relative;
+}
+
+.video-extension-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.video-extension-footer-left .video-extension-settings-section {
+  width: min(460px, 42vw);
+  min-width: 320px;
+}
+
+.video-extension-settings-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.video-extension-settings-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-extension-settings-trigger:hover,
+.video-extension-settings-trigger:focus-visible {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.085);
+  outline: none;
+}
+
+.video-extension-settings-popover {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  gap: 12px;
+  width: min(430px, 100%);
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(28, 29, 31, 0.98);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.36);
+}
+
+.video-extension-setting-group {
+  display: grid;
+  gap: 7px;
+}
+
+.video-extension-setting-group > span {
+  color: var(--fg-tertiary);
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  line-height: 16px;
+}
+
+.video-extension-option-row,
+.video-extension-duration-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.video-extension-duration-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.video-extension-option-row button,
+.video-extension-duration-grid button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.video-extension-duration-grid button {
+  padding-inline: 0;
+}
+
+.video-extension-option-row button:hover,
+.video-extension-option-row button:focus-visible,
+.video-extension-duration-grid button:hover,
+.video-extension-duration-grid button:focus-visible {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  outline: none;
+}
+
+.video-extension-option-row button.active,
+.video-extension-duration-grid button.active {
+  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.06));
+  color: color-mix(in srgb, var(--accent) 70%, white);
+  font-weight: var(--fw-bold);
+}
+
+.video-extension-prototype-footer {
+  margin-top: 12px;
+}
+
+.video-extension-prototype-footer .video-enhancement-prototype-status {
+  margin-right: 0;
+}
+
 .subject-replacement-mask-layer {
   position: absolute;
   inset: 0;
