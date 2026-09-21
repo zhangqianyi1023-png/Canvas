@@ -10113,6 +10113,37 @@ const ALIGN_SNAP_THRESHOLD = 5;
     addNode(item.nodeType, position);
   }, [screenToFlowPosition, addNode]);
 
+  const handleEmptyCanvasAction = useCallback((action) => {
+    const rect = canvasContainerRef.current?.getBoundingClientRect();
+    const centerX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+    const centerY = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+    const position = screenToFlowPosition({ x: centerX, y: centerY });
+
+    if (action === 'workflows') {
+      setTemplateRunnerOpen(true);
+      setMaterialDrawerOpen(false);
+      setCharacterDrawerOpen(false);
+      setCopilotOpen(false);
+      setCopilotPickingNode(false);
+      return;
+    }
+
+    if (action === 'first-last-frame') {
+      addNode('generateVideo', position, { video_generation_mode: VIDEO_GENERATION_MODE_FIRST_LAST });
+      return;
+    }
+
+    if (action === 'replace-background') {
+      addNode('generateImage', position, {
+        promptDraft: 'Replace the background while preserving the main subject',
+        user_prompt: 'Replace the background while preserving the main subject',
+      });
+      return;
+    }
+
+    addNode('generateVideo', position);
+  }, [addNode, screenToFlowPosition]);
+
   const uploadImageAssetsForCanvas = useCallback(async (files) => {
     const imageFiles = Array.from(files || []).filter(isSupportedImageFile);
     if (imageFiles.length === 0) return [];
@@ -11190,6 +11221,35 @@ const ALIGN_SNAP_THRESHOLD = 5;
             />
           )}
         </ReactFlow>
+        {nodes.length === 0 && (
+          <div className="canvas-empty-state" aria-label="Empty canvas starter actions">
+            <div className="canvas-empty-state-heading">
+              <span className="canvas-empty-state-hint">
+                <Icon name="cursor" size={20} />
+                <strong>Double-click canvas</strong>
+              </span>
+              <span className="canvas-empty-state-subtitle">Create freely on the canvas</span>
+            </div>
+            <div className="canvas-empty-state-actions">
+              <button type="button" onClick={() => handleEmptyCanvasAction('text-to-video')}>
+                <Icon name="videoGenFill" size={20} />
+                <span>Text to video</span>
+              </button>
+              <button type="button" onClick={() => handleEmptyCanvasAction('replace-background')}>
+                <Icon name="imageGenFill" size={20} />
+                <span>Replace background</span>
+              </button>
+              <button type="button" onClick={() => handleEmptyCanvasAction('first-last-frame')}>
+                <Icon name="imageGenFill" size={20} />
+                <span>First &amp; last frame</span>
+              </button>
+              <button type="button" onClick={() => handleEmptyCanvasAction('workflows')}>
+                <Icon name="apps" size={20} />
+                <span>My workflows</span>
+              </button>
+            </div>
+          </div>
+        )}
         {alignmentGuides && alignmentGuides.guides.length > 0 && (
           <div
             className="alignment-guides-overlay"

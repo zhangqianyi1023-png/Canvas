@@ -2847,6 +2847,114 @@ body {
 }
 
 /* ── 任务中心抽屉 ── */
+.canvas-empty-state {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 8;
+  display: grid;
+  gap: 36px;
+  width: min(100%, 1280px);
+  transform: translate(-50%, -50%);
+  color: var(--fg-primary);
+  pointer-events: none;
+  user-select: none;
+}
+
+.canvas-empty-state-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: var(--fg-secondary);
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.canvas-empty-state-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 17px 27px;
+  border-radius: 17px;
+  background: rgba(31, 33, 40, 0.94);
+  color: var(--fg-primary);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
+}
+
+.canvas-empty-state-hint svg {
+  color: #a7ff1a;
+  transform: rotate(-14deg);
+}
+
+.canvas-empty-state-hint strong {
+  font-weight: 600;
+}
+
+.canvas-empty-state-subtitle {
+  color: var(--fg-tertiary);
+  font-weight: 500;
+}
+
+.canvas-empty-state-actions {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  pointer-events: auto;
+}
+
+.canvas-empty-state-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 0 30px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: rgba(10, 11, 15, 0.5);
+  color: var(--fg-secondary);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.canvas-empty-state-actions button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--fg-primary);
+  transform: translateY(-1px);
+}
+
+.canvas-empty-state-actions button svg {
+  color: var(--fg-tertiary);
+}
+
+.canvas-empty-state-actions button:hover svg {
+  color: var(--accent);
+}
+
+@media (max-width: 1100px) {
+  .canvas-empty-state {
+    gap: 24px;
+  }
+
+  .canvas-empty-state-heading {
+    font-size: 22px;
+  }
+
+  .canvas-empty-state-actions {
+    flex-wrap: wrap;
+  }
+
+  .canvas-empty-state-actions button {
+    min-height: 50px;
+    padding: 0 20px;
+    font-size: 16px;
+  }
+}
+
 .canvas-task-drawer {
   position: absolute;
   right: 22px;
