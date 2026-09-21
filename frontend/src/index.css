@@ -7912,6 +7912,153 @@ body {
   border-top: none;
 }
 
+/* 文本生成器：大面积、低干扰的创作输入面板。 */
+.text-processor-node {
+  width: 620px;
+  min-width: 620px;
+  max-width: 620px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 20px;
+  background: #202020;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.26);
+}
+
+.text-processor-node .node-body {
+  padding: 0;
+}
+
+.text-processor-composer {
+  position: relative;
+  min-height: 286px;
+  margin: 0;
+  padding: 24px 24px 18px;
+}
+
+.text-processor-attach {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  margin-bottom: 8px;
+  border: 0;
+  border-radius: 16px;
+  background: #353535;
+  color: #bdbdc1;
+  cursor: pointer;
+}
+
+.text-processor-attach:hover,
+.text-processor-attach:focus-visible {
+  background: #454545;
+  color: #fff;
+  outline: none;
+}
+
+.text-processor-composer .image-mention-field {
+  position: static;
+}
+
+.text-processor-composer .image-mention-editor {
+  min-height: 172px !important;
+  max-height: 190px;
+  padding: 8px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #f1f1f2;
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+.text-processor-composer .image-mention-editor:focus {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.text-processor-composer .image-mention-editor[data-empty='true']::before {
+  color: #8b8b8f;
+}
+
+.text-processor-node .processor-footer {
+  min-height: 56px;
+  justify-content: flex-end;
+  gap: 14px;
+  padding: 10px 18px 16px 24px;
+  background: #202020;
+}
+
+.text-processor-node .processor-model-group {
+  gap: 6px;
+}
+
+.text-processor-node .processor-model-trigger {
+  max-width: 220px;
+  height: 34px;
+  padding-inline: 0;
+  border: 0;
+  background: transparent;
+  color: #f0f0f1;
+  font-size: 16px;
+}
+
+.text-processor-node .processor-model-trigger:hover,
+.text-processor-node .processor-model-trigger:focus-visible {
+  background: transparent;
+  color: #fff;
+  box-shadow: none;
+}
+
+.text-processor-node .processor-model-group .processor-model-dropdown:nth-child(2) .processor-model-trigger {
+  max-width: 150px;
+  color: #a9a9ae;
+}
+
+.text-processor-voice {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #c2c2c6;
+  cursor: pointer;
+}
+
+.text-processor-voice:hover,
+.text-processor-voice:focus-visible {
+  background: #343434;
+  color: #fff;
+  outline: none;
+}
+
+.text-processor-footer-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.text-processor-multiplier {
+  color: #e1e1e3;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.text-processor-node .processor-run-btn {
+  width: 42px;
+  height: 42px;
+  background: #c5c5c8;
+  color: #242424;
+}
+
+.text-processor-node .processor-run-btn:hover:not(:disabled) {
+  background: #ededee;
+}
+
 .processor-model-label {
   margin-right: auto;
   font-size: var(--fs-xs);

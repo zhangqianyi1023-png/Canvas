@@ -2596,13 +2596,16 @@ function GeneratorNode({ id, data }) {
       {renderErrorMessage()}
       <div className="node-body">
         {renderReferenceMaterialsField()}
-        <div className="node-field">
+        <div className="node-field text-processor-composer">
+          <button type="button" className="text-processor-attach" aria-label="添加参考内容" disabled={isGenerationLocked}>
+            <Icon name="add" size={23} />
+          </button>
           <ImageMentionTextarea
             value={form.user_prompt}
             onChange={nextValue => handleChange('user_prompt', nextValue)}
             referenceImages={referenceImages}
             placeholder="输入文本提示词..."
-            rows={4}
+            rows={8}
             disabled={isGenerationLocked}
           />
         </div>
@@ -2625,6 +2628,11 @@ function GeneratorNode({ id, data }) {
               placeholder="未配置文本模型"
             />
           </div>
+          <button type="button" className="text-processor-voice" aria-label="语音输入" disabled={isGenerationLocked}>
+            <Icon name="mic" size={18} />
+          </button>
+          <span className="text-processor-footer-divider" aria-hidden="true" />
+          <span className="text-processor-multiplier" aria-label="生成倍率">1×</span>
           <button
             className={`processor-run-btn ${isTextGenerationRunning ? 'cancel' : ''}`}
             onClick={handleTextGenerate}
