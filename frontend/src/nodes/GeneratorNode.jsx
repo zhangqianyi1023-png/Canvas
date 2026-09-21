@@ -25,10 +25,6 @@ import {
   getImageRatioSummary,
 } from '../imageRatioPresets';
 import {
-  composeImageGenerationPrompt,
-  resolveImageNegativePrompt,
-} from '../imageNegativePrompt';
-import {
   getTalentPackageCertifiedAssetUrlsByType,
   getTalentPackageReferenceAudioUrls,
   getVideoRoleAssetsFromAvatarAsset,
@@ -630,7 +626,6 @@ function GeneratorNode({ id, data }) {
     user_prompt: data?.user_prompt || data?.promptDraft || '',
     temperature: data?.temperature ?? 0.7,
     image_prompt: data?.image_prompt || (hasConnectedTextReference ? '' : data?.promptDraft || ''),
-    image_negative_prompt: resolveImageNegativePrompt(data?.image_negative_prompt),
     image_model: data?.image_model || '',
     image_size: data?.image_size || '3:4',
     image_size_preset: data?.image_size_preset || getDefaultImageRatioPresetId(data?.image_size || '3:4'),
@@ -1407,14 +1402,10 @@ function GeneratorNode({ id, data }) {
       return;
     }
 
-    const imagePrompt = composeImageGenerationPrompt(
-      buildPromptWithImageMentions(combinedImagePrompt, referenceImages),
-      form.image_negative_prompt,
-    );
+    const imagePrompt = buildPromptWithImageMentions(combinedImagePrompt, referenceImages);
     const generationConfig = {
       ...buildCommonGenerationConfig(),
       image_prompt: form.image_prompt,
-      image_negative_prompt: form.image_negative_prompt,
       image_model: selectedImageModel,
       image_api_id: selectedImageApi?.id || '',
       image_size: resolvedImageSize,
@@ -1446,7 +1437,7 @@ function GeneratorNode({ id, data }) {
       image_urls: referenceImages,
       video_urls: connectedVideos,
     }, generationConfig);
-  }, [buildCommonGenerationConfig, combinedImagePrompt, connectedVideos, data, form.api_key, form.image_count, form.image_negative_prompt, form.image_prompt, form.image_quick_prompt_id, id, isImageGenerationRunning, referenceImages, resetError, resolvedImageBackground, resolvedImageOutputFormat, resolvedImageQuality, resolvedImageResolution, resolvedImageSize, selectedImageApi, selectedImageCapabilities, selectedImageModel, selectedQuickPromptContent, selectedQuickPromptTitle, showError]);
+  }, [buildCommonGenerationConfig, combinedImagePrompt, connectedVideos, data, form.api_key, form.image_count, form.image_prompt, form.image_quick_prompt_id, id, isImageGenerationRunning, referenceImages, resetError, resolvedImageBackground, resolvedImageOutputFormat, resolvedImageQuality, resolvedImageResolution, resolvedImageSize, selectedImageApi, selectedImageCapabilities, selectedImageModel, selectedQuickPromptContent, selectedQuickPromptTitle, showError]);
 
   const handleStoryboardScriptGenerate = useCallback(async () => {
     setStatus('running');
@@ -2414,16 +2405,6 @@ function GeneratorNode({ id, data }) {
               leadingToken={selectedQuickPromptToken}
               onLeadingTokenClick={() => setQuickPromptOpenRequest(value => value + 1)}
               onLeadingTokenRemove={() => handleQuickPromptSelect(null)}
-            />
-          </div>
-          <div className="node-field">
-            <label>负面提示词</label>
-            <textarea
-              value={form.image_negative_prompt}
-              onChange={event => handleChange('image_negative_prompt', event.target.value)}
-              placeholder="输入不希望出现在图片里的内容..."
-              rows={3}
-              disabled={isGenerationLocked}
             />
           </div>
         </div>
