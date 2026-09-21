@@ -1,0 +1,7 @@
+.DS_Store
+**/.dart_tool/
+**/build/
+**/.idea/
+**/*.iml
+packages/*/pubspec.lock
+preview/storyboard_ui_preview/macos/Flutter/ephemeral/

@@ -1,0 +1,60 @@
+{
+  "name": "inux-canvas-desktop",
+  "productName": "InUx Canvas",
+  "version": "1.0.2",
+  "description": "InUx Canvas macOS desktop application",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build:backend": "./scripts/build-backend.sh",
+    "build:mac": "./scripts/build-mac.sh",
+    "dist:mac": "electron-builder --mac dir --arm64 --publish never"
+  },
+  "devDependencies": {
+    "7zip-bin": "5.2.0",
+    "electron": "43.1.1",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.inux.canvas",
+    "productName": "InUx Canvas",
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "main.cjs"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist/inux-canvas-backend",
+        "to": "backend"
+      },
+      {
+        "from": "../dist/inux-canvas-copilot-runtime",
+        "to": "copilot-runtime"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "hardenedRuntime": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "directories": {
+      "buildResources": "build",
+      "output": "../release"
+    },
+    "dmg": {
+      "artifactName": "InUx-Canvas-${version}-${arch}.${ext}",
+      "title": "InUx Canvas ${version}"
+    }
+  }
+}

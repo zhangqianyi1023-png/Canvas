@@ -1,0 +1,16 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - button "返回画布" [ref=e5] [cursor=pointer]
+    - generic [ref=e7]:
+      - button "画布" [ref=e8] [cursor=pointer]
+      - button "素材库" [ref=e11] [cursor=pointer]
+      - button "模板库" [ref=e14] [cursor=pointer]
+      - button "设置" [ref=e17] [cursor=pointer]
+    - generic [ref=e20]:
+      - button "反馈" [ref=e21] [cursor=pointer]: 反馈 反馈
+      - button "切换主题" [ref=e23] [cursor=pointer]: 主题模式：跟随系统
+  - main [ref=e26]:
+    - generic [ref=e27]:
+      - heading "画布" [level=1] [ref=e28]
+      - button "批量操作" [ref=e29] [cursor=pointer]
+    - button "新建画布" [ref=e33] [cursor=pointer]

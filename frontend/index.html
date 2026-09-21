@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/sidebar-logo.png?v=2" />
+    <link rel="apple-touch-icon" href="/sidebar-logo.png?v=2" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InUx Canvas</title>
+    <script>
+      // 防主题闪烁 (FOUC)：产品固定深色模式，React 渲染前先写好主题。
+      (function () {
+        document.documentElement.dataset.theme = 'dark';
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

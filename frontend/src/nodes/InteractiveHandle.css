@@ -1,0 +1,133 @@
+/*
+ * Shared node connection handle.
+ *
+ * The transparent outer strip captures the pointer while the 24px visual
+ * follows it, matching the interaction used by the reference canvas.
+ */
+.node-interactive-handle {
+  --handle-enter-x: 0px;
+  position: absolute;
+  top: 50%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: transparent;
+  cursor: crosshair;
+  z-index: 10;
+  transform: translate(var(--handle-enter-x), -50%) scale(0.76);
+  transform-origin: center;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 120ms ease,
+    transform 160ms ease;
+  will-change: opacity, transform;
+}
+
+.node-interactive-handle.left {
+  --handle-enter-x: 10px;
+}
+
+.node-interactive-handle.right {
+  --handle-enter-x: -10px;
+}
+
+.node-interactive-handle.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(0, -50%) scale(1);
+  transition-duration: 200ms, 320ms;
+  transition-timing-function: ease-out, cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.node-interactive-handle-visual {
+  --handle-pull-x: 0px;
+  --handle-pull-y: 0px;
+  --handle-scale: 1;
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--fg-secondary);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  transform:
+    translate(var(--handle-pull-x), var(--handle-pull-y))
+    scale(var(--handle-scale));
+  pointer-events: none;
+  transition: opacity 200ms ease;
+  will-change: transform;
+}
+
+.node-interactive-handle-visual::before,
+.node-interactive-handle-visual::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: var(--fg-secondary);
+  transform: translate(-50%, -50%);
+}
+
+.node-interactive-handle-visual::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.node-interactive-handle:hover .node-interactive-handle-visual {
+  border-color: var(--accent);
+}
+
+.node-interactive-handle:hover .node-interactive-handle-visual::before,
+.node-interactive-handle:hover .node-interactive-handle-visual::after {
+  background: var(--accent);
+}
+
+.node-interactive-handle.is-dragging .node-interactive-handle-visual {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+  box-shadow:
+    0 0 0 2px var(--bg-elevated),
+    0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.node-interactive-handle.is-dragging .node-interactive-handle-visual::before,
+.node-interactive-handle.is-dragging .node-interactive-handle-visual::after {
+  background: var(--accent);
+}
+
+.canvas-pending-connection path {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter:
+    drop-shadow(0 0 1px var(--bg-elevated))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+
+.canvas-pending-connection {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.node-interactive-handle:active {
+  cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node-interactive-handle,
+  .node-interactive-handle.is-visible {
+    transition-duration: 0.01ms;
+  }
+}

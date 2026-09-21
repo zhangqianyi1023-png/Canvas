@@ -1,0 +1,24 @@
+name: storyboard_ui_v2
+description: Pure Flutter presentation package for the redesigned Hurricane Storyboard workspace.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.11.3
+  flutter: '>=3.41.5'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  storyboard_ui_contract:
+    path: ../storyboard_ui_contract
+  storyboard_ui_foundation:
+    path: ../storyboard_ui_foundation
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
