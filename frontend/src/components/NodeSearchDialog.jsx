@@ -4,25 +4,25 @@ import Icon from './Icon';
 
 const CATEGORIES = [
   { id: 'all', label: 'All', icon: 'search' },
+  { id: 'text', label: 'Text', icon: 'inputMethodFill' },
   { id: 'image', label: 'Image', icon: 'imageGenFill' },
   { id: 'video', label: 'Video', icon: 'videoGenFill' },
-  { id: 'text', label: 'Text', icon: 'inputMethodFill' },
   { id: 'audio', label: 'Audio', icon: 'audioGenFill' },
-  { id: 'world', label: 'World', icon: 'grid' },
+  { id: 'world', label: '3D', icon: 'grid' },
   { id: 'group', label: 'Group', icon: 'apps' },
 ];
 
 const SEARCHABLE_NODES = [
-  { type: 'generateImage', label: 'Image', category: 'image', icon: 'imageGenFill', keywords: ['image', '图片', '生成图片'] },
-  { type: 'generateVideo', label: 'Video', category: 'video', icon: 'videoGenFill', keywords: ['video', '视频', '生成视频'] },
-  { type: 'generateText', label: 'Text', category: 'text', icon: 'inputMethodFill', keywords: ['text', '文本', '文字'] },
-  { type: 'generateAudio', label: 'Audio', category: 'audio', icon: 'audioGenFill', keywords: ['audio', '音频', '声音'] },
-  { type: 'character', label: 'Character', category: 'world', icon: 'user', keywords: ['character', '角色', '人物'] },
-  { type: 'threeD', label: '3D Viewfinder', category: 'world', icon: 'grid', keywords: ['3d', 'world', 'viewfinder', '三维', '世界'] },
-  { type: 'smartSplitter', label: 'Quick Split', category: 'image', icon: 'smartSplitter', keywords: ['quick split', 'split', '拆分器', '智能拆分'] },
-  { type: 'generateStoryboardScript', label: 'Storyboard', category: 'text', icon: 'storyboardWorkbench', keywords: ['storyboard', '分镜', '脚本'] },
-  { type: 'videoEditor', label: 'Video editor', category: 'video', icon: 'movieAi', keywords: ['video editor', '编辑器', '剪辑'] },
-  { type: 'playlist', label: 'Playlist', category: 'group', icon: 'apps', keywords: ['playlist', '播放列表', '片段'] },
+  { type: 'generateImage', label: 'Image', category: 'image', icon: 'imageGenFill', description: 'Setting up scenes, characters, and shots', keywords: ['image', '图片', '生成图片'] },
+  { type: 'generateVideo', label: 'Video', category: 'video', icon: 'videoGenFill', description: 'Create motion from prompts and references', keywords: ['video', '视频', '生成视频'] },
+  { type: 'generateText', label: 'Text', category: 'text', icon: 'inputMethodFill', description: 'Write and structure creative direction', keywords: ['text', '文本', '文字'] },
+  { type: 'generateAudio', label: 'Audio', category: 'audio', icon: 'audioGenFill', description: 'Create sound, voice, and music', keywords: ['audio', '音频', '声音'] },
+  { type: 'character', label: 'Character', category: 'world', icon: 'user', description: 'Build a consistent character reference', keywords: ['character', '角色', '人物'] },
+  { type: 'threeD', label: '3D Viewfinder', category: 'world', icon: 'grid', description: 'Explore space, depth, and camera angles', keywords: ['3d', 'world', 'viewfinder', '三维', '世界'] },
+  { type: 'smartSplitter', label: 'Quick Split', category: 'image', icon: 'smartSplitter', description: 'Break one image into useful directions', keywords: ['quick split', 'split', '拆分器', '智能拆分'] },
+  { type: 'generateStoryboardScript', label: 'Storyboard', category: 'text', icon: 'storyboardWorkbench', description: 'Turn an idea into scenes and shots', keywords: ['storyboard', '分镜', '脚本'] },
+  { type: 'videoEditor', label: 'Video editor', category: 'video', icon: 'movieAi', description: 'Arrange and refine a sequence', keywords: ['video editor', '编辑器', '剪辑'] },
+  { type: 'playlist', label: 'Playlist', category: 'group', icon: 'apps', description: 'Collect clips into a playable sequence', keywords: ['playlist', '播放列表', '片段'] },
 ];
 
 export default function NodeSearchDialog({ open, onClose, onSelectNode }) {
@@ -96,18 +96,18 @@ export default function NodeSearchDialog({ open, onClose, onSelectNode }) {
             </button>
           ))}
         </div>
-        <div className="node-search-results">
+        <div className="node-search-results" role="listbox" aria-label="Search results">
           {results.length > 0 ? results.map(node => (
             <button
               key={node.type}
               type="button"
-              className="node-search-result"
+              className={`node-search-result ${node.type === 'generateImage' && !query.trim() && category === 'all' ? 'featured' : ''}`}
               onClick={() => onSelectNode?.(node.type)}
             >
               <span className="node-search-result-icon"><Icon name={node.icon} size={20} /></span>
               <span className="node-search-result-copy">
                 <strong>{node.label}</strong>
-                <small>{node.category}</small>
+                <small>{node.description}</small>
               </span>
             </button>
           )) : (
