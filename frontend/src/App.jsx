@@ -11481,7 +11481,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         data-tooltip="Copilot"
         aria-label="打开 Copilot"
       >
-        <Icon name="messageAi3" size={20} />
+        <img src="/canvas-agent-mascot.png" alt="" aria-hidden="true" />
       </button>
       <CanvasZoomControls
         scale={viewportTransform ? viewportTransform[2] : 1}
