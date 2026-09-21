@@ -394,6 +394,7 @@
   --motion-purple:      #7137f5;
   --motion-purple-soft: rgba(113, 55, 245, 0.14);
   --motion-purple-halo: rgba(113, 55, 245, 0.24);
+  --motion-purple-gradient: linear-gradient(110deg, #5525c8 0%, #7137f5 48%, #a47cff 100%);
 
   --brand-bg:      #f2f2f2;
   --brand-fg:      #101010;
@@ -2387,7 +2388,7 @@ body {
   z-index: 2;
   padding: 1px;
   border-radius: inherit;
-  background: var(--motion-purple);
+  background: var(--motion-purple-gradient);
   content: '';
   opacity: 0;
   pointer-events: none;
@@ -2488,7 +2489,7 @@ body {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: var(--motion-purple);
+  background: var(--motion-purple-gradient);
   opacity: 0.92;
   pointer-events: none;
   will-change: transform;
@@ -2499,7 +2500,7 @@ body {
 }
 
 .canvas-flow-hover-field.field-b {
-  background: var(--motion-purple);
+  background: var(--motion-purple-gradient);
   opacity: 0.72;
   animation: canvas-flow-field-b 6s linear infinite;
 }
@@ -9736,7 +9737,9 @@ body {
   inset: -5px;
   padding: 2px;
   border-radius: 45px;
-  background: var(--motion-purple);
+  background: var(--motion-purple-gradient);
+  background-size: 180% 100%;
+  animation: motion-purple-flow 2.8s ease-in-out infinite alternate;
   filter: drop-shadow(0 0 4px rgba(113, 55, 245, 0.28));
 }
 
@@ -9755,6 +9758,11 @@ body {
   to {
     opacity: 1;
   }
+}
+
+@keyframes motion-purple-flow {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
 }
 
 .inline-annotation-toolbar button:disabled {
