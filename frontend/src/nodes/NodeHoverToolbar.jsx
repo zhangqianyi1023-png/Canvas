@@ -81,6 +81,7 @@ function NodeHoverToolbar({ actions = [], onDelete, hidden = false, portal = fal
     >
       {items.map(item => {
         const menuOpen = openMenuId === item.id;
+        const active = menuOpen || Boolean(item.active);
         const hasMenu = Array.isArray(item.menuItems) && item.menuItems.length > 0;
         return (
           <div
@@ -89,12 +90,13 @@ function NodeHoverToolbar({ actions = [], onDelete, hidden = false, portal = fal
           >
             <button
               type="button"
-              className={`node-hover-toolbar-btn ${item.tone || ''}${item.compact ? ' is-compact' : ''}${item.separatorBefore ? ' has-separator' : ''}${menuOpen ? ' is-active' : ''}`.trim()}
+              className={`node-hover-toolbar-btn ${item.tone || ''}${item.compact ? ' is-compact' : ''}${item.separatorBefore ? ' has-separator' : ''}${active ? ' is-active' : ''}`.trim()}
               title={item.compact ? undefined : (item.title || item.label)}
               data-tooltip={item.compact ? (item.title || item.label) : undefined}
               aria-label={item.title || item.label}
               aria-haspopup={hasMenu ? 'menu' : undefined}
               aria-expanded={hasMenu ? menuOpen : undefined}
+              aria-pressed={!hasMenu && item.active ? true : undefined}
               disabled={Boolean(item.disabled)}
               onClick={(event) => {
                 if (hasMenu) {

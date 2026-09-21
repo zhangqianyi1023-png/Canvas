@@ -16336,6 +16336,193 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   outline: none;
 }
 
+.node-hover-toolbar-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.node-hover-toolbar-portal.is-video .node-hover-toolbar-btn.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.video-enhancement-prototype-panel {
+  position: fixed;
+  z-index: 10008;
+  max-width: calc(100vw - 24px);
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 14px;
+  background: rgba(28, 29, 31, 0.96);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.38);
+  color: var(--fg-primary);
+  pointer-events: auto;
+  transform: translateX(-50%);
+  backdrop-filter: blur(18px);
+}
+
+.video-enhancement-prototype-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.video-enhancement-prototype-header strong {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  line-height: 20px;
+}
+
+.video-enhancement-prototype-close {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-tertiary);
+  cursor: pointer;
+}
+
+.video-enhancement-prototype-close:hover,
+.video-enhancement-prototype-close:focus-visible {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+  outline: none;
+}
+
+.video-enhancement-prototype-body {
+  display: grid;
+  gap: 10px;
+}
+
+.video-enhancement-prototype-field {
+  display: grid;
+  gap: 7px;
+}
+
+.video-enhancement-prototype-field > span {
+  color: var(--fg-tertiary);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  line-height: 16px;
+}
+
+.video-enhancement-prototype-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.video-enhancement-prototype-options button {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--fg-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: 18px;
+}
+
+.video-enhancement-prototype-options button:hover,
+.video-enhancement-prototype-options button:focus-visible {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--fg-primary);
+  outline: none;
+}
+
+.video-enhancement-prototype-options button.active {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.06));
+  color: color-mix(in srgb, var(--accent) 72%, white);
+  font-weight: var(--fw-bold);
+}
+
+.video-enhancement-prototype-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+  min-width: 0;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 64%, transparent);
+}
+
+.video-enhancement-prototype-status {
+  min-width: 0;
+  margin-right: auto;
+  overflow: hidden;
+  color: var(--fg-tertiary);
+  font-size: var(--fs-xs);
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-enhancement-prototype-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  height: 40px;
+  min-width: 76px;
+  padding: 0 42px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.66);
+  background: rgba(244, 244, 245, 0.9);
+  color: #1a1b1e;
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62);
+}
+
+.video-enhancement-prototype-credit-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: color-mix(in srgb, var(--accent) 74%, #2563eb);
+}
+
+.video-enhancement-prototype-action-pill strong {
+  color: #1a1b1e;
+  font-size: 14px;
+  font-weight: var(--fw-regular);
+  line-height: 20px;
+}
+
+.video-enhancement-prototype-generate {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  margin-left: -37px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #1a1b1e;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.video-enhancement-prototype-generate:hover,
+.video-enhancement-prototype-generate:focus-visible {
+  background: #27272a;
+  outline: none;
+}
+
 .node-hover-toolbar-btn.danger {
   color: var(--error);
 }

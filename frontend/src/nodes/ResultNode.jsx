@@ -53,6 +53,14 @@ const STORYBOARD_FRAME_POINTER_INTENT_THRESHOLD = 8;
 const EXPANDED_IMAGE_CLOSE_MS = 180;
 const IMAGE_TOOLBAR_CLOSE_MS = 180;
 const RESULT_TOOLBAR_CLOSE_MS = 180;
+const VIDEO_ENHANCEMENT_RESOLUTION_OPTIONS = ['1080P', '2K', '4K'];
+const VIDEO_ENHANCEMENT_FPS_OPTIONS = ['自适应（原帧数）', '30fps', '60fps', '90fps'];
+const VIDEO_ENHANCEMENT_SLOW_OPTIONS = ['自适应（原速）', '2x'];
+const DEFAULT_VIDEO_ENHANCEMENT_SETTINGS = {
+  resolution: '1080P',
+  fps: '自适应（原帧数）',
+  slow: '自适应（原速）',
+};
 
 const getViewportSize = () => ({
   width: typeof window !== 'undefined' ? window.innerWidth : 1280,
@@ -833,6 +841,12 @@ function ResultNode({ id, selected, data }) {
   const [isTitleEditing, setIsTitleEditing] = useState(false);
   const [videoTrimRequestId, setVideoTrimRequestId] = useState(0);
   const [isVideoTrimming, setIsVideoTrimming] = useState(false);
+  const [videoEnhancementOpen, setVideoEnhancementOpen] = useState(false);
+  const [videoEnhancementSettings, setVideoEnhancementSettings] = useState(DEFAULT_VIDEO_ENHANCEMENT_SETTINGS);
+  const [videoEnhancementPosition, setVideoEnhancementPosition] = useState(null);
+  const [videoEnhancementStatus, setVideoEnhancementStatus] = useState('');
+  const videoEnhancementPanelRef = useRef(null);
+  const videoEnhancementStatusTimerRef = useRef(null);
   const isTextFormatEditing = isTextEditing || isTextExpandedEditing;
   const shouldShowTextFormatToolbar = isTextResult
     && !isMultiSelected
@@ -882,10 +896,85 @@ function ResultNode({ id, selected, data }) {
   const imageContextMenuRef = useRef(null);
   const [expandedNodeSize, setExpandedNodeSize] = useState({ width: 0, height: 0 });
   const [expandedViewportSize, setExpandedViewportSize] = useState(getViewportSize);
+  const videoEnhancementCredits = useMemo(() => {
+    let credits = 12;
+    if (videoEnhancementSettings.resolution === '2K') credits += 8;
+    if (videoEnhancementSettings.resolution === '4K') credits += 18;
+    if (videoEnhancementSettings.fps === '60fps') credits += 6;
+    if (videoEnhancementSettings.fps === '90fps') credits += 12;
+    if (videoEnhancementSettings.slow === '2x') credits += 8;
+    return credits;
+  }, [videoEnhancementSettings]);
 
   useCanvasWheelHandoff(resultNodeRef, {
     enabled: isTextResult,
   });
+
+  useLayoutEffect(() => {
+    if (!videoEnhancementOpen || !isVideoResult) {
+      return undefined;
+    }
+
+    let frameId = 0;
+    const updatePosition = () => {
+      const anchor = resultNodeRef.current?.querySelector?.('.result-video-wrap')
+        || resultNodeRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const panelWidth = Math.min(380, Math.max(300, rect.width + 28));
+      const left = Math.max(12 + panelWidth / 2, Math.min(window.innerWidth - 12 - panelWidth / 2, rect.left + rect.width / 2));
+      const top = Math.min(window.innerHeight - 16, rect.bottom + 10);
+      const nextPosition = {
+        left: Math.round(left * 10) / 10,
+        top: Math.round(top * 10) / 10,
+        width: Math.round(panelWidth),
+      };
+      setVideoEnhancementPosition(current => (
+        current
+        && current.left === nextPosition.left
+        && current.top === nextPosition.top
+        && current.width === nextPosition.width
+          ? current
+          : nextPosition
+      ));
+      frameId = window.requestAnimationFrame(updatePosition);
+    };
+
+    updatePosition();
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isVideoResult, videoEnhancementOpen]);
+
+  useEffect(() => {
+    if (!videoEnhancementOpen) return undefined;
+
+    const closeOnOutsidePointer = event => {
+      const target = event.target;
+      if (videoEnhancementPanelRef.current?.contains(target)) return;
+      if (target?.closest?.('.node-hover-toolbar-portal, .node-hover-toolbar-anchor')) return;
+      if (resultNodeRef.current?.contains(target)) return;
+      setVideoEnhancementOpen(false);
+    };
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') setVideoEnhancementOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer, true);
+    document.addEventListener('keydown', closeOnEscape, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer, true);
+      document.removeEventListener('keydown', closeOnEscape, true);
+    };
+  }, [videoEnhancementOpen]);
+
+  useEffect(() => {
+    if (selected && isVideoResult) return undefined;
+    const timer = window.setTimeout(() => setVideoEnhancementOpen(false), 0);
+    return () => window.clearTimeout(timer);
+  }, [isVideoResult, selected]);
+
+  useEffect(() => () => {
+    window.clearTimeout(videoEnhancementStatusTimerRef.current);
+  }, []);
 
   const expandedAspect = useMemo(() => parseImageAspect(imageSize), [imageSize]);
   const expandedAspectRatio = expandedAspect?.cssValue || '1 / 1';
@@ -1630,6 +1719,34 @@ function ResultNode({ id, selected, data }) {
       || video?.webkitEnterFullscreen;
     requestFullscreen?.call(video);
   }, []);
+
+  const updateVideoEnhancementSetting = useCallback((key, value) => {
+    setVideoEnhancementSettings(current => ({ ...current, [key]: value }));
+  }, []);
+
+  const runVideoEnhancementPrototype = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (!isVideoResult || !videoUrl) return;
+
+    // Prototype only: this creates a connected downstream video node for flow
+    // feedback, but it never calls the backend, starts a task, or spends credits.
+    const result = data?.onCreateVideoEnhancementPrototype?.(id, {
+      ...videoEnhancementSettings,
+      credits: videoEnhancementCredits,
+      videoUrl,
+    });
+    if (result?.ok) {
+      setVideoEnhancementOpen(false);
+      return;
+    }
+
+    setVideoEnhancementStatus('仅原型展示，暂未接入真实增强');
+    window.clearTimeout(videoEnhancementStatusTimerRef.current);
+    videoEnhancementStatusTimerRef.current = window.setTimeout(() => {
+      setVideoEnhancementStatus('');
+    }, 1800);
+  }, [data, id, isVideoResult, videoEnhancementCredits, videoEnhancementSettings, videoUrl]);
 
   const toggleCard = useCallback((index) => {
     setExpandedCardIndex(prev => prev === index ? null : index);
@@ -2390,6 +2507,17 @@ function ResultNode({ id, selected, data }) {
               onClick: () => setVideoTrimRequestId(current => current + 1),
             },
             {
+              id: 'enhance-video',
+              label: '增强',
+              title: '视频增强',
+              icon: 'aed',
+              active: videoEnhancementOpen,
+              onClick: (event) => {
+                event.stopPropagation();
+                setVideoEnhancementOpen(current => !current);
+              },
+            },
+            {
               id: 'capture-video-frame',
               label: '截取画面帧',
               title: '截取画面帧',
@@ -2456,6 +2584,78 @@ function ResultNode({ id, selected, data }) {
         ]}
         onDelete={!isVideoResult ? () => data?.onDeleteNode?.(id) : undefined}
       />
+      {isVideoResult && videoEnhancementOpen && videoEnhancementPosition && typeof document !== 'undefined' && createPortal(
+        <section
+          ref={videoEnhancementPanelRef}
+          className="video-enhancement-prototype-panel nodrag nopan"
+          style={{
+            left: videoEnhancementPosition.left,
+            top: videoEnhancementPosition.top,
+            width: videoEnhancementPosition.width,
+          }}
+          role="dialog"
+          aria-label="视频增强"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <header className="video-enhancement-prototype-header">
+            <strong>视频增强</strong>
+            <button
+              type="button"
+              className="video-enhancement-prototype-close"
+              onClick={() => setVideoEnhancementOpen(false)}
+              aria-label="关闭视频增强"
+              title="关闭"
+            >
+              <Icon name="x" size={16} />
+            </button>
+          </header>
+          <div className="video-enhancement-prototype-body">
+            {[
+              { key: 'resolution', label: '视频高清分辨率', options: VIDEO_ENHANCEMENT_RESOLUTION_OPTIONS },
+              { key: 'fps', label: '视频帧数（可选）', options: VIDEO_ENHANCEMENT_FPS_OPTIONS },
+              { key: 'slow', label: '视频放慢倍率（可选）', options: VIDEO_ENHANCEMENT_SLOW_OPTIONS },
+            ].map(group => (
+              <div className="video-enhancement-prototype-field" key={group.key}>
+                <span>{group.label}</span>
+                <div className="video-enhancement-prototype-options" role="radiogroup" aria-label={group.label}>
+                  {group.options.map(option => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={videoEnhancementSettings[group.key] === option ? 'active' : ''}
+                      role="radio"
+                      aria-checked={videoEnhancementSettings[group.key] === option}
+                      onClick={() => updateVideoEnhancementSetting(group.key, option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <footer className="video-enhancement-prototype-footer">
+            <span className="video-enhancement-prototype-status" role="status">{videoEnhancementStatus}</span>
+            <div className="video-enhancement-prototype-action-pill" aria-label={`需要消耗 ${videoEnhancementCredits} 积分`}>
+              <span className="video-enhancement-prototype-credit-icon" aria-hidden="true">
+                <Icon name="aed" size={18} />
+              </span>
+              <strong>{videoEnhancementCredits}</strong>
+            </div>
+            <button
+              type="button"
+              className="video-enhancement-prototype-generate"
+              onClick={runVideoEnhancementPrototype}
+              aria-label="生成视频增强原型"
+              title="生成"
+            >
+              <Icon name="arrowUp" size={20} />
+            </button>
+          </footer>
+        </section>,
+        document.body,
+      )}
       {/* 多图展开时：单图 handle 仍然可用，但用户也可以从每张图右侧的小 dot 拖出（指向特定图） */}
       {isImageResult && isMultiImage && allImageUrls.map((url, index) => (
         <Handle
