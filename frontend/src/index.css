@@ -4076,16 +4076,16 @@ body {
 
 .canvas-material-drawer {
   position: absolute;
-  left: 86px;
-  top: 72px;
-  bottom: 72px;
+  left: 20px;
+  top: 20px;
+  bottom: 20px;
   z-index: 45;
   display: grid;
-  width: clamp(360px, 31vw, 520px);
+  width: clamp(440px, 40vw, 700px);
   border: 1px solid var(--glass-border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--glass-bg) 94%, transparent);
-  box-shadow: 0 22px 60px rgba(25, 32, 56, 0.18);
+  border-radius: 22px;
+  background: #1b1b1f;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   backdrop-filter: blur(16px);
 }
@@ -4103,29 +4103,29 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--accent-soft);
+  padding: 22px 22px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .canvas-material-drawer-header h2 {
   margin: 0;
   color: var(--fg-primary);
-  font-size: var(--fs-md);
+  font-size: 24px;
   font-weight: var(--fw-bold);
 }
 
 .canvas-material-drawer-header span {
   display: block;
-  margin-top: 3px;
-  color: var(--fg-tertiary);
+  margin-top: 4px;
+  color: #8f8f98;
   font-size: var(--fs-xs);
 }
 
 .canvas-material-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  padding: 10px 14px 0;
+  gap: 8px;
+  padding: 12px 22px 0;
 }
 
 .canvas-template-thumbnail.official img {
@@ -4135,15 +4135,15 @@ body {
 }
 
 .canvas-material-tabs button {
-  height: 32px;
-  padding: 0 6px;
+  height: 44px;
+  padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 13px;
   background: transparent;
   color: var(--fg-tertiary);
   cursor: pointer;
   font-family: inherit;
-  font-size: var(--fs-xs);
+  font-size: 15px;
   font-weight: var(--fw-bold);
 }
 
@@ -4153,25 +4153,25 @@ body {
 }
 
 .canvas-material-tabs button.active {
-  border-color: var(--accent-soft);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-color: transparent;
+  background: #343438;
+  color: var(--fg-primary);
 }
 
 .canvas-material-search {
-  padding: 12px 14px 8px;
+  padding: 16px 22px 10px;
 }
 
 .canvas-material-search input {
   width: 100%;
-  height: 34px;
-  padding: 0 12px;
-  border: 1px solid var(--accent-soft);
-  border-radius: 9px;
-  background: var(--bg-elevated);
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 15px;
+  background: #222226;
   color: var(--fg-primary);
   font-family: inherit;
-  font-size: var(--fs-sm);
+  font-size: 16px;
   outline: none;
 }
 
@@ -4181,9 +4181,9 @@ body {
 
 .canvas-material-groups {
   display: flex;
-  gap: 7px;
+  gap: 8px;
   max-width: 100%;
-  padding: 0 14px 12px;
+  padding: 0 22px 14px;
   overflow-x: auto;
 }
 
@@ -4192,11 +4192,11 @@ body {
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--accent-soft);
-  border-radius: 999px;
-  background: var(--bg-elevated);
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
   color: var(--fg-secondary);
   cursor: pointer;
   font-family: inherit;
@@ -4205,9 +4205,9 @@ body {
 
 .canvas-material-group:hover,
 .canvas-material-group.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-color: transparent;
+  background: #343438;
+  color: var(--fg-primary);
 }
 
 .canvas-material-group strong {
@@ -4217,24 +4217,28 @@ body {
 }
 
 .canvas-material-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 14px;
   min-height: 0;
-  padding: 2px 14px 14px;
+  padding: 10px 22px 22px;
   overflow-y: auto;
 }
 
 .canvas-material-card {
   display: grid;
-  grid-template-columns: 86px minmax(0, 1fr);
-  gap: 10px;
-  padding: 9px;
-  border: 1px solid var(--accent-soft);
-  border-radius: 10px;
-  background: var(--bg-elevated);
+  grid-template-rows: 150px auto;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: #242428;
   cursor: grab;
 }
 
 .canvas-material-card + .canvas-material-card {
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .canvas-material-card:hover {
@@ -4356,12 +4360,12 @@ body {
   position: relative;
   display: grid;
   place-items: center;
-  width: 86px;
-  height: 86px;
+  width: 100%;
+  height: 150px;
   overflow: hidden;
   border: 0;
-  border-radius: 8px;
-  background: var(--bg-surface);
+  border-radius: 0;
+  background: #151519;
   color: var(--fg-tertiary);
   cursor: pointer;
 }
@@ -4392,6 +4396,9 @@ body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   align-content: start;
+  min-height: 80px;
+  padding: 12px 14px 13px;
+  background: #29292d;
 }
 
 .canvas-material-title {
@@ -4402,7 +4409,7 @@ body {
   color: var(--fg-primary);
   cursor: pointer;
   font-family: inherit;
-  font-size: var(--fs-sm);
+  font-size: 16px;
   font-weight: var(--fw-bold);
   overflow: hidden;
   text-align: left;
@@ -4412,10 +4419,10 @@ body {
 
 .canvas-material-card-info p {
   display: -webkit-box;
-  margin: 5px 0 8px;
+  margin: 5px 0 0;
   overflow: hidden;
   color: var(--fg-tertiary);
-  font-size: var(--fs-xs);
+  font-size: 12px;
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;

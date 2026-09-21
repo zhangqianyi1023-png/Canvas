@@ -158,9 +158,9 @@ export default function CanvasBottomToolbar({
           <Icon name="add" size={22} />
         </button>
         <RailButton id="tool-node-search" icon="search" hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleOpenNodeSearch} />
+        <RailButton id="tool-materials" icon="folder" active={materialOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleMaterials} />
         <RailButton id="tool-apps" icon="aed" active={appsOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleApps} />
         <RailButton id="tool-characters" icon="user" active={characterOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleCharacters} />
-        <RailButton id="tool-materials" icon="certificate" active={materialOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleMaterials} />
         <Divider />
         <RailButton id="tool-feedback" text="反馈" hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleOpenFeedback} />
       </div>
