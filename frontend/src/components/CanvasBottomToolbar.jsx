@@ -4,6 +4,7 @@ import Icon from './Icon';
 function tooltipLabel(id) {
   const map = {
     'tool-add': '添加',
+    'tool-node-search': 'Node search',
     'tool-upload-file': '上传文件',
     'tool-character': '角色',
     'tool-text-gen': '文本',
@@ -50,6 +51,7 @@ export default function CanvasBottomToolbar({
   onToggleCharacters,
   onToggleApps,
   onOpenFeedback,
+  onOpenNodeSearch,
 }) {
   const wrapRef = useRef(null);
   const closeTimerRef = useRef(null);
@@ -122,6 +124,12 @@ export default function CanvasBottomToolbar({
     onOpenFeedback?.();
   }, [onOpenFeedback]);
 
+  const handleOpenNodeSearch = useCallback((event) => {
+    event.stopPropagation();
+    setOpen(false);
+    onOpenNodeSearch?.();
+  }, [onOpenNodeSearch]);
+
   return (
     <div
       ref={wrapRef}
@@ -149,6 +157,7 @@ export default function CanvasBottomToolbar({
         >
           <Icon name="add" size={22} />
         </button>
+        <RailButton id="tool-node-search" icon="search" hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleOpenNodeSearch} />
         <RailButton id="tool-apps" icon="aed" active={appsOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleApps} />
         <RailButton id="tool-characters" icon="user" active={characterOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleCharacters} />
         <RailButton id="tool-materials" icon="certificate" active={materialOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleMaterials} />

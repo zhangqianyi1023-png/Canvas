@@ -17,6 +17,7 @@ import StoryboardImageGenerator from './components/StoryboardImageGenerator';
 import CanvasMaterialDrawer from './components/CanvasMaterialDrawer';
 import TaskCenterDrawer from './components/TaskCenterDrawer';
 import CanvasBottomToolbar from './components/CanvasBottomToolbar';
+import NodeSearchDialog from './components/NodeSearchDialog';
 import CanvasHoverGlow from './components/CanvasHoverGlow';
 import CanvasFlowHoverBorder from './components/CanvasFlowHoverBorder';
 import CanvasDotGrid from './components/CanvasDotGrid';
@@ -1697,6 +1698,7 @@ export function CanvasFlow({
   const [materialDrawerOpen, setMaterialDrawerOpen] = useState(false);
   const [characterDrawerOpen, setCharacterDrawerOpen] = useState(false);
   const [taskCenterOpen, setTaskCenterOpen] = useState(false);
+  const [nodeSearchOpen, setNodeSearchOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotPickingNode, setCopilotPickingNode] = useState(false);
   const [templateRunnerOpen, setTemplateRunnerOpen] = useState(false);
@@ -10187,6 +10189,16 @@ const ALIGN_SNAP_THRESHOLD = 5;
     addNode(item.nodeType, position);
   }, [screenToFlowPosition, addNode]);
 
+  const handleNodeSearchSelect = useCallback((type) => {
+    const rect = canvasContainerRef.current?.getBoundingClientRect();
+    const position = screenToFlowPosition({
+      x: (rect?.left || 0) + (rect?.width || window.innerWidth) / 2,
+      y: (rect?.top || 0) + (rect?.height || window.innerHeight) / 2,
+    });
+    setNodeSearchOpen(false);
+    addNode(type, position, {}, { selected: false, activate: false });
+  }, [addNode, screenToFlowPosition]);
+
   const handleEmptyCanvasAction = useCallback((action) => {
     const rect = canvasContainerRef.current?.getBoundingClientRect();
     const centerX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
@@ -11506,12 +11518,28 @@ const ALIGN_SNAP_THRESHOLD = 5;
         onFocusNodeTarget={focusCopilotTargetNode}
       />
 
+      <NodeSearchDialog
+        open={nodeSearchOpen}
+        onClose={() => setNodeSearchOpen(false)}
+        onSelectNode={handleNodeSearchSelect}
+      />
+
       <CanvasBottomToolbar
         materialOpen={materialDrawerOpen}
         characterOpen={characterDrawerOpen}
         appsOpen={templateRunnerOpen}
         onUploadFiles={openPaneUploadAtCanvasCenter}
         onOpenFeedback={openFeedbackForm}
+        onOpenNodeSearch={() => {
+          setNodeSearchOpen(true);
+          setMenu(null);
+          setMaterialDrawerOpen(false);
+          setCharacterDrawerOpen(false);
+          setTaskCenterOpen(false);
+          setTemplateRunnerOpen(false);
+          setCopilotOpen(false);
+          setCopilotPickingNode(false);
+        }}
         onToggleMaterials={() => {
           setMaterialDrawerOpen(open => !open);
           setCharacterDrawerOpen(false);
