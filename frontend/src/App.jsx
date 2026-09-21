@@ -11312,21 +11312,6 @@ const ALIGN_SNAP_THRESHOLD = 5;
         />
       </div>
 
-      <div className="canvas-top-actions" onClick={(event) => event.stopPropagation()}>
-        <button
-          type="button"
-          className={`canvas-material-toggle ${taskCenterOpen ? 'active' : ''}`}
-          onClick={() => {
-            setTaskCenterOpen(open => !open);
-            setMaterialDrawerOpen(false);
-            setTemplateRunnerOpen(false);
-          }}
-        >
-          <Icon name="barChartBoxAi" size={17} />
-          <span>任务中心</span>
-        </button>
-      </div>
-
       <CanvasMaterialDrawer
         open={materialDrawerOpen}
         mode="materials"
