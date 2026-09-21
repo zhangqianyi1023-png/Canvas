@@ -2935,6 +2935,11 @@ body {
   color: var(--accent);
 }
 
+.canvas-flow-shell.copilot-open .canvas-empty-state {
+  left: calc((100% - min(430px, calc(100% - 44px)) - 22px) / 2);
+  width: min(1040px, calc(100% - min(430px, calc(100% - 44px)) - 44px));
+}
+
 @media (max-width: 1100px) {
   .canvas-empty-state {
     gap: 18px;

@@ -11156,7 +11156,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
     <>
       <div
         ref={canvasContainerRef}
-        className={`canvas-flow-shell${isSpacePanning ? ' space-panning' : ''}${copilotPickingNode ? ' copilot-picking-node' : ''}`}
+        className={`canvas-flow-shell${isSpacePanning ? ' space-panning' : ''}${copilotPickingNode ? ' copilot-picking-node' : ''}${copilotOpen ? ' copilot-open' : ''}`}
         onPointerDownCapture={handleCanvasPointerDownCapture}
         onClickCapture={handleCanvasClickCapture}
       >
