@@ -54,6 +54,15 @@ const getMaterialMeta = material => {
   return `${size} · ${mime}`;
 };
 
+const DEFAULT_LIBRARY_FOLDERS = [
+  { id: 'character', name: 'Character' },
+  { id: 'scene', name: 'Scene' },
+  { id: 'item', name: 'Item' },
+  { id: 'style', name: 'Style' },
+  { id: 'sound-effect', name: 'Sound Effect' },
+  { id: 'others', name: 'Others' },
+];
+
 export default function CanvasMaterialDrawer({
   open,
   mode = 'materials',
@@ -155,6 +164,8 @@ export default function CanvasMaterialDrawer({
       ? '角色'
       : '素材';
   const visibleMaterials = activeTab === 'characters' ? filteredCharacterMaterials : filteredMaterials;
+  const libraryFolders = materialGroups.length > 0 ? materialGroups : DEFAULT_LIBRARY_FOLDERS;
+  const showLibraryHome = !isCharacterMode && activeGroupId === 'all' && !searchQueries.images.trim();
 
   return (
     <>
@@ -163,17 +174,22 @@ export default function CanvasMaterialDrawer({
         onPointerDown={event => event.stopPropagation()}
       >
         <div className="canvas-material-drawer-header">
-          <div>
-            <h2>{isCharacterMode ? '角色' : '素材库'}</h2>
-            <span>{currentCount} 个{currentCountLabel}</span>
+          <div className="canvas-material-drawer-title">
+            {!isCharacterMode && <button type="button" className="canvas-material-back" aria-label="返回素材库首页" onClick={() => setActiveGroupId('all')}><Icon name="arrowLeft" size={22} /></button>}
+            <h2>{isCharacterMode ? '角色' : 'Library'}</h2>
+            {!isCharacterMode && <button type="button" className="canvas-material-mode"><Icon name="user" size={18} /> AI Character <Icon name="chevronDown" size={16} /></button>}
           </div>
           <div className="canvas-material-drawer-actions">
+            <button type="button" className="canvas-material-add-button" aria-label="添加资产"><Icon name="add" size={22} /></button>
+            <div className="canvas-material-drawer-actions-secondary">
+            <span>{currentCount} 个{currentCountLabel}</span>
             <button type="button" className="icon-button" onClick={() => window.dispatchEvent(new Event('focus'))} aria-label="刷新素材库">
               <Icon name="refresh" size={20} />
             </button>
             <button type="button" className="icon-button" onClick={onClose} aria-label={`关闭${isCharacterMode ? '角色' : '素材库'}`}>
               <Icon name="x" size={20} />
             </button>
+            </div>
           </div>
         </div>
 
@@ -205,7 +221,27 @@ export default function CanvasMaterialDrawer({
           />
         </div>
 
-        {activeTab === 'images' && !isCharacterMode && (
+        {showLibraryHome && (
+          <div className="canvas-material-library-home">
+            <div className="canvas-material-quick-links">
+              <button type="button" className="canvas-material-quick-link"><Icon name="star" size={23} /><span>Favorite</span></button>
+              <button type="button" className="canvas-material-quick-link"><Icon name="user" size={23} /><span>Elements</span><span className="canvas-material-info-dot">?</span></button>
+            </div>
+            <div className="canvas-material-library-divider" />
+            <span className="canvas-material-folder-label">Folder</span>
+            <div className="canvas-material-folder-list">
+              {libraryFolders.map(folder => (
+                <button key={folder.id} type="button" className="canvas-material-folder" onClick={() => setActiveGroupId(folder.id)}>
+                  <Icon name="chevronRight" size={20} />
+                  <Icon name="folder" size={31} />
+                  <span>{folder.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!showLibraryHome && activeTab === 'images' && !isCharacterMode && (
           <div className="canvas-material-groups">
             <button
               type="button"

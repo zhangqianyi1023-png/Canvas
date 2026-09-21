@@ -4107,6 +4107,73 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.canvas-material-drawer-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 14px;
+}
+
+.canvas-material-back,
+.canvas-material-mode,
+.canvas-material-add-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.canvas-material-back {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 9px;
+  background: transparent;
+  color: #a5a5ad;
+}
+
+.canvas-material-back:hover,
+.canvas-material-back:focus-visible {
+  background: #2d2d32;
+  color: #fff;
+  outline: none;
+}
+
+.canvas-material-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  margin-left: auto;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: #343438;
+  color: #e7e7eb;
+  font-size: 15px;
+}
+
+.canvas-material-add-button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  background: #343438;
+  color: #f1f1f3;
+}
+
+.canvas-material-add-button:hover,
+.canvas-material-add-button:focus-visible {
+  background: #4b4b51;
+  outline: none;
+}
+
+.canvas-material-drawer-actions-secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .canvas-material-drawer-header h2 {
   margin: 0;
   color: var(--fg-primary);
@@ -4196,6 +4263,106 @@ body {
 
 .canvas-material-search input:focus {
   border-color: var(--accent);
+}
+
+.canvas-material-library-home {
+  padding: 8px 22px 22px;
+  overflow-y: auto;
+}
+
+.canvas-material-quick-links {
+  display: grid;
+  gap: 4px;
+  padding: 4px 0 12px;
+}
+
+.canvas-material-quick-link {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 16px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #c8c8ce;
+  cursor: pointer;
+  font: inherit;
+  font-size: 18px;
+  text-align: left;
+}
+
+.canvas-material-quick-link:hover,
+.canvas-material-quick-link:focus-visible {
+  background: #28282d;
+  color: #fff;
+  outline: none;
+}
+
+.canvas-material-quick-link .svg-icon {
+  color: #bebec6;
+}
+
+.canvas-material-info-dot {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  place-items: center;
+  border: 1px solid #777780;
+  border-radius: 50%;
+  color: #9b9ba4;
+  font-size: 13px;
+}
+
+.canvas-material-library-divider {
+  height: 1px;
+  margin: 8px 0 28px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.canvas-material-folder-label {
+  display: block;
+  margin: 0 8px 14px;
+  color: #8d8d96;
+  font-size: 16px;
+}
+
+.canvas-material-folder-list {
+  display: grid;
+  gap: 4px;
+}
+
+.canvas-material-folder {
+  display: grid;
+  grid-template-columns: 22px 38px minmax(0, 1fr);
+  min-height: 54px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: #c3c3ca;
+  cursor: pointer;
+  font: inherit;
+  font-size: 18px;
+  text-align: left;
+}
+
+.canvas-material-folder:hover,
+.canvas-material-folder:focus-visible {
+  background: #28282d;
+  color: #fff;
+  outline: none;
+}
+
+.canvas-material-folder > .svg-icon:first-child {
+  color: #878790;
+}
+
+.canvas-material-folder > .svg-icon:nth-child(2) {
+  color: #b8b8bd;
 }
 
 .canvas-material-groups {
