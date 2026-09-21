@@ -387,8 +387,8 @@
   --border-strong:  rgba(255, 255, 255, 0.18);
   --edge-stroke:    rgba(255, 255, 255, 0.22);
 
-  --accent:        #2a82ff;
-  --accent-soft:   rgba(42, 130, 255, 0.14);
+  --accent:        #7137f5;
+  --accent-soft:   rgba(113, 55, 245, 0.14);
 
   /* 全局交互动效：统一为细线、纯紫，不再混用青色和彩虹流光。 */
   --motion-purple:      #7137f5;
@@ -426,8 +426,8 @@
   --node-hover-border: rgba(255, 255, 255, 0.16);
   --node-hover-outline: rgba(255, 255, 255, 0.04);
   --node-hover-shadow: 0 16px 34px rgba(0, 0, 0, 0.26);
-  --node-selected-shadow: 0 0 0 1px rgba(42, 130, 255, 0.34), 0 18px 38px rgba(0, 0, 0, 0.30);
-  --node-running-shadow: 0 0 0 1px rgba(42, 130, 255, 0.32), 0 18px 38px rgba(0, 0, 0, 0.30);
+  --node-selected-shadow: 0 0 0 1px rgba(113, 55, 245, 0.34), 0 18px 38px rgba(0, 0, 0, 0.30);
+  --node-running-shadow: 0 0 0 1px rgba(113, 55, 245, 0.32), 0 18px 38px rgba(0, 0, 0, 0.30);
   --group-border: rgba(255, 255, 255, 0.08);
   --group-border-active: rgba(255, 255, 255, 0.18);
   --group-outline: rgba(255, 255, 255, 0.045);
@@ -9431,7 +9431,7 @@ body {
 }
 
 .result-image-portal-toolbar button.active {
-  color: #5aa9ff;
+  color: var(--accent);
 }
 
 .result-image-portal-toolbar button.active .image-action-toolbar-icon > img {
@@ -9465,10 +9465,10 @@ body {
 .image-rotation-frame {
   position: fixed;
   box-sizing: border-box;
-  border: 2px solid #11bdf2;
+  border: 2px solid var(--accent);
   border-radius: 2px;
   box-shadow:
-    0 0 0 1px rgba(17, 189, 242, 0.22),
+    0 0 0 1px var(--accent-soft),
     0 18px 44px rgba(0, 0, 0, 0.18);
   transform-origin: center;
   pointer-events: none;
@@ -9490,9 +9490,9 @@ body {
   width: 12px;
   height: 12px;
   padding: 0;
-  border: 1.5px solid #e8fbff;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 70%, white);
   border-radius: 2px;
-  background: #38d7ff;
+  background: var(--accent);
   box-shadow: 0 0 0 1px rgba(5, 10, 18, 0.72);
   cursor: grab;
   pointer-events: auto;
@@ -9541,10 +9541,10 @@ body {
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1.5px solid #dffaff;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 70%, white);
   border-radius: 50%;
   background: rgba(9, 13, 20, 0.9);
-  color: #dffaff;
+  color: color-mix(in srgb, var(--accent) 70%, white);
   box-shadow:
     0 0 0 3px rgba(13, 21, 32, 0.72),
     0 10px 22px rgba(0, 0, 0, 0.28);
@@ -13331,7 +13331,7 @@ body {
 }
 .canvas-image-prototype-preview img { display: block; width: 100%; max-height: 190px; object-fit: contain; }
 .canvas-image-prototype-empty { color: #697688; font-size: 12px; }
-.canvas-image-prototype-frame { position: absolute; inset: 12% 8%; border: 1px dashed #62b7ff; border-radius: 5px; pointer-events: none; }
+.canvas-image-prototype-frame { position: absolute; inset: 12% 8%; border: 1px dashed var(--accent); border-radius: 5px; pointer-events: none; }
 .canvas-image-prototype-mask { position: absolute; inset: 0; background: repeating-linear-gradient(135deg, rgba(255, 106, 126, 0.16) 0 8px, transparent 8px 16px); pointer-events: none; }
 .canvas-image-prototype-mask span { position: absolute; left: 42%; top: 36%; border-radius: 50%; background: rgba(255, 106, 126, 0.48); box-shadow: 0 0 0 2px rgba(255,255,255,.6); }
 .canvas-image-prototype-cutout-label { position: absolute; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 6px; background: rgba(16, 19, 24, .86); color: #9de6bb; font-size: 10px; }
@@ -13344,30 +13344,30 @@ body {
 .canvas-image-prototype-controls { justify-content: flex-start; min-height: 26px; color: #aab4c2; font-size: 11px; }
 .canvas-image-prototype-controls label { display: flex; align-items: center; gap: 6px; }
 .canvas-image-prototype-controls select { min-width: 92px; padding: 4px 6px; border: 1px solid rgba(163, 178, 197, .25); border-radius: 6px; background: #171b21; color: #e8edf4; font-size: 11px; }
-.canvas-image-prototype-controls input[type='range'] { width: 100px; accent-color: #62b7ff; }
+.canvas-image-prototype-controls input[type='range'] { width: 100px; accent-color: var(--accent); }
 .canvas-image-prototype-chip { padding: 5px 7px; border-radius: 6px; background: rgba(91, 224, 157, .12); color: #9de6bb; }
 .canvas-image-prototype-actions { justify-content: flex-end; margin-top: 12px; }
 .canvas-image-prototype-actions button { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border-radius: 7px; font-size: 11px; cursor: pointer; }
 .canvas-image-prototype-secondary { border: 1px solid rgba(163,178,197,.22); background: transparent; color: #aab4c2; }
-.canvas-image-prototype-primary { border: 1px solid rgba(98,183,255,.48); background: #1d78b8; color: #fff; }
+.canvas-image-prototype-primary { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
 .canvas-image-prototype-actions button:disabled { opacity: .55; cursor: default; }
 
 .playlist-node, .three-d-node { width: 100%; min-width: 320px; overflow: hidden; border: 1px solid rgba(163,178,197,.22); border-radius: 14px; background: #171b21; color: #e8edf4; }
 .playlist-node .node-header, .three-d-node .node-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(163,178,197,.14); }
-.playlist-node-badge, .three-d-node-badge { padding: 3px 6px; border-radius: 5px; background: rgba(98,183,255,.12); color: #8ed0ff; font-size: 10px; }
+.playlist-node-badge, .three-d-node-badge { padding: 3px 6px; border-radius: 5px; background: var(--accent-soft); color: color-mix(in srgb, var(--accent) 54%, white); font-size: 10px; }
 .playlist-node-body { display: flex; flex-direction: column; gap: 6px; min-height: 92px; padding: 10px; }
 .playlist-node-empty { display: grid; place-items: center; gap: 6px; min-height: 86px; color: #718094; font-size: 11px; }
 .playlist-clip { display: grid; grid-template-columns: 28px 1fr auto 20px 20px; align-items: center; gap: 5px; min-height: 28px; padding: 4px 5px; border: 1px solid rgba(163,178,197,.12); border-radius: 7px; background: rgba(255,255,255,.025); font-size: 11px; }
-.playlist-clip-index { color: #62b7ff; font-variant-numeric: tabular-nums; }
+.playlist-clip-index { color: var(--accent); font-variant-numeric: tabular-nums; }
 .playlist-clip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .playlist-clip-duration { color: #8995a4; font-variant-numeric: tabular-nums; }
 .playlist-clip button { display: grid; place-items: center; padding: 2px; border: 0; background: transparent; color: #9da8b7; cursor: pointer; }
 .playlist-clip button:disabled { opacity: .25; cursor: default; }
 .playlist-node-footer { display: flex; justify-content: space-between; padding: 8px 11px 10px; color: #8995a4; font-size: 10px; }
-.three-d-node-preview { position: relative; height: 230px; background: radial-gradient(circle at 50% 45%, rgba(98,183,255,.08), transparent 58%), #101318; }
+.three-d-node-preview { position: relative; height: 230px; background: radial-gradient(circle at 50% 45%, var(--accent-soft), transparent 58%), #101318; }
 .three-d-node-preview .angle-camera-preview { width: 100%; height: 100%; }
 .three-d-node-overlay { position: absolute; right: 8px; bottom: 8px; left: 8px; display: flex; justify-content: space-between; color: #9da8b7; font-size: 10px; pointer-events: none; }
-.three-d-capture-button { display: inline-flex; align-items: center; gap: 5px; margin: 9px 10px 11px; padding: 7px 9px; border: 1px solid rgba(98,183,255,.36); border-radius: 7px; background: rgba(29,120,184,.24); color: #b8e2ff; font-size: 11px; cursor: pointer; }
+.three-d-capture-button { display: inline-flex; align-items: center; gap: 5px; margin: 9px 10px 11px; padding: 7px 9px; border: 1px solid var(--accent); border-radius: 7px; background: var(--accent-soft); color: color-mix(in srgb, var(--accent) 58%, white); font-size: 11px; cursor: pointer; }
 
 .canvas-stack-count {
   display: grid;

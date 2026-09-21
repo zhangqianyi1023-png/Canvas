@@ -2,7 +2,7 @@ export const TEXT_FORMAT_COLORS = [
   '#f4f4f5',
   '#b7b7bc',
   '#77787f',
-  '#2a82ff',
+  '#7137f5',
   '#22c55e',
   '#fcbb00',
   '#f87171',
