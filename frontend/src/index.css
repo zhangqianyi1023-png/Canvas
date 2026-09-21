@@ -2852,8 +2852,8 @@ body {
   inset: 50% auto auto 50%;
   z-index: 8;
   display: grid;
-  gap: 36px;
-  width: min(100%, 1280px);
+  gap: 24px;
+  width: min(100%, 1040px);
   transform: translate(-50%, -50%);
   color: var(--fg-primary);
   pointer-events: none;
@@ -2864,18 +2864,18 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 14px;
   color: var(--fg-secondary);
-  font-size: 28px;
+  font-size: 18px;
   letter-spacing: -0.03em;
 }
 
 .canvas-empty-state-hint {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 17px 27px;
-  border-radius: 17px;
+  gap: 9px;
+  padding: 12px 18px;
+  border-radius: 14px;
   background: rgba(31, 33, 40, 0.94);
   color: var(--fg-primary);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
@@ -2898,22 +2898,22 @@ body {
 .canvas-empty-state-actions {
   display: flex;
   justify-content: center;
-  gap: 18px;
+  gap: 10px;
   pointer-events: auto;
 }
 
 .canvas-empty-state-actions button {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  min-height: 62px;
-  padding: 0 30px;
+  gap: 9px;
+  min-height: 44px;
+  padding: 0 20px;
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
   background: rgba(10, 11, 15, 0.5);
   color: var(--fg-secondary);
   font: inherit;
-  font-size: 22px;
+  font-size: 15px;
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
@@ -2937,11 +2937,11 @@ body {
 
 @media (max-width: 1100px) {
   .canvas-empty-state {
-    gap: 24px;
+    gap: 18px;
   }
 
   .canvas-empty-state-heading {
-    font-size: 22px;
+    font-size: 18px;
   }
 
   .canvas-empty-state-actions {
