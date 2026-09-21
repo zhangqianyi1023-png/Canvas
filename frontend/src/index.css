@@ -13163,6 +13163,46 @@ body {
   outline-offset: 0;
 }
 
+.canvas-stack-node {
+  display: grid;
+  place-items: center;
+  min-width: 220px;
+  min-height: 150px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--bg-group) 86%, var(--accent) 14%), var(--bg-group));
+}
+
+.canvas-stack-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--fg-primary);
+  pointer-events: none;
+}
+
+.canvas-stack-count {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--group-border-active);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-group));
+  color: var(--accent);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.canvas-stack-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+}
+
+.canvas-stack-hint {
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+}
+
 .canvas-group-name {
   position: absolute;
   left: 0;

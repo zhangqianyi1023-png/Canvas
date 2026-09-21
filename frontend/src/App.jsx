@@ -40,6 +40,7 @@ import SmartSplitterNode from './nodes/SmartSplitterNode';
 import SmartSplitterProcessor from './nodes/SmartSplitterProcessor';
 import StoryboardCardNode from './nodes/StoryboardCardNode';
 import GroupNode from './nodes/GroupNode';
+import StackNode from './nodes/StackNode';
 import DeletableEdge from './nodes/DeletableEdge';
 import { setEdgeDeleteHandler } from './edgeRegistry';
 import ChatView from './ChatView';
@@ -122,6 +123,7 @@ import {
   stripRuntimeNodeData,
 } from './workflowTemplates';
 import { createCanvasOperation } from './canvasNodeContract.js';
+import { createCanvasStackGraph, unstackCanvasNodes } from './canvasStack.js';
 import {
   applyWorkflowTemplateRunInputs,
   getWorkflowTemplateRunInputs,
@@ -264,6 +266,7 @@ const nodeTypes = {
   smartSplitter: SmartSplitterNode,
   storyboardCard: StoryboardCardNode,
   group: GroupNode,
+  stack: StackNode,
 };
 
 const REMOVED_NODE_TYPES = new Set([
@@ -3139,6 +3142,27 @@ const ALIGN_SNAP_THRESHOLD = 5;
         });
     });
   }, [setNodes]);
+
+  const unstackNodes = useCallback((stackId) => {
+    setNodes(nds => unstackCanvasNodes(nds, stackId));
+  }, [setNodes]);
+
+  const createStackFromNodeIds = useCallback((nodeIds) => {
+    const graph = createCanvasStackGraph({
+      nodes: nodesRef.current,
+      selectedIds: nodeIds,
+      stackId: `stack_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    });
+    if (!graph) return;
+    setNodes(nds => [
+      graph.stack,
+      ...graph.nodes.map(node => node.type === 'stack'
+        ? { ...node, selected: false }
+        : node),
+    ].map(node => node.id === graph.stack.id
+      ? { ...node, data: { ...node.data, onUnstack: unstackNodes } }
+      : node));
+  }, [setNodes, unstackNodes]);
 
   const createGroupFromNodeIds = useCallback((nodeIds) => {
     const uniqueIds = [...new Set(nodeIds)].filter(Boolean);
@@ -11311,6 +11335,10 @@ const ALIGN_SNAP_THRESHOLD = 5;
         onGroupSelected={() => {
           const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
           createGroupFromNodeIds(selectedIds);
+        }}
+        onStackSelected={() => {
+          const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
+          createStackFromNodeIds(selectedIds);
         }}
         onDownloadSelected={async () => {
           const selected = nodes.filter(n => n.selected);

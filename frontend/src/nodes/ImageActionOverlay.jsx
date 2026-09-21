@@ -23,6 +23,7 @@ import {
   resizeCrop,
   resolveCropRatio,
 } from '../imageCrop';
+import { listCanvasToolbarActions } from '../canvasToolbarActions.js';
 
 const actionItems = [
   { action: 'annotate', label: '标记', icon: 'palette', toolbarIcon: toolbarAnnotateIcon, sourceTypes: ['result'] },
@@ -33,6 +34,16 @@ const actionItems = [
   { action: 'favorite', label: '收藏', icon: 'layers', toolbarIcon: toolbarFavoriteIcon, iconOnly: true },
   { action: 'download', label: '下载', icon: 'save', toolbarIcon: toolbarDownloadIcon, iconOnly: true },
 ];
+
+const IMPLEMENTED_CANVAS_ACTIONS = new Set(
+  listCanvasToolbarActions({ nodeType: 'image', implementedOnly: true })
+    .map(item => item.id),
+);
+
+const isRegisteredImplementedAction = (action) => (
+  IMPLEMENTED_CANVAS_ACTIONS.has(action)
+  || (action === 'favorite' && IMPLEMENTED_CANVAS_ACTIONS.has('save-to-library'))
+);
 
 // 文件名兜底：去掉 URL 里可能存在的扩展名/查询串
 const guessExtension = (url, mime) => {
@@ -473,7 +484,8 @@ function ImageActionOverlay({
   const [portalPosition, setPortalPosition] = useState(null);
   const cropPointerCleanupRef = useRef(null);
   const imageActions = imageUrl ? actionItems.filter(item => (
-    !item.sourceTypes || item.sourceTypes.includes(sourceType)
+    isRegisteredImplementedAction(item.action)
+    && (!item.sourceTypes || item.sourceTypes.includes(sourceType))
   )) : [];
   const uploadAction = onUpload
     ? {
