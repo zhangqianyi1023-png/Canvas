@@ -14178,15 +14178,15 @@ body {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 32px 8vw;
+  padding: 24px 12vw;
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(2px);
 }
 
 .node-search-dialog {
   display: flex;
-  width: min(1080px, 100%);
-  height: min(650px, calc(100vh - 64px));
+  width: min(880px, 100%);
+  height: min(540px, calc(100vh - 48px));
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.13);
@@ -14197,10 +14197,10 @@ body {
 
 .node-search-input-row {
   display: flex;
-  min-height: 78px;
+  min-height: 64px;
   align-items: center;
-  gap: 14px;
-  padding: 0 24px;
+  gap: 12px;
+  padding: 0 20px;
   color: #f3f3f3;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
@@ -14213,7 +14213,7 @@ body {
   background: transparent;
   color: var(--fg-primary);
   font: inherit;
-  font-size: 21px;
+  font-size: 18px;
   font-weight: var(--fw-medium);
   letter-spacing: -0.02em;
 }
@@ -14244,17 +14244,17 @@ body {
 
 .node-search-categories {
   display: flex;
-  min-height: 78px;
+  min-height: 64px;
   align-items: center;
   gap: 4px;
-  padding: 0 24px;
+  padding: 0 20px;
   overflow-x: auto;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .node-search-category {
   display: inline-flex;
-  height: 38px;
+  height: 34px;
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
@@ -14265,7 +14265,7 @@ body {
   color: #a7a7a7;
   cursor: pointer;
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: var(--fw-medium);
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
@@ -14292,16 +14292,16 @@ body {
   align-content: start;
   grid-template-columns: 1fr;
   gap: 2px;
-  padding: 16px 24px 22px;
+  padding: 12px 20px 16px;
   overflow-y: auto;
 }
 
 .node-search-result {
   display: flex;
-  min-height: 70px;
+  min-height: 58px;
   align-items: center;
-  gap: 14px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: 12px;
   background: transparent;
@@ -14325,9 +14325,9 @@ body {
 
 .node-search-result-icon {
   display: grid;
-  width: 52px;
-  height: 52px;
-  flex: 0 0 52px;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
   place-items: center;
   border-radius: 11px;
   background: #303030;
@@ -14348,7 +14348,7 @@ body {
 .node-search-result-copy strong {
   overflow: hidden;
   color: var(--fg-primary);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: var(--fw-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -14356,13 +14356,13 @@ body {
 
 .node-search-result-copy small {
   color: #9d9d9d;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
 .node-search-empty {
   display: grid;
-  min-height: 240px;
+  min-height: 160px;
   place-items: center;
   grid-column: 1 / -1;
   color: var(--fg-muted);
