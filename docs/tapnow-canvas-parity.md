@@ -21,3 +21,4 @@
 
 第一批基础代码位于 `frontend/src/canvasNodeContract.js` 和 `frontend/src/canvasOperationRunner.js`，只处理可序列化的图数据，不耦合具体模型供应商。
 
+第二阶段从 `frontend/src/canvasToolbarActions.js` 开始：已将当前已实现操作与 TapNow 目标操作统一登记；未实现的扩图、擦除、抠图、增强、快速切分和 Playlist 不会提前显示为可用按钮。
