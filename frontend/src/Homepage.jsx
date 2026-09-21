@@ -1,4 +1,5 @@
 import Icon from './components/Icon';
+import { publicAsset } from './publicAsset';
 
 const capabilities = [
   {
@@ -50,7 +51,7 @@ function Homepage({ onUseClick }) {
     <main className="homepage">
       <nav className="homepage-nav" aria-label="官网导航">
         <button type="button" className="homepage-brand" aria-label="InUx Canvas">
-          <img src="/sidebar-logo.png" alt="" aria-hidden="true" />
+          <img src={publicAsset('sidebar-logo.png')} alt="" aria-hidden="true" />
           <span>InUx Canvas</span>
         </button>
         <div className="homepage-nav-actions">

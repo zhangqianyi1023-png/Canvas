@@ -49,6 +49,7 @@ import { setEdgeDeleteHandler } from './edgeRegistry';
 import ChatView from './ChatView';
 import MaterialsView from './MaterialsView';
 import Icon from './components/Icon';
+import { publicAsset } from './publicAsset';
 import {
   isSupportedImageFile,
   SUPPORTED_IMAGE_ACCEPT,
@@ -11739,7 +11740,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         data-tooltip="Copilot"
         aria-label="打开 Copilot"
       >
-        <img src="/canvas-agent-mascot.png" alt="" aria-hidden="true" />
+        <img src={publicAsset('canvas-agent-mascot.png')} alt="" aria-hidden="true" />
       </button>
       <CanvasZoomControls
         scale={viewportTransform ? viewportTransform[2] : 1}
@@ -12423,7 +12424,7 @@ function Sidebar({ view, onNavigate }) {
         data-tooltip="返回画布"
         aria-label="返回画布"
       >
-        <img src="/infinite-canvas-logo.png" alt="Infinite Canvas" />
+        <img src={publicAsset('infinite-canvas-logo.png')} alt="Infinite Canvas" />
       </button>
       <div className="sidebar-nav">
         <button
