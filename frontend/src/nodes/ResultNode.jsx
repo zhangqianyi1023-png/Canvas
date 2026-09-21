@@ -61,6 +61,12 @@ const DEFAULT_VIDEO_ENHANCEMENT_SETTINGS = {
   fps: '自适应（原帧数）',
   slow: '自适应（原速）',
 };
+const DEFAULT_SUBJECT_REPLACEMENT_BOX = {
+  x: 31,
+  y: 20,
+  width: 38,
+  height: 56,
+};
 
 const getViewportSize = () => ({
   width: typeof window !== 'undefined' ? window.innerWidth : 1280,
@@ -847,6 +853,21 @@ function ResultNode({ id, selected, data }) {
   const [videoEnhancementStatus, setVideoEnhancementStatus] = useState('');
   const videoEnhancementPanelRef = useRef(null);
   const videoEnhancementStatusTimerRef = useRef(null);
+  const [subjectReplacementOpen, setSubjectReplacementOpen] = useState(false);
+  const [subjectReplacementPosition, setSubjectReplacementPosition] = useState(null);
+  const [subjectReplacementStatus, setSubjectReplacementStatus] = useState('');
+  const [sourceSubject, setSourceSubject] = useState(null);
+  const [targetSubject, setTargetSubject] = useState(null);
+  const [isSubjectMaskSelecting, setIsSubjectMaskSelecting] = useState(false);
+  const [subjectMaskDraft, setSubjectMaskDraft] = useState(null);
+  const [isSubjectMaskDragging, setIsSubjectMaskDragging] = useState(false);
+  const [isSubjectRecognizing, setIsSubjectRecognizing] = useState(false);
+  const [replacementSourceMenuOpen, setReplacementSourceMenuOpen] = useState(false);
+  const subjectReplacementPanelRef = useRef(null);
+  const subjectReplacementStatusTimerRef = useRef(null);
+  const subjectMaskDragStartRef = useRef(null);
+  const subjectReplacementUploadInputRef = useRef(null);
+  const targetSubjectObjectUrlRef = useRef('');
   const isTextFormatEditing = isTextEditing || isTextExpandedEditing;
   const shouldShowTextFormatToolbar = isTextResult
     && !isMultiSelected
@@ -905,6 +926,14 @@ function ResultNode({ id, selected, data }) {
     if (videoEnhancementSettings.slow === '2x') credits += 8;
     return credits;
   }, [videoEnhancementSettings]);
+  const subjectReplacementCredits = useMemo(() => (
+    640 + (sourceSubject ? 100 : 0) + (targetSubject ? 100 : 0)
+  ), [sourceSubject, targetSubject]);
+  const canvasImageChoices = useMemo(() => (
+    subjectReplacementOpen
+      ? data?.onGetCanvasImageChoices?.(id) || []
+      : []
+  ), [data, id, subjectReplacementOpen]);
 
   useCanvasWheelHandoff(resultNodeRef, {
     enabled: isTextResult,
@@ -944,6 +973,40 @@ function ResultNode({ id, selected, data }) {
     return () => window.cancelAnimationFrame(frameId);
   }, [isVideoResult, videoEnhancementOpen]);
 
+  useLayoutEffect(() => {
+    if (!subjectReplacementOpen || !isVideoResult) {
+      return undefined;
+    }
+
+    let frameId = 0;
+    const updatePosition = () => {
+      const anchor = resultNodeRef.current?.querySelector?.('.result-video-wrap')
+        || resultNodeRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const panelWidth = Math.min(520, Math.max(420, rect.width + 96));
+      const left = Math.max(12 + panelWidth / 2, Math.min(window.innerWidth - 12 - panelWidth / 2, rect.left + rect.width / 2));
+      const top = Math.min(window.innerHeight - 16, rect.bottom + 10);
+      const nextPosition = {
+        left: Math.round(left * 10) / 10,
+        top: Math.round(top * 10) / 10,
+        width: Math.round(panelWidth),
+      };
+      setSubjectReplacementPosition(current => (
+        current
+        && current.left === nextPosition.left
+        && current.top === nextPosition.top
+        && current.width === nextPosition.width
+          ? current
+          : nextPosition
+      ));
+      frameId = window.requestAnimationFrame(updatePosition);
+    };
+
+    updatePosition();
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isVideoResult, subjectReplacementOpen]);
+
   useEffect(() => {
     if (!videoEnhancementOpen) return undefined;
 
@@ -967,13 +1030,55 @@ function ResultNode({ id, selected, data }) {
   }, [videoEnhancementOpen]);
 
   useEffect(() => {
+    if (!subjectReplacementOpen) return undefined;
+
+    const closeOnOutsidePointer = event => {
+      const target = event.target;
+      if (subjectReplacementPanelRef.current?.contains(target)) return;
+      if (target?.closest?.('.node-hover-toolbar-portal, .node-hover-toolbar-anchor')) return;
+      if (resultNodeRef.current?.contains(target)) return;
+      setSubjectReplacementOpen(false);
+      setIsSubjectMaskSelecting(false);
+      setReplacementSourceMenuOpen(false);
+    };
+    const closeOnEscape = event => {
+      if (event.key !== 'Escape') return;
+      setSubjectReplacementOpen(false);
+      setIsSubjectMaskSelecting(false);
+      setReplacementSourceMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer, true);
+    document.addEventListener('keydown', closeOnEscape, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer, true);
+      document.removeEventListener('keydown', closeOnEscape, true);
+    };
+  }, [subjectReplacementOpen]);
+
+  useEffect(() => {
     if (selected && isVideoResult) return undefined;
     const timer = window.setTimeout(() => setVideoEnhancementOpen(false), 0);
     return () => window.clearTimeout(timer);
   }, [isVideoResult, selected]);
 
+  useEffect(() => {
+    if (selected && isVideoResult) return undefined;
+    const timer = window.setTimeout(() => {
+      setSubjectReplacementOpen(false);
+      setIsSubjectMaskSelecting(false);
+      setReplacementSourceMenuOpen(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [isVideoResult, selected]);
+
   useEffect(() => () => {
     window.clearTimeout(videoEnhancementStatusTimerRef.current);
+    window.clearTimeout(subjectReplacementStatusTimerRef.current);
+    if (targetSubjectObjectUrlRef.current) {
+      URL.revokeObjectURL(targetSubjectObjectUrlRef.current);
+      targetSubjectObjectUrlRef.current = '';
+    }
   }, []);
 
   const expandedAspect = useMemo(() => parseImageAspect(imageSize), [imageSize]);
@@ -1748,6 +1853,217 @@ function ResultNode({ id, selected, data }) {
     }, 1800);
   }, [data, id, isVideoResult, videoEnhancementCredits, videoEnhancementSettings, videoUrl]);
 
+  const showSubjectReplacementStatus = useCallback((message, duration = 1800) => {
+    setSubjectReplacementStatus(message);
+    window.clearTimeout(subjectReplacementStatusTimerRef.current);
+    subjectReplacementStatusTimerRef.current = window.setTimeout(() => {
+      setSubjectReplacementStatus('');
+    }, duration);
+  }, []);
+
+  const beginSubjectMaskSelection = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (!isVideoResult || !videoUrl) return;
+    setSubjectReplacementOpen(true);
+    setVideoEnhancementOpen(false);
+    setIsSubjectMaskSelecting(true);
+    setSubjectMaskDraft(null);
+    showSubjectReplacementStatus('请在视频画面中拖拽框选主体');
+  }, [isVideoResult, showSubjectReplacementStatus, videoUrl]);
+
+  const cancelSubjectMaskSelection = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setIsSubjectMaskSelecting(false);
+    setIsSubjectMaskDragging(false);
+    setSubjectMaskDraft(null);
+  }, []);
+
+  const getSubjectMaskRectFromPointer = useCallback((event, startPoint) => {
+    const wrap = resultNodeRef.current?.querySelector?.('.result-video-wrap');
+    const rect = wrap?.getBoundingClientRect();
+    if (!rect) return null;
+    const currentX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+    const currentY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    const left = Math.min(startPoint.x, currentX);
+    const top = Math.min(startPoint.y, currentY);
+    const width = Math.max(24, Math.abs(currentX - startPoint.x));
+    const height = Math.max(24, Math.abs(currentY - startPoint.y));
+    return {
+      x: Math.round((left / rect.width) * 1000) / 10,
+      y: Math.round((top / rect.height) * 1000) / 10,
+      width: Math.round((Math.min(width, rect.width - left) / rect.width) * 1000) / 10,
+      height: Math.round((Math.min(height, rect.height - top) / rect.height) * 1000) / 10,
+    };
+  }, []);
+
+  const handleSubjectMaskPointerDown = useCallback((event) => {
+    if (!isSubjectMaskSelecting || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const wrap = resultNodeRef.current?.querySelector?.('.result-video-wrap');
+    const rect = wrap?.getBoundingClientRect();
+    if (!rect) return;
+    const startPoint = {
+      x: Math.max(0, Math.min(rect.width, event.clientX - rect.left)),
+      y: Math.max(0, Math.min(rect.height, event.clientY - rect.top)),
+    };
+    subjectMaskDragStartRef.current = startPoint;
+    setIsSubjectMaskDragging(true);
+    setSubjectMaskDraft({
+      x: Math.round((startPoint.x / rect.width) * 1000) / 10,
+      y: Math.round((startPoint.y / rect.height) * 1000) / 10,
+      width: 12,
+      height: 12,
+    });
+  }, [isSubjectMaskSelecting]);
+
+  const handleSubjectMaskPointerMove = useCallback((event) => {
+    if (!isSubjectMaskSelecting || !isSubjectMaskDragging || !subjectMaskDragStartRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const nextRect = getSubjectMaskRectFromPointer(event, subjectMaskDragStartRef.current);
+    if (nextRect) setSubjectMaskDraft(nextRect);
+  }, [getSubjectMaskRectFromPointer, isSubjectMaskDragging, isSubjectMaskSelecting]);
+
+  const handleSubjectMaskPointerUp = useCallback((event) => {
+    if (!isSubjectMaskSelecting || !isSubjectMaskDragging || !subjectMaskDragStartRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    const nextRect = getSubjectMaskRectFromPointer(event, subjectMaskDragStartRef.current);
+    if (nextRect) setSubjectMaskDraft(nextRect);
+    setIsSubjectMaskDragging(false);
+    subjectMaskDragStartRef.current = null;
+  }, [getSubjectMaskRectFromPointer, isSubjectMaskDragging, isSubjectMaskSelecting]);
+
+  const captureSubjectMaskPreview = useCallback((maskRect) => {
+    const video = resultVideoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight || !maskRect) return '';
+    try {
+      const sx = Math.max(0, Math.round((maskRect.x / 100) * video.videoWidth));
+      const sy = Math.max(0, Math.round((maskRect.y / 100) * video.videoHeight));
+      const sw = Math.max(1, Math.round((maskRect.width / 100) * video.videoWidth));
+      const sh = Math.max(1, Math.round((maskRect.height / 100) * video.videoHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.min(320, sw);
+      canvas.height = Math.max(1, Math.round((canvas.width / sw) * sh));
+      canvas.getContext('2d')?.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
+    } catch {
+      return '';
+    }
+  }, []);
+
+  const confirmSubjectMaskSelection = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const maskRect = subjectMaskDraft || DEFAULT_SUBJECT_REPLACEMENT_BOX;
+    setIsSubjectMaskSelecting(false);
+    setIsSubjectMaskDragging(false);
+    setSubjectMaskDraft(null);
+    setIsSubjectRecognizing(true);
+    showSubjectReplacementStatus('正在识别框选主体...', 900);
+    window.setTimeout(() => {
+      const previewUrl = captureSubjectMaskPreview(maskRect);
+      setSourceSubject({
+        previewUrl,
+        rect: maskRect,
+        label: '已选择主体',
+        createdAt: Date.now(),
+      });
+      setIsSubjectRecognizing(false);
+      showSubjectReplacementStatus('已识别主体');
+    }, 520);
+  }, [captureSubjectMaskPreview, showSubjectReplacementStatus, subjectMaskDraft]);
+
+  const clearSourceSubject = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setSourceSubject(null);
+  }, []);
+
+  const clearTargetSubject = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (targetSubjectObjectUrlRef.current) {
+      URL.revokeObjectURL(targetSubjectObjectUrlRef.current);
+      targetSubjectObjectUrlRef.current = '';
+    }
+    setTargetSubject(null);
+  }, []);
+
+  const chooseCanvasReplacementImage = useCallback((choice) => {
+    if (!choice?.url) return;
+    if (targetSubjectObjectUrlRef.current) {
+      URL.revokeObjectURL(targetSubjectObjectUrlRef.current);
+      targetSubjectObjectUrlRef.current = '';
+    }
+    setTargetSubject({
+      previewUrl: choice.url,
+      source: 'canvas',
+      label: choice.label || '画布图片',
+      createdAt: Date.now(),
+    });
+    setReplacementSourceMenuOpen(false);
+  }, []);
+
+  const openReplacementUploadPicker = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    subjectReplacementUploadInputRef.current?.click();
+    setReplacementSourceMenuOpen(false);
+  }, []);
+
+  const handleReplacementUploadChange = useCallback((event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!isSupportedImageFile(file)) {
+      showSubjectReplacementStatus(getUnsupportedImageMessage(file));
+      return;
+    }
+    if (targetSubjectObjectUrlRef.current) {
+      URL.revokeObjectURL(targetSubjectObjectUrlRef.current);
+    }
+    const previewUrl = URL.createObjectURL(file);
+    targetSubjectObjectUrlRef.current = previewUrl;
+    setTargetSubject({
+      previewUrl,
+      source: 'upload',
+      label: file.name || '本地图片',
+      createdAt: Date.now(),
+    });
+  }, [showSubjectReplacementStatus]);
+
+  const runSubjectReplacementPrototype = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (!sourceSubject || !targetSubject) {
+      showSubjectReplacementStatus('请先选择被替换主体和替换图片');
+      return;
+    }
+    // Prototype only: this simulates the replacement flow by creating a
+    // downstream video node. It never calls backend replacement APIs or spends credits.
+    const result = data?.onCreateVideoSubjectReplacementPrototype?.(id, {
+      sourceSubject,
+      sourceSubjectLabel: sourceSubject.label,
+      targetImageUrl: targetSubject.previewUrl,
+      targetSubjectLabel: targetSubject.label,
+      credits: subjectReplacementCredits,
+      videoUrl,
+    });
+    if (result?.ok) {
+      setSubjectReplacementOpen(false);
+      setIsSubjectMaskSelecting(false);
+      setReplacementSourceMenuOpen(false);
+      return;
+    }
+    showSubjectReplacementStatus('仅原型展示，暂未接入真实替换');
+  }, [data, id, showSubjectReplacementStatus, sourceSubject, subjectReplacementCredits, targetSubject, videoUrl]);
+
   const toggleCard = useCallback((index) => {
     setExpandedCardIndex(prev => prev === index ? null : index);
   }, []);
@@ -2067,6 +2383,46 @@ function ResultNode({ id, selected, data }) {
       return (
         <div className="result-video-wrap">
           <video ref={resultVideoRef} src={videoUrl} controls onLoadedMetadata={handleVideoLoadedMetadata} />
+          {isSubjectMaskSelecting && (
+            <div
+              className="subject-replacement-mask-layer nodrag nopan"
+              onPointerDown={handleSubjectMaskPointerDown}
+              onPointerMove={handleSubjectMaskPointerMove}
+              onPointerUp={handleSubjectMaskPointerUp}
+              onPointerCancel={cancelSubjectMaskSelection}
+            >
+              <div className="subject-replacement-mask-dim" />
+              <div className="subject-replacement-mask-hint">
+                {subjectMaskDraft ? '调整框选区域后确认' : '拖拽框选需要替换的主体'}
+              </div>
+              {subjectMaskDraft && (
+                <div
+                  className="subject-replacement-mask-box"
+                  style={{
+                    left: `${subjectMaskDraft.x}%`,
+                    top: `${subjectMaskDraft.y}%`,
+                    width: `${subjectMaskDraft.width}%`,
+                    height: `${subjectMaskDraft.height}%`,
+                  }}
+                />
+              )}
+              {subjectMaskDraft && !isSubjectMaskDragging && (
+                <div
+                  className="subject-replacement-mask-actions"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onPointerUp={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <button type="button" onClick={cancelSubjectMaskSelection} aria-label="取消框选主体">
+                    <Icon name="x" size={22} />
+                  </button>
+                  <button type="button" onClick={confirmSubjectMaskSelection} aria-label="确认框选主体">
+                    <Icon name="check" size={22} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <VideoFrameCaptureControls
             sourceNodeId={id}
             sourceVideoUrl={videoUrl}
@@ -2362,6 +2718,16 @@ function ResultNode({ id, selected, data }) {
           onClick={(event) => event.stopPropagation()}
         />
       )}
+      {isVideoResult && (
+        <input
+          ref={subjectReplacementUploadInputRef}
+          className="result-image-upload-input"
+          type="file"
+          accept={SUPPORTED_IMAGE_ACCEPT}
+          onChange={handleReplacementUploadChange}
+          onClick={(event) => event.stopPropagation()}
+        />
+      )}
       {isAudioResult && (
         <input
           ref={audioUploadInputRef}
@@ -2514,7 +2880,21 @@ function ResultNode({ id, selected, data }) {
               active: videoEnhancementOpen,
               onClick: (event) => {
                 event.stopPropagation();
+                setSubjectReplacementOpen(false);
+                setIsSubjectMaskSelecting(false);
                 setVideoEnhancementOpen(current => !current);
+              },
+            },
+            {
+              id: 'replace-subject',
+              label: '替换主体',
+              title: '替换主体',
+              icon: 'focus',
+              active: subjectReplacementOpen,
+              onClick: (event) => {
+                event.stopPropagation();
+                setVideoEnhancementOpen(false);
+                setSubjectReplacementOpen(current => !current);
               },
             },
             {
@@ -2648,6 +3028,155 @@ function ResultNode({ id, selected, data }) {
               className="video-enhancement-prototype-generate"
               onClick={runVideoEnhancementPrototype}
               aria-label="生成视频增强原型"
+              title="生成"
+            >
+              <Icon name="arrowUp" size={20} />
+            </button>
+          </footer>
+        </section>,
+        document.body,
+      )}
+      {isVideoResult && subjectReplacementOpen && subjectReplacementPosition && typeof document !== 'undefined' && createPortal(
+        <section
+          ref={subjectReplacementPanelRef}
+          className="subject-replacement-prototype-panel nodrag nopan"
+          style={{
+            left: subjectReplacementPosition.left,
+            top: subjectReplacementPosition.top,
+            width: subjectReplacementPosition.width,
+          }}
+          role="dialog"
+          aria-label="主体替换"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <header className="subject-replacement-prototype-header">
+            <strong>主体替换</strong>
+            <button
+              type="button"
+              className="video-enhancement-prototype-close"
+              onClick={() => {
+                setSubjectReplacementOpen(false);
+                setIsSubjectMaskSelecting(false);
+                setReplacementSourceMenuOpen(false);
+              }}
+              aria-label="关闭主体替换"
+              title="关闭"
+            >
+              <Icon name="x" size={16} />
+            </button>
+          </header>
+
+          <div className="subject-replacement-prototype-body">
+            <div className="subject-replacement-slot">
+              <div className={`subject-replacement-preview ${sourceSubject ? 'has-media' : ''}`}>
+                {sourceSubject?.previewUrl ? (
+                  <img src={sourceSubject.previewUrl} alt="被替换主体预览" />
+                ) : sourceSubject ? (
+                  <div className="subject-replacement-fallback-subject">
+                    <span />
+                    <strong>已识别主体</strong>
+                  </div>
+                ) : (
+                  <div className="subject-replacement-empty">
+                    <Icon name="focus" size={26} />
+                    <span>从视频中框选</span>
+                  </div>
+                )}
+                {sourceSubject && (
+                  <button
+                    type="button"
+                    className="subject-replacement-remove"
+                    onClick={clearSourceSubject}
+                    aria-label="清空被替换主体"
+                    title="清空"
+                  >
+                    <Icon name="trash" size={14} />
+                  </button>
+                )}
+                {isSubjectRecognizing && <span className="subject-replacement-recognizing">识别中...</span>}
+              </div>
+              <button
+                type="button"
+                className="subject-replacement-slot-action"
+                onClick={beginSubjectMaskSelection}
+              >
+                选择主体
+              </button>
+              <span>被替换主体</span>
+            </div>
+
+            <div className="subject-replacement-arrow" aria-hidden="true">→</div>
+
+            <div className="subject-replacement-slot">
+              <div className={`subject-replacement-preview ${targetSubject ? 'has-media' : ''}`}>
+                {targetSubject?.previewUrl ? (
+                  <img src={targetSubject.previewUrl} alt="替换图片预览" />
+                ) : (
+                  <div className="subject-replacement-empty">
+                    <Icon name="image" size={28} />
+                    <span>选择替换图片</span>
+                  </div>
+                )}
+                {targetSubject && (
+                  <button
+                    type="button"
+                    className="subject-replacement-remove"
+                    onClick={clearTargetSubject}
+                    aria-label="清空替换图片"
+                    title="清空"
+                  >
+                    <Icon name="trash" size={14} />
+                  </button>
+                )}
+              </div>
+              <div className="subject-replacement-source">
+                <button
+                  type="button"
+                  className="subject-replacement-slot-action"
+                  onClick={() => setReplacementSourceMenuOpen(current => !current)}
+                >
+                  选择图片
+                </button>
+                {replacementSourceMenuOpen && (
+                  <div className="subject-replacement-source-menu">
+                    <button type="button" onClick={openReplacementUploadPicker}>
+                      <Icon name="upload" size={14} />
+                      本地上传
+                    </button>
+                    <div className="subject-replacement-source-menu-divider" />
+                    {canvasImageChoices.length > 0 ? canvasImageChoices.map(choice => (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        onClick={() => chooseCanvasReplacementImage(choice)}
+                      >
+                        <img src={choice.url} alt="" />
+                        <span>{choice.label}</span>
+                      </button>
+                    )) : (
+                      <span className="subject-replacement-source-empty">暂无可选画布图片</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <span>替换为</span>
+            </div>
+          </div>
+
+          <footer className="video-enhancement-prototype-footer subject-replacement-prototype-footer">
+            <span className="video-enhancement-prototype-status" role="status">{subjectReplacementStatus}</span>
+            <div className="video-enhancement-prototype-action-pill" aria-label={`需要消耗 ${subjectReplacementCredits} 积分`}>
+              <span className="video-enhancement-prototype-credit-icon" aria-hidden="true">
+                <Icon name="aed" size={18} />
+              </span>
+              <strong>{subjectReplacementCredits}</strong>
+            </div>
+            <button
+              type="button"
+              className="video-enhancement-prototype-generate"
+              onClick={runSubjectReplacementPrototype}
+              aria-label="生成主体替换原型"
               title="生成"
             >
               <Icon name="arrowUp" size={20} />
