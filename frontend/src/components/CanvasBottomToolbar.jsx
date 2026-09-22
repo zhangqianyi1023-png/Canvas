@@ -18,7 +18,7 @@ function tooltipLabel(id, labels = {}) {
     'tool-materials': labels.toolMaterials || '素材库',
     'tool-characters': labels.toolCharacters || '角色',
     'tool-history': labels.toolHistory || '历史',
-    'tool-apps': labels.toolApps || '模板库',
+    'tool-apps': labels.toolTemplates || labels.toolApps || '模板库',
     'tool-shortcuts': labels.toolShortcuts || 'Keyboard shortcuts',
     'tool-clear': labels.toolClear || '清空画布',
   };
