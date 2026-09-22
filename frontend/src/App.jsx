@@ -11939,7 +11939,6 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setHistoryDrawerOpen(open => !open);
           setMaterialDrawerOpen(false);
           setCharacterDrawerOpen(false);
-          setHistoryDrawerOpen(false);
           setTaskCenterOpen(false);
           setTemplateRunnerOpen(false);
           setCopilotOpen(false);
