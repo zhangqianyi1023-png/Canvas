@@ -68,6 +68,331 @@ const VIDEO_FORM_DATA_KEYS = {
   last_frame_url: 'video_last_frame_url',
   generate_audio: 'video_generate_audio',
 };
+const VOICE_INPUT_BAR_COUNT = 22;
+const VOICE_INPUT_DEMO_TEXT = '用自然清晰的画面表达主体动作和场景氛围，节奏流畅，细节丰富。';
+const createVoiceBars = () => Array.from({ length: VOICE_INPUT_BAR_COUNT }, () => 0.18);
+const GENERATOR_LANGUAGE_TEXT = {
+  en: {
+    voiceInput: 'Voice input',
+    voicePanel: 'Voice input',
+    voiceListening: 'Listening...',
+    voiceRecognizing: 'Recognizing...',
+    voicePolishing: 'AI polishing...',
+    voiceCancel: 'Cancel voice input',
+    voiceDone: 'Done',
+    voiceComplete: 'Finish voice input',
+    micUnsupported: 'This browser does not support microphone recording',
+    micPermission: 'Allow microphone access to use voice input',
+    unconfigured: 'Not configured',
+    noTextModel: 'No text model',
+    noImageModel: 'No image model',
+    noVideoModel: 'No video model',
+    textReference: 'Text reference',
+    text: 'Text',
+    viewTextReferences: 'View {count} text references',
+    videoIndex: 'Video {index}',
+    uploadImage: 'Upload image',
+    fullReferences: 'References are full',
+    lockedReferences: 'References cannot be edited while generating',
+    uploadReferenceAria: 'Upload reference images, {count} added, up to {max}',
+    remove: 'Remove',
+    uploadFailed: 'Upload failed',
+    copy: 'Copy',
+    copied: 'Copied',
+    copyFailed: 'Failed',
+    visionWarning: 'The current model does not support vision. Images were ignored and generation uses text only.',
+    storyboardPlaceholder: 'Enter film theme, selling points, pacing, target audience...',
+    videoPlaceholder: 'Enter video prompt...',
+    imagePlaceholder: 'Enter image prompt...',
+    audioText: 'Narration text',
+    audioTextPlaceholder: 'Enter the text to turn into audio...',
+    audioStyle: 'Voice style',
+    audioStylePlaceholder: 'For example: natural, clear, warm, young female, suitable for short video voiceover',
+    textPlaceholder: 'Enter text prompt...',
+    canvasRatio: 'Aspect ratio',
+    styleTemplate: 'Style template',
+    totalDuration: 'Total duration',
+    storyboardCount: 'Shots',
+    temperature: 'Temperature',
+    generationMode: 'Mode',
+    ratio: 'Ratio',
+    duration: 'Duration',
+    resolution: 'Resolution',
+    quality: 'Quality',
+    background: 'Background',
+    outputFormat: 'Output format',
+    imageCount: 'Images',
+    voice: 'Voice',
+    voiceSummary: 'Voice {voice}',
+    auto: 'Auto',
+    omniReference: 'Omni reference',
+    firstLastFrame: 'First/last frame',
+    runVideo: 'Generate video',
+    runImage: 'Generate image',
+    runAudio: 'Generate audio',
+    runText: 'Generate text',
+    cancelGeneration: 'Cancel generation',
+    noAvatar: 'No character',
+    role: 'Character',
+    selectRole: 'Select character',
+    changeRole: 'Change character',
+    unavailableAvatar: 'No certified characters available',
+    unsupportedAvatar: 'Current model does not support character reference',
+    removeRole: 'Remove character',
+    firstFrame: 'First frame',
+    lastFrame: 'Last frame',
+    addFrame: 'Add {label}',
+    swapFrames: 'Swap first and last frame',
+    imageUnit: 'images',
+  },
+  'zh-CN': {
+    voiceInput: '语音输入',
+    voicePanel: '语音输入模块',
+    voiceListening: '聆听中...',
+    voiceRecognizing: '识别中...',
+    voicePolishing: 'AI 润色中...',
+    voiceCancel: '取消语音输入',
+    voiceDone: '完成',
+    voiceComplete: '完成语音输入',
+    micUnsupported: '当前浏览器不支持麦克风录音',
+    micPermission: '请允许麦克风权限后再使用语音输入',
+    unconfigured: '未配置',
+    noTextModel: '未配置文本模型',
+    noImageModel: '未配置图片模型',
+    noVideoModel: '未配置视频模型',
+    textReference: '文本参考',
+    text: '文本',
+    viewTextReferences: '查看 {count} 条文本参考',
+    videoIndex: '视频 {index}',
+    uploadImage: '上传图片',
+    fullReferences: '参考素材已满',
+    lockedReferences: '生成中不可修改参考素材',
+    uploadReferenceAria: '上传参考图片，已添加 {count} 张，最多 {max} 张',
+    remove: '删除',
+    uploadFailed: '上传失败',
+    copy: '复制',
+    copied: '已复制',
+    copyFailed: '失败',
+    visionWarning: '当前模型不支持 vision，已自动忽略商品图，仅按文本生成。',
+    storyboardPlaceholder: '输入影片主题、卖点强调、镜头节奏、目标人群等...',
+    videoPlaceholder: '输入视频提示词...',
+    imagePlaceholder: '输入图片提示词...',
+    audioText: '朗读文本',
+    audioTextPlaceholder: '输入要生成成音频的文本...',
+    audioStyle: '声音风格',
+    audioStylePlaceholder: '例如：自然、清晰、温柔、年轻女性、适合短视频口播',
+    textPlaceholder: '输入文本提示词...',
+    canvasRatio: '画幅',
+    styleTemplate: '风格模板',
+    totalDuration: '视频总时长',
+    storyboardCount: '分镜数量',
+    temperature: '温度',
+    generationMode: '生成方式',
+    ratio: '比例',
+    duration: '时长',
+    resolution: '分辨率',
+    quality: '质量',
+    background: '背景',
+    outputFormat: '输出格式',
+    imageCount: '生成张数',
+    voice: '音色',
+    voiceSummary: '音色 {voice}',
+    auto: '自动',
+    omniReference: '全能参考',
+    firstLastFrame: '首尾帧',
+    runVideo: '生成视频',
+    runImage: '生成图片',
+    runAudio: '生成音频',
+    runText: '生成文本',
+    cancelGeneration: '放弃本次生成结果',
+    noAvatar: '暂无角色',
+    role: '角色',
+    selectRole: '选择角色',
+    changeRole: '更换角色',
+    unavailableAvatar: '暂无可用认证角色',
+    unsupportedAvatar: '当前模型不支持角色参考',
+    removeRole: '移除角色',
+    firstFrame: '首帧',
+    lastFrame: '尾帧',
+    addFrame: '添加{label}',
+    swapFrames: '交换首尾帧',
+    imageUnit: '张',
+  },
+};
+const getGeneratorText = (languageId) => (
+  GENERATOR_LANGUAGE_TEXT[languageId] || GENERATOR_LANGUAGE_TEXT['zh-CN']
+);
+const formatGeneratorText = (template = '', values = {}) => (
+  Object.entries(values).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    template,
+  )
+);
+
+const appendVoicePromptText = (currentValue, nextText) => {
+  const current = String(currentValue || '').trim();
+  const addition = String(nextText || '').trim();
+  if (!addition) return currentValue || '';
+  return current ? `${current}\n${addition}` : addition;
+};
+
+function VoicePromptInput({ disabled = false, onComplete, labels = GENERATOR_LANGUAGE_TEXT['zh-CN'] }) {
+  const [phase, setPhase] = useState('idle');
+  const [bars, setBars] = useState(() => createVoiceBars());
+  const [error, setError] = useState('');
+  const streamRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const animationFrameRef = useRef(0);
+  const timersRef = useRef([]);
+
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach(timerId => window.clearTimeout(timerId));
+    timersRef.current = [];
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = 0;
+    }
+    streamRef.current?.getTracks?.().forEach(track => track.stop());
+    streamRef.current = null;
+    audioContextRef.current?.close?.().catch(() => {});
+    audioContextRef.current = null;
+    analyserRef.current = null;
+  }, []);
+
+  const cancelVoiceInput = useCallback(() => {
+    clearTimers();
+    stopRecording();
+    setPhase('idle');
+    setError('');
+    setBars(createVoiceBars());
+  }, [clearTimers, stopRecording]);
+
+  useEffect(() => () => {
+    clearTimers();
+    stopRecording();
+  }, [clearTimers, stopRecording]);
+
+  const tickVoiceBars = useCallback(() => {
+    const analyser = analyserRef.current;
+    if (!analyser) return;
+    const data = new Uint8Array(analyser.fftSize);
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let index = 0; index < data.length; index += 1) {
+        const centered = (data[index] - 128) / 128;
+        sum += centered * centered;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      const level = Math.min(1, Math.max(0, (rms - 0.015) * 8));
+      setBars(previous => previous.map((item, index) => {
+        const wave = 0.55 + Math.sin((Date.now() / 120) + index * 0.75) * 0.45;
+        const target = 0.14 + level * (0.22 + wave * 0.78);
+        return item * 0.62 + Math.min(1, target) * 0.38;
+      }));
+      animationFrameRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+  }, []);
+
+  const startVoiceInput = useCallback(async () => {
+    if (disabled || phase !== 'idle') return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError(labels.micUnsupported);
+      return;
+    }
+    setError('');
+    setPhase('listening');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContextClass();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 512;
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      streamRef.current = stream;
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      tickVoiceBars();
+    } catch (voiceError) {
+      stopRecording();
+      setPhase('idle');
+      setError(labels.micPermission);
+    }
+  }, [disabled, labels.micPermission, labels.micUnsupported, phase, stopRecording, tickVoiceBars]);
+
+  const finishVoiceInput = useCallback(() => {
+    if (phase !== 'listening') return;
+    stopRecording();
+    setPhase('recognizing');
+    timersRef.current = [
+      window.setTimeout(() => setPhase('polishing'), 900),
+      window.setTimeout(() => {
+        onComplete?.(VOICE_INPUT_DEMO_TEXT);
+        setPhase('idle');
+        setBars(createVoiceBars());
+      }, 1800),
+    ];
+  }, [onComplete, phase, stopRecording]);
+
+  if (phase === 'idle') {
+    return (
+      <button
+        type="button"
+        className="processor-voice-trigger"
+        aria-label={labels.voiceInput}
+        title={error || labels.voiceInput}
+        disabled={disabled}
+        onClick={startVoiceInput}
+      >
+        <Icon name="mic" size={18} />
+      </button>
+    );
+  }
+
+  const statusText = phase === 'listening'
+    ? labels.voiceListening
+    : phase === 'recognizing'
+      ? labels.voiceRecognizing
+      : labels.voicePolishing;
+
+  return (
+    <div className={`processor-voice-panel is-${phase}`} role="group" aria-label={labels.voicePanel}>
+      <button
+        type="button"
+        className="processor-voice-cancel"
+        onClick={cancelVoiceInput}
+        aria-label={labels.voiceCancel}
+        title={labels.voiceDone}
+      >
+        <Icon name="x" size={17} />
+      </button>
+      <div className="processor-voice-content">
+        <span className="processor-voice-status">{statusText}</span>
+        <div className="processor-voice-bars" aria-hidden="true">
+          {bars.map((height, index) => (
+            <span key={index} style={{ '--voice-bar-level': height }} />
+          ))}
+        </div>
+      </div>
+      <button
+        type="button"
+        className="processor-voice-complete"
+        onClick={phase === 'listening' ? finishVoiceInput : undefined}
+        disabled={phase !== 'listening'}
+        aria-label={phase === 'listening' ? labels.voiceComplete : statusText}
+        title={phase === 'listening' ? labels.voiceDone : statusText}
+      >
+        <Icon name={phase === 'listening' ? 'check' : 'loader'} size={17} />
+      </button>
+    </div>
+  );
+}
 
 const getAvatarPackageKey = (asset = {}) => (
   asset.packageKey || asset.talentPackageKey || asset.groupId || asset.assetUrl || asset.assetId || ''
@@ -289,6 +614,7 @@ const DurationSlider = ({
   max,
   supportsAuto = false,
   onChange,
+  autoLabel = '自动',
 }) => {
   const numericValue = Number(value);
   const sliderValue = Number.isFinite(numericValue) && numericValue >= min && numericValue <= max
@@ -305,10 +631,10 @@ const DurationSlider = ({
             className={`duration-auto-toggle ${isAuto ? 'active' : ''}`}
             onClick={() => onChange(isAuto ? sliderValue : -1)}
           >
-            自动
+            {autoLabel}
           </button>
         )}
-        <strong>{isAuto ? '自动' : `${sliderValue}s`}</strong>
+        <strong>{isAuto ? autoLabel : `${sliderValue}s`}</strong>
       </div>
       <div className="duration-slider-row">
         <span>{min}s</span>
@@ -590,6 +916,7 @@ const buildModelProviders = (apiProviders, flattenedApis, type, allowedModels) =
 
 function GeneratorNode({ id, data }) {
   const { prompts: quickPrompts } = useQuickPrompts();
+  const labels = getGeneratorText(data?.currentLanguage);
   const [status, setStatus] = useState('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [errorCopied, setErrorCopied] = useState(false);
@@ -693,21 +1020,30 @@ function GeneratorNode({ id, data }) {
     const values = selectedImageCapabilities?.qualityOptions;
     if (!Array.isArray(values)) {
       return [
-        { value: 'auto', label: '自动' },
-        { value: 'low', label: '低' },
-        { value: 'medium', label: '中' },
-        { value: 'high', label: '高' },
+        { value: 'auto', label: labels.auto },
+        { value: 'low', label: data?.currentLanguage === 'en' ? 'Low' : '低' },
+        { value: 'medium', label: data?.currentLanguage === 'en' ? 'Medium' : '中' },
+        { value: 'high', label: data?.currentLanguage === 'en' ? 'High' : '高' },
       ];
     }
-    const labels = { auto: '自动', low: '低', medium: '中', high: '高' };
-    return values.map(value => ({ value, label: labels[value] || String(value).toUpperCase() }));
-  }, [selectedImageCapabilities]);
+    const qualityLabels = {
+      auto: labels.auto,
+      low: data?.currentLanguage === 'en' ? 'Low' : '低',
+      medium: data?.currentLanguage === 'en' ? 'Medium' : '中',
+      high: data?.currentLanguage === 'en' ? 'High' : '高',
+    };
+    return values.map(value => ({ value, label: qualityLabels[value] || String(value).toUpperCase() }));
+  }, [data?.currentLanguage, labels.auto, selectedImageCapabilities]);
   const imageBackgroundOptions = useMemo(() => {
     const values = selectedImageCapabilities?.backgroundOptions;
     if (!Array.isArray(values)) return [];
-    const labels = { auto: '自动', opaque: '不透明', transparent: '透明' };
-    return values.map(value => ({ value, label: labels[value] || String(value) }));
-  }, [selectedImageCapabilities]);
+    const backgroundLabels = {
+      auto: labels.auto,
+      opaque: data?.currentLanguage === 'en' ? 'Opaque' : '不透明',
+      transparent: data?.currentLanguage === 'en' ? 'Transparent' : '透明',
+    };
+    return values.map(value => ({ value, label: backgroundLabels[value] || String(value) }));
+  }, [data?.currentLanguage, labels.auto, selectedImageCapabilities]);
   const imageOutputFormatOptions = useMemo(() => {
     const values = selectedImageCapabilities?.outputFormats;
     if (!Array.isArray(values)) return [];
@@ -745,7 +1081,7 @@ function GeneratorNode({ id, data }) {
     imageQualityOptions.find(option => option.value === resolvedImageQuality)?.label || '',
     imageBackgroundOptions.find(option => option.value === resolvedImageBackground)?.label || '',
     imageOutputFormatOptions.length > 1 ? String(resolvedImageOutputFormat).toUpperCase() : '',
-    `${form.image_count}张`,
+    data?.currentLanguage === 'en' ? `${form.image_count} ${labels.imageUnit}` : `${form.image_count}${labels.imageUnit}`,
   ].filter(Boolean).join(' · ');
   const [videoForm, setVideoForm] = useState({
     prompt: data?.video_prompt || '',
@@ -768,13 +1104,13 @@ function GeneratorNode({ id, data }) {
     ? textModelOptions
     : models.length > 0
       ? models
-      : [{ value: '', label: '未配置文本模型', disabled: true }];
+      : [{ value: '', label: labels.noTextModel, disabled: true }];
   const imageModelSelectOptions = hasImageModelOptions
     ? imageModelOptions
     : ['gpt-image-2'];
   const videoModelSelectOptions = hasVideoModelOptions
     ? videoModelOptions
-    : [{ value: '', label: '未配置视频模型', disabled: true }];
+    : [{ value: '', label: labels.noVideoModel, disabled: true }];
   const selectedVideoModelSupport = selectedVideoApi?.modelCapabilities?.[selectedVideoModel] || null;
   const selectedVideoCapabilities = selectedVideoModelSupport?.adapted === true
     ? selectedVideoModelSupport.capabilities || {}
@@ -788,14 +1124,18 @@ function GeneratorNode({ id, data }) {
       ? selectedVideoCapabilities.generationModes
       : [];
     const normalizedModes = modes.filter(mode => VIDEO_GENERATION_MODE_LABELS[mode]);
+    const modeLabels = {
+      [VIDEO_GENERATION_MODE_OMNI]: labels.omniReference,
+      [VIDEO_GENERATION_MODE_FIRST_LAST]: labels.firstLastFrame,
+    };
     return (normalizedModes.length > 0 ? normalizedModes : [VIDEO_GENERATION_MODE_OMNI])
-      .map(mode => ({ value: mode, label: VIDEO_GENERATION_MODE_LABELS[mode] || mode }));
-  }, [selectedVideoCapabilities]);
+      .map(mode => ({ value: mode, label: modeLabels[mode] || mode }));
+  }, [labels.firstLastFrame, labels.omniReference, selectedVideoCapabilities]);
   const videoRatioOptions = useMemo(
     () => buildImageRatioOptions(
       selectedVideoCapabilities,
       [
-        { id: 'adaptive', value: 'adaptive', label: '自适应', shape: 'square' },
+        { id: 'adaptive', value: 'adaptive', label: data?.currentLanguage === 'en' ? 'Adaptive' : '自适应', shape: 'square' },
         { id: '21:9', value: '21:9', label: '21:9', shape: 'wide' },
         { id: '1:1', value: '1:1', label: '1:1', shape: 'square' },
         { id: '3:4', value: '3:4', label: '3:4', shape: 'portrait' },
@@ -804,7 +1144,7 @@ function GeneratorNode({ id, data }) {
         { id: '16:9', value: '16:9', label: '16:9', shape: 'wide' },
       ],
     ),
-    [selectedVideoCapabilities],
+    [data?.currentLanguage, selectedVideoCapabilities],
   );
   const videoDurationOptions = useMemo(() => {
     const minDuration = Number(selectedVideoCapabilities?.minDuration);
@@ -816,9 +1156,9 @@ function GeneratorNode({ id, data }) {
       return { value, label: `${value}s` };
     });
     return selectedVideoCapabilities?.defaultDuration === -1
-      ? [{ value: -1, label: '自动' }, ...options]
+      ? [{ value: -1, label: labels.auto }, ...options]
       : options;
-  }, [selectedVideoCapabilities]);
+  }, [labels.auto, selectedVideoCapabilities]);
   const videoDurationRange = useMemo(() => {
     const minDuration = Number(selectedVideoCapabilities?.minDuration);
     const maxDuration = Number(selectedVideoCapabilities?.maxDuration);
@@ -1772,11 +2112,11 @@ function GeneratorNode({ id, data }) {
         setShowTextReferencePopover(prev => !prev);
       }}
       aria-expanded={showTextReferencePopover}
-      aria-label={`查看 ${connectedTextReferences.length} 条文本参考`}
-      title="查看文本参考"
+      aria-label={formatGeneratorText(labels.viewTextReferences, { count: connectedTextReferences.length })}
+      title={formatGeneratorText(labels.viewTextReferences, { count: connectedTextReferences.length })}
     >
       <Icon name="quoteText" size={16} strokeWidth={2.2} />
-      <span>文本</span>
+      <span>{labels.text}</span>
       <strong>{connectedTextReferences.length}</strong>
     </button>
   ) : null;
@@ -1790,20 +2130,20 @@ function GeneratorNode({ id, data }) {
       ref={textReferencePopoverRef}
       className="text-reference-popover"
       role="dialog"
-      aria-label="文本参考"
+      aria-label={labels.textReference}
       style={{
         left: `${textReferencePopoverPosition.left}px`,
         top: `${textReferencePopoverPosition.top}px`,
       }}
     >
       <div className="text-reference-popover-header">
-        <strong>文本参考</strong>
+        <strong>{labels.textReference}</strong>
         <span>{connectedTextReferences.length}</span>
       </div>
       <div className="text-reference-popover-body">
         {connectedTextReferences.map((prompt, index) => (
           <div className="text-reference-item" key={`text_ref_${index}`}>
-            <span>文本参考 {index + 1}</span>
+            <span>{labels.textReference} {index + 1}</span>
             <p>{prompt}</p>
           </div>
         ))}
@@ -1855,7 +2195,7 @@ function GeneratorNode({ id, data }) {
       {connectedVideos.map((src, index) => (
         <div className="video-reference-item" key={`video_ref_${src.slice(0, 32)}_${index}`}>
           <video src={src} controls muted />
-          <span>视频 {index + 1}</span>
+          <span>{formatGeneratorText(labels.videoIndex, { index: index + 1 })}</span>
         </div>
       ))}
     </div>
@@ -1912,12 +2252,12 @@ function GeneratorNode({ id, data }) {
     const avatarPreviewUrl = selectedAvatarAsset ? getAvatarAssetPreviewUrl(selectedAvatarAsset) : '';
     const disabled = isGenerationLocked || avatarAssets.length === 0 || !canUseAvatar;
     const title = avatarAssets.length === 0
-      ? '暂无可用认证角色'
+      ? labels.unavailableAvatar
       : !canUseAvatar
-        ? '当前模型不支持角色参考'
+        ? labels.unsupportedAvatar
         : selectedAvatarAsset
-          ? '更换角色'
-          : '选择角色';
+          ? labels.changeRole
+          : labels.selectRole;
     return (
       <>
         <div className={`video-avatar-reference-card ${selectedAvatarAsset ? 'has-avatar' : ''}`.trim()} title={title}>
@@ -1928,10 +2268,10 @@ function GeneratorNode({ id, data }) {
           )}
           <ProcessorModelDropdown
             value={selectedAvatarAsset ? selectedAvatarPackageKey : ''}
-            options={avatarOptions.length > 0 ? avatarOptions : [{ value: '', label: '暂无角色', disabled: true }]}
+            options={avatarOptions.length > 0 ? avatarOptions : [{ value: '', label: labels.noAvatar, disabled: true }]}
             onChange={handleAvatarAssetChange}
             disabled={disabled}
-            placeholder="角色"
+            placeholder={labels.role}
             menuPortal
             menuClassName="video-avatar-reference-menu"
             menuMinWidth={260}
@@ -1945,8 +2285,8 @@ function GeneratorNode({ id, data }) {
                 handleAvatarAssetChange('');
               }}
               disabled={isGenerationLocked}
-              aria-label="移除角色"
-              title="移除角色"
+              aria-label={labels.removeRole}
+              title={labels.removeRole}
             >
               <Icon name="x" size={12} strokeWidth={2.4} />
             </button>
@@ -1978,7 +2318,7 @@ function GeneratorNode({ id, data }) {
           className={`video-frame-slot ${src ? 'has-frame reference-image-card' : ''}`}
           onClick={() => !src && referenceInputRef.current?.click()}
           disabled={isGenerationLocked && !src}
-          title={src ? label : `添加${label}`}
+          title={src ? label : formatGeneratorText(labels.addFrame, { label })}
         >
           {src ? (
             <>
@@ -1989,7 +2329,7 @@ function GeneratorNode({ id, data }) {
                   role="button"
                   tabIndex={0}
                   className="thumb-remove"
-                  aria-label={`删除${label}`}
+                  aria-label={`${labels.remove}${label}`}
                   onClick={removeFrame}
                   onKeyDown={(event) => {
                     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -2013,18 +2353,18 @@ function GeneratorNode({ id, data }) {
 
     return (
       <div className="video-first-last-reference">
-        {renderFrameSlot('首帧', resolvedVideoFirstFrameUrl)}
+        {renderFrameSlot(labels.firstFrame, resolvedVideoFirstFrameUrl)}
         <button
           type="button"
           className="video-frame-swap"
           onClick={handleSwapVideoFirstLastFrames}
           disabled={isGenerationLocked || !resolvedVideoFirstFrameUrl || !resolvedVideoLastFrameUrl}
-          title="交换首尾帧"
-          aria-label="交换首尾帧"
+          title={labels.swapFrames}
+          aria-label={labels.swapFrames}
         >
           <Icon name="refresh" size={14} />
         </button>
-        {renderFrameSlot('尾帧', resolvedVideoLastFrameUrl)}
+        {renderFrameSlot(labels.lastFrame, resolvedVideoLastFrameUrl)}
         {referenceUploads.map(item => (
           <div className="reference-card uploading" key={item.id}>
             <img src={item.previewUrl} alt={item.name} />
@@ -2032,7 +2372,7 @@ function GeneratorNode({ id, data }) {
               <div className="upload-progress-bar">
                 <span style={{ width: `${item.progress}%` }} />
               </div>
-              <strong>{item.error ? '上传失败' : `${item.progress}%`}</strong>
+              <strong>{item.error ? labels.uploadFailed : `${item.progress}%`}</strong>
             </div>
           </div>
         ))}
@@ -2063,8 +2403,8 @@ function GeneratorNode({ id, data }) {
         className="reference-add-card"
         onClick={() => referenceInputRef.current?.click()}
         disabled={remainingReferenceSlots === 0 || isGenerationLocked}
-        title={isGenerationLocked ? '生成中不可修改参考素材' : remainingReferenceSlots === 0 ? '参考素材已满' : '上传图片'}
-        aria-label={`上传参考图片，已添加 ${referenceImageCount} 张，最多 ${MAX_REFERENCE_IMAGES} 张`}
+        title={isGenerationLocked ? labels.lockedReferences : remainingReferenceSlots === 0 ? labels.fullReferences : labels.uploadImage}
+        aria-label={formatGeneratorText(labels.uploadReferenceAria, { count: referenceImageCount, max: MAX_REFERENCE_IMAGES })}
       >
         <Icon name="add" size={18} strokeWidth={2.3} />
         <span className="reference-add-count">{referenceImageCount}/{MAX_REFERENCE_IMAGES}</span>
@@ -2087,7 +2427,7 @@ function GeneratorNode({ id, data }) {
               className="thumb-remove"
               onClick={event => disconnectReference(event, getConnectedReferenceEdgeId('image', src))}
               disabled={isGenerationLocked}
-              aria-label={`删除上游图片参考 ${index + 1}`}
+              aria-label={`${labels.remove} ${index + 1}`}
             >
               <Icon name="x" size={12} strokeWidth={2.4} />
             </button>
@@ -2105,8 +2445,8 @@ function GeneratorNode({ id, data }) {
           onBlur={hideReferenceImagePreview}
         >
           <img src={src} alt={`上传素材 ${index + 1}`} />
-          <span className="reference-index-badge">图 {connectedImages.length + index + 1}</span>
-          <button className="thumb-remove" onClick={() => removeUploadedReference(src)} disabled={isGenerationLocked} aria-label="删除">
+          <span className="reference-index-badge">{data?.currentLanguage === 'en' ? 'Image' : '图'} {connectedImages.length + index + 1}</span>
+          <button className="thumb-remove" onClick={() => removeUploadedReference(src)} disabled={isGenerationLocked} aria-label={labels.remove}>
             <Icon name="x" size={13} strokeWidth={2.4} />
           </button>
         </div>
@@ -2118,7 +2458,7 @@ function GeneratorNode({ id, data }) {
             <div className="upload-progress-bar">
               <span style={{ width: `${item.progress}%` }} />
             </div>
-            <strong>{item.error ? '上传失败' : `${item.progress}%`}</strong>
+            <strong>{item.error ? labels.uploadFailed : `${item.progress}%`}</strong>
           </div>
         </div>
       ))}
@@ -2129,7 +2469,7 @@ function GeneratorNode({ id, data }) {
     <div className="processor-error-message">
       <div className="processor-error-text">{errorMessage}</div>
       <button className="processor-error-copy" type="button" onClick={handleCopyError}>
-        {errorCopied === 'success' ? '已复制' : errorCopied === 'failed' ? '失败' : '复制'}
+        {errorCopied === 'success' ? labels.copied : errorCopied === 'failed' ? labels.copyFailed : labels.copy}
       </button>
     </div>
   ) : null;
@@ -2148,7 +2488,7 @@ function GeneratorNode({ id, data }) {
         {data?.storyboardVisionDowngraded && (
           <div className="storyboard-vision-warning">
             <Icon name="help" size={13} />
-            <span>当前模型不支持 vision，已自动忽略商品图，仅按文本生成。</span>
+            <span>{labels.visionWarning}</span>
           </div>
         )}
         {renderErrorMessage()}
@@ -2159,7 +2499,7 @@ function GeneratorNode({ id, data }) {
               value={form.storyboard_script_prompt}
               onChange={nextValue => handleChange('storyboard_script_prompt', nextValue)}
               referenceImages={referenceImages}
-              placeholder="输入影片主题、卖点强调、镜头节奏、目标人群等..."
+              placeholder={labels.storyboardPlaceholder}
               rows={4}
               disabled={isGenerationLocked}
             />
@@ -2170,7 +2510,7 @@ function GeneratorNode({ id, data }) {
           {showSettings && (
             <div className="processor-settings-panel">
               <div className="settings-section">
-                <div className="settings-label">画幅</div>
+                <div className="settings-label">{labels.canvasRatio}</div>
                 <div className="ratio-grid">
                   <RatioCard label="1:1" shape="square" active={form.storyboard_aspect_ratio === '1:1'} onClick={() => handleChange('storyboard_aspect_ratio', '1:1')} />
                   <RatioCard label="3:4" shape="portrait" active={form.storyboard_aspect_ratio === '3:4'} onClick={() => handleChange('storyboard_aspect_ratio', '3:4')} />
@@ -2180,7 +2520,7 @@ function GeneratorNode({ id, data }) {
                 </div>
               </div>
               <div className="settings-section">
-                <div className="settings-label">风格模板</div>
+                <div className="settings-label">{labels.styleTemplate}</div>
                 <OptionRow
                   options={[
                     { value: '种草', label: '种草' },
@@ -2193,7 +2533,7 @@ function GeneratorNode({ id, data }) {
                 />
               </div>
               <div className="settings-section">
-                <div className="settings-label">视频总时长</div>
+                <div className="settings-label">{labels.totalDuration}</div>
                 <OptionRow
                   options={[{ value: 15, label: '15s' }, { value: 30, label: '30s' }, { value: 45, label: '45s' }, { value: 60, label: '60s' }, { value: 90, label: '90s' }]}
                   value={form.storyboard_total_duration}
@@ -2201,7 +2541,7 @@ function GeneratorNode({ id, data }) {
                 />
               </div>
               <div className="settings-section">
-                <div className="settings-label">分镜数量</div>
+                <div className="settings-label">{labels.storyboardCount}</div>
                 <OptionRow
                   options={[{ value: 4, label: '4' }, { value: 6, label: '6' }, { value: 8, label: '8' }, { value: 10, label: '10' }, { value: 12, label: '12' }]}
                   value={form.storyboard_script_card_count}
@@ -2209,7 +2549,7 @@ function GeneratorNode({ id, data }) {
                 />
               </div>
               <div className="settings-section">
-                <div className="settings-label">温度</div>
+                <div className="settings-label">{labels.temperature}</div>
                 <OptionRow
                   options={[{ value: 0.3, label: '0.3' }, { value: 0.5, label: '0.5' }, { value: 0.7, label: '0.7' }, { value: 1.0, label: '1.0' }]}
                   value={form.storyboard_temperature}
@@ -2225,12 +2565,17 @@ function GeneratorNode({ id, data }) {
                 options={textModelSelectOptions}
                 onChange={value => handleChange('model_name', value)}
                 disabled={isGenerationLocked || (!selectedTextApi && !hasTextModelOptions)}
-                placeholder="未配置文本模型"
+                placeholder={labels.noTextModel}
               />
             </div>
             <button className="processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
               <span className="processor-settings-summary">{form.storyboard_aspect_ratio} · {form.storyboard_style} · {form.storyboard_script_card_count}镜 · {form.storyboard_total_duration}s</span>
             </button>
+            <VoicePromptInput
+              disabled={isGenerationLocked}
+              labels={labels}
+              onComplete={nextText => handleChange('storyboard_script_prompt', appendVoicePromptText(form.storyboard_script_prompt, nextText))}
+            />
             <button className="processor-run-btn" onClick={handleStoryboardScriptGenerate} disabled={status === 'running' || !hasStoryboardScriptInput}>
               <Icon name={status === 'running' ? 'loader' : 'play'} size={15} />
             </button>
@@ -2258,7 +2603,7 @@ function GeneratorNode({ id, data }) {
               value={videoForm.prompt}
               onChange={nextValue => handleVideoChange('prompt', nextValue)}
               referenceImages={referenceImages}
-              placeholder="输入视频提示词..."
+              placeholder={labels.videoPlaceholder}
               rows={4}
               disabled={isGenerationLocked}
             />
@@ -2269,7 +2614,7 @@ function GeneratorNode({ id, data }) {
             <div className="processor-settings-panel">
               {videoGenerationModeOptions.length > 1 && (
                 <div className="settings-section">
-                  <div className="settings-label">生成方式</div>
+                  <div className="settings-label">{labels.generationMode}</div>
                   <OptionRow
                     options={videoGenerationModeOptions}
                     value={resolvedVideoGenerationMode}
@@ -2278,7 +2623,7 @@ function GeneratorNode({ id, data }) {
                 </div>
               )}
               <div className="settings-section">
-                <div className="settings-label">比例</div>
+                <div className="settings-label">{labels.ratio}</div>
                 <div className="ratio-grid">
                   {videoRatioOptions.map(option => (
                     <RatioCard
@@ -2292,17 +2637,18 @@ function GeneratorNode({ id, data }) {
                 </div>
               </div>
               <div className="settings-section">
-                <div className="settings-label">时长</div>
+                <div className="settings-label">{labels.duration}</div>
                 <DurationSlider
                   value={resolvedVideoDuration}
                   min={videoDurationRange.min}
                   max={videoDurationRange.max}
                   supportsAuto={supportsVideoAutoDuration}
+                  autoLabel={labels.auto}
                   onChange={v => handleVideoChange('duration', v)}
                 />
               </div>
               <div className="settings-section">
-                <div className="settings-label">分辨率</div>
+                <div className="settings-label">{labels.resolution}</div>
                 <OptionRow
                   options={videoResolutionOptions}
                   value={resolvedVideoResolution}
@@ -2318,18 +2664,23 @@ function GeneratorNode({ id, data }) {
                 options={videoModelSelectOptions}
                 onChange={value => handleVideoChange('model', value)}
                 disabled={isGenerationLocked || (!selectedVideoApi && !hasVideoModelOptions)}
-                placeholder="未配置视频模型"
+                placeholder={labels.noVideoModel}
               />
             </div>
             <button className="processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
               <Icon name="settings" size={15} />
-              <span className="processor-settings-summary">{VIDEO_GENERATION_MODE_LABELS[resolvedVideoGenerationMode] || '全能参考'},{resolvedVideoAspectRatio},{resolvedVideoDuration === -1 ? '自动' : `${resolvedVideoDuration}s`},{resolvedVideoResolution}</span>
+              <span className="processor-settings-summary">{videoGenerationModeOptions.find(option => option.value === resolvedVideoGenerationMode)?.label || labels.omniReference},{resolvedVideoAspectRatio},{resolvedVideoDuration === -1 ? labels.auto : `${resolvedVideoDuration}s`},{resolvedVideoResolution}</span>
             </button>
+            <VoicePromptInput
+              disabled={isGenerationLocked}
+              labels={labels}
+              onComplete={nextText => handleVideoChange('prompt', appendVoicePromptText(videoForm.prompt, nextText))}
+            />
             <button
               className={`processor-run-btn ${isVideoGenerationRunning ? 'cancel' : ''}`}
               onClick={handleVideoGenerate}
               disabled={isUploadingReferences || (!isVideoGenerationRunning && !(combinedVideoPrompt.trim() || (isVideoFirstLastFrameMode && resolvedVideoFirstFrameUrl && resolvedVideoLastFrameUrl)))}
-              title={isVideoGenerationRunning ? '放弃本次生成结果' : '生成视频'}
+              title={isVideoGenerationRunning ? labels.cancelGeneration : labels.runVideo}
             >
               <Icon name={isVideoGenerationRunning ? 'stop' : isUploadingReferences ? 'loader' : 'play'} size={15} />
             </button>
@@ -2357,7 +2708,7 @@ function GeneratorNode({ id, data }) {
               value={form.image_prompt}
               onChange={nextValue => handleChange('image_prompt', nextValue)}
               referenceImages={referenceImages}
-              placeholder="输入图片提示词..."
+              placeholder={labels.imagePlaceholder}
               rows={4}
               disabled={isGenerationLocked}
               leadingToken={selectedQuickPromptToken}
@@ -2370,7 +2721,7 @@ function GeneratorNode({ id, data }) {
           {showSettings && (
             <div className="processor-settings-panel">
               <div className="settings-section">
-                <div className="settings-label">比例</div>
+                <div className="settings-label">{labels.ratio}</div>
                 <div className="ratio-grid image-ratio-grid">
                   {imageRatioOptions.map(option => (
                     <RatioCard
@@ -2385,7 +2736,7 @@ function GeneratorNode({ id, data }) {
                 </div>
               </div>
               {imageResolutionOptions.length > 0 && <div className="settings-section">
-                <div className="settings-label">分辨率</div>
+                <div className="settings-label">{labels.resolution}</div>
                 <OptionRow
                   options={imageResolutionOptions}
                   value={resolvedImageResolution}
@@ -2393,7 +2744,7 @@ function GeneratorNode({ id, data }) {
                 />
               </div>}
               {imageQualityOptions.length > 0 && <div className="settings-section">
-                <div className="settings-label">质量</div>
+                <div className="settings-label">{labels.quality}</div>
                 <OptionRow
                   options={imageQualityOptions}
                   value={resolvedImageQuality}
@@ -2401,7 +2752,7 @@ function GeneratorNode({ id, data }) {
                 />
               </div>}
               {imageBackgroundOptions.length > 0 && <div className="settings-section">
-                <div className="settings-label">背景</div>
+                <div className="settings-label">{labels.background}</div>
                 <OptionRow
                   options={imageBackgroundOptions}
                   value={resolvedImageBackground}
@@ -2409,7 +2760,7 @@ function GeneratorNode({ id, data }) {
                 />
               </div>}
               {imageOutputFormatOptions.length > 1 && <div className="settings-section">
-                <div className="settings-label">输出格式</div>
+                <div className="settings-label">{labels.outputFormat}</div>
                 <OptionRow
                   options={imageOutputFormatOptions}
                   value={resolvedImageOutputFormat}
@@ -2417,9 +2768,12 @@ function GeneratorNode({ id, data }) {
                 />
               </div>}
               <div className="settings-section">
-                <div className="settings-label">生成张数</div>
+                  <div className="settings-label">{labels.imageCount}</div>
                 <OptionRow
-                  options={[{ value: 1, label: '1 张' }, { value: 2, label: '2 张' }, { value: 3, label: '3 张' }, { value: 4, label: '4 张' }]}
+                  options={[1, 2, 3, 4].map(value => ({
+                    value,
+                    label: data?.currentLanguage === 'en' ? `${value} images` : `${value} 张`,
+                  }))}
                   value={form.image_count}
                   onChange={v => handleChange('image_count', v)}
                 />
@@ -2433,7 +2787,7 @@ function GeneratorNode({ id, data }) {
                 options={imageModelSelectOptions}
                 onChange={value => handleChange('image_model', value)}
                 disabled={isGenerationLocked || (!selectedImageApi && !hasImageModelOptions)}
-                placeholder="未配置图片模型"
+                placeholder={labels.noImageModel}
               />
               <QuickPromptControl
                 selectedPromptId={form.image_quick_prompt_id}
@@ -2445,11 +2799,16 @@ function GeneratorNode({ id, data }) {
             <button className="processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
               <span className="processor-settings-summary">{imageSettingsSummary}</span>
             </button>
+            <VoicePromptInput
+              disabled={isGenerationLocked}
+              labels={labels}
+              onComplete={nextText => handleChange('image_prompt', appendVoicePromptText(form.image_prompt, nextText))}
+            />
             <button
               className={`processor-run-btn ${isImageGenerationRunning ? 'cancel' : ''}`}
               onClick={handleImageGenerate}
               disabled={isUploadingReferences || (!isImageGenerationRunning && !combinedImagePrompt.trim())}
-              title={isImageGenerationRunning ? '放弃本次生成结果' : '生成图片'}
+              title={isImageGenerationRunning ? labels.cancelGeneration : labels.runImage}
             >
               <Icon name={isImageGenerationRunning ? 'stop' : isUploadingReferences ? 'loader' : 'play'} size={15} />
             </button>
@@ -2474,21 +2833,21 @@ function GeneratorNode({ id, data }) {
         <div className="node-body">
           {renderReferenceMaterialsField()}
           <div className="node-field">
-            <label>朗读文本</label>
+            <label>{labels.audioText}</label>
             <textarea
               value={form.audio_text}
               onChange={event => handleChange('audio_text', event.target.value)}
-              placeholder="输入要生成成音频的文本..."
+              placeholder={labels.audioTextPlaceholder}
               rows={4}
               disabled={isGenerationLocked}
             />
           </div>
           <div className="node-field">
-            <label>声音风格</label>
+            <label>{labels.audioStyle}</label>
             <textarea
               value={form.audio_style}
               onChange={event => handleChange('audio_style', event.target.value)}
-              placeholder="例如：自然、清晰、温柔、年轻女性、适合短视频口播"
+              placeholder={labels.audioStylePlaceholder}
               rows={2}
               disabled={isGenerationLocked}
             />
@@ -2498,7 +2857,7 @@ function GeneratorNode({ id, data }) {
           {showSettings && (
             <div className="processor-settings-panel">
               <div className="settings-section">
-                <div className="settings-label">音色</div>
+                <div className="settings-label">{labels.voice}</div>
                 <OptionRow
                   options={audioVoiceOptions.map(value => ({ value, label: value }))}
                   value={form.audio_voice}
@@ -2510,13 +2869,18 @@ function GeneratorNode({ id, data }) {
           <div className="processor-footer">
             <button className="processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
               <Icon name="settings" size={15} />
-              <span className="processor-settings-summary">音色 {form.audio_voice}</span>
+              <span className="processor-settings-summary">{formatGeneratorText(labels.voiceSummary, { voice: form.audio_voice })}</span>
             </button>
+            <VoicePromptInput
+              disabled={isGenerationLocked}
+              labels={labels}
+              onComplete={nextText => handleChange('audio_text', appendVoicePromptText(form.audio_text, nextText))}
+            />
             <button
               className={`processor-run-btn ${isAudioGenerationRunning ? 'cancel' : ''}`}
               onClick={handleAudioGenerate}
               disabled={!isAudioGenerationRunning && !combinedAudioText.trim()}
-              title={isAudioGenerationRunning ? '放弃本次生成结果' : '生成音频'}
+              title={isAudioGenerationRunning ? labels.cancelGeneration : labels.runAudio}
             >
               <Icon name={isAudioGenerationRunning ? 'stop' : 'play'} size={15} />
             </button>
@@ -2543,7 +2907,7 @@ function GeneratorNode({ id, data }) {
             value={form.user_prompt}
             onChange={nextValue => handleChange('user_prompt', nextValue)}
             referenceImages={referenceImages}
-            placeholder="输入文本提示词..."
+            placeholder={labels.textPlaceholder}
             rows={8}
             disabled={isGenerationLocked}
           />
@@ -2557,19 +2921,21 @@ function GeneratorNode({ id, data }) {
               options={textModelSelectOptions}
               onChange={value => handleChange('model_name', value)}
               disabled={isGenerationLocked || (!selectedTextApi && !hasTextModelOptions)}
-              placeholder="未配置文本模型"
+              placeholder={labels.noTextModel}
             />
           </div>
-          <button type="button" className="text-processor-voice" aria-label="语音输入" disabled={isGenerationLocked}>
-            <Icon name="mic" size={18} />
-          </button>
+          <VoicePromptInput
+            disabled={isGenerationLocked}
+            labels={labels}
+            onComplete={nextText => handleChange('user_prompt', appendVoicePromptText(form.user_prompt, nextText))}
+          />
           <span className="text-processor-footer-divider" aria-hidden="true" />
           <span className="text-processor-multiplier" aria-label="生成倍率">1×</span>
           <button
             className={`processor-run-btn ${isTextGenerationRunning ? 'cancel' : ''}`}
             onClick={handleTextGenerate}
             disabled={isUploadingReferences || (!isTextGenerationRunning && !(combinedTextPrompt.trim() || referenceImages.length > 0))}
-            title={isTextGenerationRunning ? '放弃本次生成结果' : '生成文本'}
+            title={isTextGenerationRunning ? labels.cancelGeneration : labels.runText}
           >
             <Icon name={isTextGenerationRunning ? 'stop' : isUploadingReferences ? 'loader' : 'play'} size={15} />
           </button>

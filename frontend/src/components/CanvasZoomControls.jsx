@@ -46,12 +46,17 @@ export default function CanvasZoomControls({
   onToggleSnap,
   minZoom = 0.05,
   maxZoom = 8,
+  labels = {},
 }) {
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const pct = Math.round(scale * 100);
   const activePreset = ZOOM_PRESETS.find(preset => Math.abs(preset.value - scale) < 0.01);
   const shortcutModifier = getShortcutModifierLabel(globalThis.navigator);
+  const miniMapLabel = miniMapOpen ? (labels.miniMapClose || '关闭小地图') : (labels.miniMapOpen || '打开小地图');
+  const snapAriaLabel = snapEnabled ? (labels.snapOff || '关闭自动对齐') : (labels.snapOn || '开启自动对齐');
+  const snapTitle = snapEnabled ? (labels.snapEnabled || '自动对齐：开') : (labels.snapDisabled || '自动对齐：关');
+  const fitScreenLabel = labels.fitScreen || '适合屏幕';
   const runZoomAction = (nextZoom) => {
     onScaleChange?.(Math.min(maxZoom, Math.max(minZoom, nextZoom)));
     setZoomMenuOpen(false);
@@ -86,8 +91,8 @@ export default function CanvasZoomControls({
           type="button"
           className={`canvas-zoom-btn ${miniMapOpen ? 'active' : ''}`}
           onClick={onToggleMiniMap}
-          aria-label={miniMapOpen ? '关闭小地图' : '打开小地图'}
-          title={miniMapOpen ? '关闭小地图' : '打开小地图'}
+          aria-label={miniMapLabel}
+          title={miniMapLabel}
         >
           <Icon name="compass" size={18} />
         </button>
@@ -97,8 +102,8 @@ export default function CanvasZoomControls({
         type="button"
         className="canvas-zoom-btn"
         onClick={onFitView}
-        aria-label="适合屏幕"
-        title="适合屏幕"
+        aria-label={fitScreenLabel}
+        title={fitScreenLabel}
       >
         <Icon name="focus" size={18} />
       </button>
@@ -107,8 +112,8 @@ export default function CanvasZoomControls({
         type="button"
         className={`canvas-zoom-btn ${snapEnabled ? 'active' : ''}`}
         onClick={onToggleSnap}
-        aria-label={snapEnabled ? '关闭自动对齐' : '开启自动对齐'}
-        title={snapEnabled ? '自动对齐：开' : '自动对齐：关'}
+        aria-label={snapAriaLabel}
+        title={snapTitle}
       >
         <Icon name="magnetLock" size={18} />
       </button>
@@ -116,7 +121,7 @@ export default function CanvasZoomControls({
       <span className="canvas-zoom-divider" aria-hidden="true" />
 
       <ZoomShortcutButton
-        label="缩小画布"
+        label={labels.zoomOutCanvas || '缩小画布'}
         shortcutKey="-"
         modifier={shortcutModifier}
         icon="subtract"
@@ -128,7 +133,7 @@ export default function CanvasZoomControls({
           type="button"
           className={`canvas-zoom-pct ${zoomMenuOpen ? 'active' : ''}`}
           onClick={() => setZoomMenuOpen(open => !open)}
-          aria-label={`当前缩放 ${pct}%，点击选择缩放比例`}
+          aria-label={(labels.currentZoom || '当前缩放 {pct}%，点击选择缩放比例').replace('{pct}', pct)}
           aria-haspopup="menu"
           aria-expanded={zoomMenuOpen}
         >
@@ -137,7 +142,7 @@ export default function CanvasZoomControls({
         </button>
 
         {zoomMenuOpen ? (
-          <div className="canvas-zoom-menu" role="menu" aria-label="缩放比例">
+          <div className="canvas-zoom-menu" role="menu" aria-label={labels.zoomMenu || '缩放比例'}>
             {ZOOM_PRESETS.map(preset => (
               <button
                 key={preset.label}
@@ -158,7 +163,7 @@ export default function CanvasZoomControls({
               onClick={() => runZoomAction(scale * ZOOM_STEP_FACTOR)}
               role="menuitem"
             >
-              <span>放大</span>
+              <span>{labels.zoomIn || '放大'}</span>
               <kbd>{shortcutModifier}+</kbd>
             </button>
             <button
@@ -167,7 +172,7 @@ export default function CanvasZoomControls({
               onClick={() => runZoomAction(scale / ZOOM_STEP_FACTOR)}
               role="menuitem"
             >
-              <span>缩小</span>
+              <span>{labels.zoomOut || '缩小'}</span>
               <kbd>{shortcutModifier}-</kbd>
             </button>
             <button
@@ -179,7 +184,7 @@ export default function CanvasZoomControls({
               }}
               role="menuitem"
             >
-              <span>适合屏幕</span>
+              <span>{fitScreenLabel}</span>
               <kbd>{shortcutModifier}0</kbd>
             </button>
           </div>
@@ -187,7 +192,7 @@ export default function CanvasZoomControls({
       </div>
 
       <ZoomShortcutButton
-        label="放大画布"
+        label={labels.zoomInCanvas || '放大画布'}
         shortcutKey="+"
         modifier={shortcutModifier}
         icon="add"

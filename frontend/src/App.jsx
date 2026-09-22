@@ -232,6 +232,334 @@ import {
 const imageRenderNodeCache = new WeakMap();
 const genericRenderNodeCache = new WeakMap();
 
+const CANVAS_LANGUAGE_STORAGE_KEY = 'tapnow-canvas-language';
+const CANVAS_LANGUAGES = [
+  { id: 'en', label: 'English', htmlLang: 'en' },
+  { id: 'zh-CN', label: '简体中文', htmlLang: 'zh-CN' },
+  { id: 'ja', label: '日本語', htmlLang: 'ja' },
+  { id: 'ko', label: '한국어', htmlLang: 'ko' },
+  { id: 'fr', label: 'Français', htmlLang: 'fr' },
+];
+const CANVAS_LANGUAGE_TEXT = {
+  en: {
+    accountAria: 'Credits and account',
+    currentCredits: 'Current credits 1000',
+    openAccountMenu: 'Open account menu',
+    accountMenu: 'Account menu',
+    userName: 'User nickname user nickname user nickname',
+    phone: '152****0644',
+    wallet: 'Credits wallet',
+    details: 'Details',
+    recharge: 'Recharge',
+    storage: 'Asset space',
+    recycleBin: 'Trash',
+    accountManage: 'Account settings',
+    edit: 'Edit',
+    language: 'Language',
+    languageName: 'English',
+    logout: 'Log out',
+    doubleClick: 'Double-click canvas',
+    createFreely: 'Create freely on the canvas',
+    textToVideo: 'Text to video',
+    replaceBackground: 'Replace background',
+    firstLastFrame: 'First & last frame',
+    workflows: 'My workflows',
+    toolAdd: 'Add',
+    toolNodeSearch: 'Node search',
+    toolUploadFile: 'Upload file',
+    toolCharacter: 'Character',
+    toolText: 'Text',
+    toolImage: 'Image',
+    toolAudio: 'Audio',
+    toolVideoEditor: 'Video editor',
+    toolSmartSplitter: 'Smart splitter',
+    toolVideo: 'Video',
+    toolStoryboard: 'Storyboard workspace',
+    toolMaterials: 'Assets',
+    toolCharacters: 'Characters',
+    toolHistory: 'History',
+    toolApps: 'Apps',
+    toolShortcuts: 'Keyboard shortcuts',
+    toolClear: 'Clear canvas',
+    canvasQuickActions: 'Canvas quick actions',
+    expandNodeTools: 'Expand node tools',
+    collapseNodeTools: 'Collapse node tools',
+    addNode: 'Add node',
+    miniMapOpen: 'Open minimap',
+    miniMapClose: 'Close minimap',
+    fitScreen: 'Fit screen',
+    snapOn: 'Turn on snap',
+    snapOff: 'Turn off snap',
+    snapEnabled: 'Snap: on',
+    snapDisabled: 'Snap: off',
+    zoomOutCanvas: 'Zoom out canvas',
+    zoomInCanvas: 'Zoom in canvas',
+    currentZoom: 'Current zoom {pct}%, click to choose zoom level',
+    zoomMenu: 'Zoom level',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    openCopilot: 'Open Copilot',
+    generator: 'Generator',
+    close: 'Close',
+    expandEdit: 'Expand editor',
+  },
+  'zh-CN': {
+    accountAria: '积分与账号',
+    currentCredits: '当前积分 1000',
+    openAccountMenu: '打开账号菜单',
+    accountMenu: '账号菜单',
+    userName: '用户昵称用户昵称用户昵称用户昵称',
+    phone: '152****0644',
+    wallet: '积分钱包',
+    details: '查看明细',
+    recharge: '充值积分',
+    storage: '素材空间',
+    recycleBin: '回收站',
+    accountManage: '账号管理',
+    edit: '修改',
+    language: '语言',
+    languageName: '简体中文',
+    logout: '退出登录',
+    doubleClick: '双击画布',
+    createFreely: '在画布上自由创作',
+    textToVideo: '文生视频',
+    replaceBackground: '替换背景',
+    firstLastFrame: '首尾帧',
+    workflows: '我的工作流',
+    toolAdd: '添加',
+    toolNodeSearch: '节点搜索',
+    toolUploadFile: '上传文件',
+    toolCharacter: '角色',
+    toolText: '文本',
+    toolImage: '图片',
+    toolAudio: '音频',
+    toolVideoEditor: '视频编辑器',
+    toolSmartSplitter: '智能拆分器',
+    toolVideo: '视频',
+    toolStoryboard: '分镜工作台',
+    toolMaterials: '素材库',
+    toolCharacters: '角色',
+    toolHistory: '历史',
+    toolApps: '应用',
+    toolShortcuts: '快捷键',
+    toolClear: '清空画布',
+    canvasQuickActions: '画布快捷入口',
+    expandNodeTools: '展开节点工具',
+    collapseNodeTools: '收起节点工具',
+    addNode: '添加节点',
+    miniMapOpen: '打开小地图',
+    miniMapClose: '关闭小地图',
+    fitScreen: '适合屏幕',
+    snapOn: '开启自动对齐',
+    snapOff: '关闭自动对齐',
+    snapEnabled: '自动对齐：开',
+    snapDisabled: '自动对齐：关',
+    zoomOutCanvas: '缩小画布',
+    zoomInCanvas: '放大画布',
+    currentZoom: '当前缩放 {pct}%，点击选择缩放比例',
+    zoomMenu: '缩放比例',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+    openCopilot: '打开 Copilot',
+    generator: '生成器',
+    close: '关闭',
+    expandEdit: '放大编辑',
+  },
+  ja: {
+    accountAria: 'クレジットとアカウント',
+    currentCredits: '現在のクレジット 1000',
+    openAccountMenu: 'アカウントメニューを開く',
+    accountMenu: 'アカウントメニュー',
+    userName: 'ユーザーニックネーム',
+    phone: '152****0644',
+    wallet: 'クレジットウォレット',
+    details: '明細を見る',
+    recharge: 'チャージ',
+    storage: '素材スペース',
+    recycleBin: 'ゴミ箱',
+    accountManage: 'アカウント管理',
+    edit: '編集',
+    language: '言語',
+    languageName: '日本語',
+    logout: 'ログアウト',
+    doubleClick: 'キャンバスをダブルクリック',
+    createFreely: 'キャンバスで自由に作成',
+    textToVideo: 'テキストから動画',
+    replaceBackground: '背景を置換',
+    firstLastFrame: '開始・終了フレーム',
+    workflows: 'マイワークフロー',
+    toolAdd: '追加',
+    toolNodeSearch: 'ノード検索',
+    toolUploadFile: 'ファイルをアップロード',
+    toolCharacter: 'キャラクター',
+    toolText: 'テキスト',
+    toolImage: '画像',
+    toolAudio: '音声',
+    toolVideoEditor: '動画エディター',
+    toolSmartSplitter: 'スマート分割',
+    toolVideo: '動画',
+    toolStoryboard: '絵コンテワークスペース',
+    toolMaterials: '素材',
+    toolCharacters: 'キャラクター',
+    toolHistory: '履歴',
+    toolApps: 'アプリ',
+    toolShortcuts: 'ショートカット',
+    canvasQuickActions: 'キャンバスのクイック操作',
+    expandNodeTools: 'ノードツールを展開',
+    collapseNodeTools: 'ノードツールを閉じる',
+    addNode: 'ノードを追加',
+    miniMapOpen: 'ミニマップを開く',
+    miniMapClose: 'ミニマップを閉じる',
+    fitScreen: '画面に合わせる',
+    snapOn: 'スナップをオン',
+    snapOff: 'スナップをオフ',
+    snapEnabled: 'スナップ：オン',
+    snapDisabled: 'スナップ：オフ',
+    zoomOutCanvas: 'キャンバスを縮小',
+    zoomInCanvas: 'キャンバスを拡大',
+    currentZoom: '現在のズーム {pct}%、クリックして変更',
+    zoomMenu: 'ズーム',
+    zoomIn: '拡大',
+    zoomOut: '縮小',
+    openCopilot: 'Copilot を開く',
+    generator: 'ジェネレーター',
+    close: '閉じる',
+    expandEdit: 'エディターを拡大',
+  },
+  ko: {
+    accountAria: '크레딧 및 계정',
+    currentCredits: '현재 크레딧 1000',
+    openAccountMenu: '계정 메뉴 열기',
+    accountMenu: '계정 메뉴',
+    userName: '사용자 닉네임',
+    phone: '152****0644',
+    wallet: '크레딧 지갑',
+    details: '상세 보기',
+    recharge: '충전',
+    storage: '소재 공간',
+    recycleBin: '휴지통',
+    accountManage: '계정 관리',
+    edit: '수정',
+    language: '언어',
+    languageName: '한국어',
+    logout: '로그아웃',
+    doubleClick: '캔버스 더블 클릭',
+    createFreely: '캔버스에서 자유롭게 만들기',
+    textToVideo: '텍스트로 비디오',
+    replaceBackground: '배경 교체',
+    firstLastFrame: '첫/마지막 프레임',
+    workflows: '내 워크플로',
+    toolAdd: '추가',
+    toolNodeSearch: '노드 검색',
+    toolUploadFile: '파일 업로드',
+    toolCharacter: '캐릭터',
+    toolText: '텍스트',
+    toolImage: '이미지',
+    toolAudio: '오디오',
+    toolVideoEditor: '비디오 편집기',
+    toolSmartSplitter: '스마트 분할',
+    toolVideo: '비디오',
+    toolStoryboard: '스토리보드 작업대',
+    toolMaterials: '소재',
+    toolCharacters: '캐릭터',
+    toolHistory: '기록',
+    toolApps: '앱',
+    toolShortcuts: '단축키',
+    canvasQuickActions: '캔버스 빠른 작업',
+    expandNodeTools: '노드 도구 펼치기',
+    collapseNodeTools: '노드 도구 접기',
+    addNode: '노드 추가',
+    miniMapOpen: '미니맵 열기',
+    miniMapClose: '미니맵 닫기',
+    fitScreen: '화면에 맞추기',
+    snapOn: '스냅 켜기',
+    snapOff: '스냅 끄기',
+    snapEnabled: '스냅: 켜짐',
+    snapDisabled: '스냅: 꺼짐',
+    zoomOutCanvas: '캔버스 축소',
+    zoomInCanvas: '캔버스 확대',
+    currentZoom: '현재 확대율 {pct}%, 클릭하여 선택',
+    zoomMenu: '확대율',
+    zoomIn: '확대',
+    zoomOut: '축소',
+    openCopilot: 'Copilot 열기',
+    generator: '생성기',
+    close: '닫기',
+    expandEdit: '편집기 확대',
+  },
+  fr: {
+    accountAria: 'Crédits et compte',
+    currentCredits: 'Crédits actuels 1000',
+    openAccountMenu: 'Ouvrir le menu du compte',
+    accountMenu: 'Menu du compte',
+    userName: 'Pseudo utilisateur',
+    phone: '152****0644',
+    wallet: 'Portefeuille de crédits',
+    details: 'Voir les détails',
+    recharge: 'Recharger',
+    storage: 'Espace médias',
+    recycleBin: 'Corbeille',
+    accountManage: 'Gestion du compte',
+    edit: 'Modifier',
+    language: 'Langue',
+    languageName: 'Français',
+    logout: 'Se déconnecter',
+    doubleClick: 'Double-cliquez sur le canvas',
+    createFreely: 'Créez librement sur le canvas',
+    textToVideo: 'Texte vers vidéo',
+    replaceBackground: 'Remplacer le fond',
+    firstLastFrame: 'Première et dernière image',
+    workflows: 'Mes workflows',
+    toolAdd: 'Ajouter',
+    toolNodeSearch: 'Recherche de noeud',
+    toolUploadFile: 'Importer un fichier',
+    toolCharacter: 'Personnage',
+    toolText: 'Texte',
+    toolImage: 'Image',
+    toolAudio: 'Audio',
+    toolVideoEditor: 'Editeur video',
+    toolSmartSplitter: 'Decoupage intelligent',
+    toolVideo: 'Video',
+    toolStoryboard: 'Atelier storyboard',
+    toolMaterials: 'Medias',
+    toolCharacters: 'Personnages',
+    toolHistory: 'Historique',
+    toolApps: 'Apps',
+    toolShortcuts: 'Raccourcis clavier',
+    canvasQuickActions: 'Actions rapides du canvas',
+    expandNodeTools: 'Developper les outils de noeud',
+    collapseNodeTools: 'Replier les outils de noeud',
+    addNode: 'Ajouter un noeud',
+    miniMapOpen: 'Ouvrir la mini-carte',
+    miniMapClose: 'Fermer la mini-carte',
+    fitScreen: 'Ajuster a l ecran',
+    snapOn: 'Activer l alignement',
+    snapOff: 'Desactiver l alignement',
+    snapEnabled: 'Alignement : actif',
+    snapDisabled: 'Alignement : inactif',
+    zoomOutCanvas: 'Reduire le canvas',
+    zoomInCanvas: 'Agrandir le canvas',
+    currentZoom: 'Zoom actuel {pct} %, cliquez pour choisir',
+    zoomMenu: 'Niveau de zoom',
+    zoomIn: 'Agrandir',
+    zoomOut: 'Reduire',
+    openCopilot: 'Ouvrir Copilot',
+    generator: 'Generateur',
+    close: 'Fermer',
+    expandEdit: 'Agrandir l editeur',
+  },
+};
+
+const getCanvasLanguageText = (languageId) => (
+  CANVAS_LANGUAGE_TEXT[languageId] || CANVAS_LANGUAGE_TEXT['zh-CN']
+);
+
+const getInitialCanvasLanguage = () => {
+  if (typeof window === 'undefined') return 'zh-CN';
+  const storedLanguage = window.localStorage?.getItem(CANVAS_LANGUAGE_STORAGE_KEY);
+  return CANVAS_LANGUAGES.some(language => language.id === storedLanguage) ? storedLanguage : 'zh-CN';
+};
+
 const getCachedRenderNode = (sourceNode, deps, buildRenderNode) => {
   const cached = genericRenderNodeCache.get(sourceNode);
   if (
@@ -1262,6 +1590,7 @@ function CanvasComposerOverlay({
   nodesRevision,
   anchorSelector = '',
   promptStyles = [],
+  currentLanguage = 'zh-CN',
   hidden = false,
   onExpand,
 }) {
@@ -1384,6 +1713,7 @@ function CanvasComposerOverlay({
   }, [hidden, overlayBoundaryRef]);
 
   if (!resultId || !generatorNode || hidden || !position) return null;
+  const canvasText = getCanvasLanguageText(currentLanguage);
 
   return (
     <div
@@ -1405,15 +1735,15 @@ function CanvasComposerOverlay({
         type="button"
         className="canvas-overlay-expand-btn"
         onClick={onExpand}
-        title="放大编辑"
-        aria-label="放大编辑"
+        title={canvasText.expandEdit || '放大编辑'}
+        aria-label={canvasText.expandEdit || '放大编辑'}
       >
         <Icon name="expandDiagonal" size={15} />
       </button>
       <GeneratorNode
         key={generatorNode.id}
         id={generatorNode.id}
-        data={{ ...generatorNode.data, overlayMode: true, promptStyles }}
+        data={{ ...generatorNode.data, overlayMode: true, promptStyles, currentLanguage }}
       />
     </div>
   );
@@ -1645,6 +1975,7 @@ function CanvasProcessorExpandedDialog({
   composer,
   splitterNode,
   promptStyles = [],
+  currentLanguage = 'zh-CN',
   overlayBoundaryRef,
   onClose,
 }) {
@@ -1660,7 +1991,8 @@ function CanvasProcessorExpandedDialog({
   if (!open) return null;
 
   const isSmartSplitter = type === 'smartSplitter';
-  const title = isSmartSplitter ? '智能拆分器' : '生成器';
+  const canvasText = getCanvasLanguageText(currentLanguage);
+  const title = isSmartSplitter ? (canvasText.toolSmartSplitter || '智能拆分器') : (canvasText.generator || '生成器');
 
   return (
     <div
@@ -1680,8 +2012,8 @@ function CanvasProcessorExpandedDialog({
             type="button"
             className="canvas-processor-expanded-close"
             onClick={onClose}
-            aria-label="关闭"
-            title="关闭"
+            aria-label={canvasText.close || '关闭'}
+            title={canvasText.close || '关闭'}
           >
             <Icon name="x" size={18} />
           </button>
@@ -1697,6 +2029,7 @@ function CanvasProcessorExpandedDialog({
                   overlayMode: true,
                   expandedOverlayMode: true,
                   promptStyles,
+                  currentLanguage,
                 }}
               />
             )
@@ -1710,6 +2043,7 @@ function CanvasProcessorExpandedDialog({
                   overlayMode: true,
                   expandedOverlayMode: true,
                   promptStyles,
+                  currentLanguage,
                 }}
               />
             )
@@ -1753,7 +2087,9 @@ export function CanvasFlow({
   canvasStateRef,
   crossProjectClipboardRef,
   refreshLocalAssets = () => {},
+  currentLanguage = 'zh-CN',
 }) {
+  const canvasText = getCanvasLanguageText(currentLanguage);
   const initialGraph = useMemo(() => {
     const promptGraph = migrateLegacyPromptGraph(initialNodes, initialEdges);
     return migrateLegacyImageGraph(promptGraph.nodes, promptGraph.edges);
@@ -11931,30 +12267,30 @@ const ALIGN_SNAP_THRESHOLD = 5;
           )}
         </ReactFlow>
         {nodes.length === 0 && (
-          <div className="canvas-empty-state" aria-label="Empty canvas starter actions">
+          <div className="canvas-empty-state" aria-label={canvasText.createFreely}>
             <div className="canvas-empty-state-heading">
               <span className="canvas-empty-state-hint">
                 <Icon name="cursor" size={20} />
-                <strong>Double-click canvas</strong>
+                <strong>{canvasText.doubleClick}</strong>
               </span>
-              <span className="canvas-empty-state-subtitle">Create freely on the canvas</span>
+              <span className="canvas-empty-state-subtitle">{canvasText.createFreely}</span>
             </div>
             <div className="canvas-empty-state-actions">
               <button type="button" onClick={() => handleEmptyCanvasAction('text-to-video')}>
                 <Icon name="videoGenFill" size={20} />
-                <span>Text to video</span>
+                <span>{canvasText.textToVideo}</span>
               </button>
               <button type="button" onClick={() => handleEmptyCanvasAction('replace-background')}>
                 <Icon name="imageGenFill" size={20} />
-                <span>Replace background</span>
+                <span>{canvasText.replaceBackground}</span>
               </button>
               <button type="button" onClick={() => handleEmptyCanvasAction('first-last-frame')}>
                 <Icon name="imageGenFill" size={20} />
-                <span>First &amp; last frame</span>
+                <span>{canvasText.firstLastFrame}</span>
               </button>
               <button type="button" onClick={() => handleEmptyCanvasAction('workflows')}>
                 <Icon name="apps" size={20} />
-                <span>My workflows</span>
+                <span>{canvasText.workflows}</span>
               </button>
             </div>
           </div>
@@ -12024,6 +12360,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
             nodesRevision={nodes}
             viewportRevision={viewportTransform}
             promptStyles={officialPromptStyles}
+            currentLanguage={currentLanguage}
             hidden={expandedProcessorOverlay?.type === 'composer'}
             onExpand={() => setExpandedProcessorOverlay({ type: 'composer', id: activeComposer.resultId })}
           />
@@ -12038,6 +12375,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
             viewportRevision={viewportTransform}
             anchorSelector={activeCharacterImageComposer.anchorSelector}
             promptStyles={officialPromptStyles}
+            currentLanguage={currentLanguage}
             hidden={expandedProcessorOverlay?.type === 'characterImage'}
             onExpand={() => setExpandedProcessorOverlay({ type: 'characterImage', id: activeCharacterImageComposer.resultId })}
           />
@@ -12052,6 +12390,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
             viewportRevision={viewportTransform}
             anchorSelector={activeCharacterProfileComposer.anchorSelector}
             promptStyles={officialPromptStyles}
+            currentLanguage={currentLanguage}
             hidden={expandedProcessorOverlay?.type === 'characterProfile'}
             onExpand={() => setExpandedProcessorOverlay({ type: 'characterProfile', id: activeCharacterProfileComposer.resultId })}
           />
@@ -12076,6 +12415,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
               : activeComposer}
           splitterNode={activeSmartSplitter}
           promptStyles={officialPromptStyles}
+          currentLanguage={currentLanguage}
           overlayBoundaryRef={expandedProcessorOverlayRef}
           onClose={() => setExpandedProcessorOverlay(null)}
         />
@@ -12154,6 +12494,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
       />
 
       <CanvasBottomToolbar
+        labels={canvasText}
         materialOpen={materialDrawerOpen}
         characterOpen={characterDrawerOpen}
         historyOpen={historyDrawerOpen}
@@ -12235,11 +12576,12 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setTemplateRunnerOpen(false);
         }}
         data-tooltip="Copilot"
-        aria-label="打开 Copilot"
+        aria-label={canvasText.openCopilot}
       >
         <img src={publicAsset('canvas-agent-mascot.png')} alt="" aria-hidden="true" />
       </button>
       <CanvasZoomControls
+        labels={canvasText}
         scale={viewportTransform ? viewportTransform[2] : 1}
         onScaleChange={(newZoom) => {
           const vp = getViewport();
@@ -13668,10 +14010,26 @@ function ModelPickerModal({ data, onConfirm, onCancel }) {
 
 
 
-function CanvasPage({ project, apiConfigs, apiProviders, onBack, onRenameProject, onCanvasChange, materials, setMaterials, materialGroups, workflowTemplates, setWorkflowTemplates, officialTemplates, officialPromptStyles, pendingInjectRef, runtimeSettings, crossProjectClipboardRef, refreshLocalAssets }) {
+function CanvasPage({ project, apiConfigs, apiProviders, onBack, onRenameProject, onCanvasChange, materials, setMaterials, materialGroups, workflowTemplates, setWorkflowTemplates, officialTemplates, officialPromptStyles, pendingInjectRef, runtimeSettings, crossProjectClipboardRef, refreshLocalAssets, currentLanguage = 'zh-CN', onLanguageChange }) {
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const accountMenuRef = useRef(null);
+  const accountText = getCanvasLanguageText(currentLanguage);
+  const activeLanguage = CANVAS_LANGUAGES.find(language => language.id === currentLanguage) || CANVAS_LANGUAGES[1];
   const handleCanvasChange = useCallback((nodes, edges, meta) => {
     onCanvasChange(project.id, nodes, edges, meta);
   }, [onCanvasChange, project.id]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return undefined;
+    const closeAccountMenu = (event) => {
+      if (accountMenuRef.current?.contains(event.target)) return;
+      setAccountMenuOpen(false);
+      setLanguageMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeAccountMenu, true);
+    return () => document.removeEventListener('pointerdown', closeAccountMenu, true);
+  }, [accountMenuOpen]);
 
   return (
     <div className="canvas-page">
@@ -13686,16 +14044,95 @@ function CanvasPage({ project, apiConfigs, apiProviders, onBack, onRenameProject
           aria-label="画布名称"
         />
       </div>
-      <div className="canvas-account-pill" aria-label="积分与账号">
+      <div className="canvas-account-pill" ref={accountMenuRef} aria-label={accountText.accountAria}>
         {/* 仅作为当前原型的顶部账号信息展示，不接入真实积分或用户系统。 */}
-        <div className="canvas-account-credits" aria-label="当前积分 1000">
+        <div className="canvas-account-credits" aria-label={accountText.currentCredits}>
           <span className="canvas-account-credit-icon" aria-hidden="true">↯</span>
           <span className="canvas-account-credit-value">1000</span>
         </div>
-        <button type="button" className="canvas-account-profile" aria-label="打开账号菜单">
+        <button
+          type="button"
+          className={`canvas-account-profile ${accountMenuOpen ? 'active' : ''}`}
+          aria-label={accountText.openAccountMenu}
+          aria-expanded={accountMenuOpen}
+          onClick={() => {
+            setAccountMenuOpen(open => !open);
+            setLanguageMenuOpen(false);
+          }}
+        >
           <img src={publicAsset('canvas-agent-mascot.png')} alt="" aria-hidden="true" />
           <Icon name="chevronDown" size={16} />
         </button>
+        {accountMenuOpen && (
+          <div className="canvas-account-menu" role="menu" aria-label={accountText.accountMenu}>
+            <div className="canvas-account-menu-user">
+              <img src={publicAsset('canvas-agent-mascot.png')} alt="" aria-hidden="true" />
+              <div>
+                <strong>{accountText.userName}</strong>
+                <span>{accountText.phone}</span>
+              </div>
+            </div>
+            <section className="canvas-account-wallet" aria-label={accountText.wallet}>
+              <div className="canvas-account-wallet-head">
+                <strong><span aria-hidden="true">↯</span>1000</strong>
+              </div>
+              <div className="canvas-account-wallet-actions">
+                <button type="button">{accountText.details}</button>
+                <button type="button" className="primary">{accountText.recharge}</button>
+              </div>
+            </section>
+            <div className="canvas-account-menu-list">
+              <button type="button" role="menuitem">
+                <span><Icon name="folder" size={16} />{accountText.storage}</span>
+                <em>500 MB <Icon name="chevronRight" size={16} /></em>
+              </button>
+              <button type="button" role="menuitem">
+                <span><Icon name="trash" size={16} />{accountText.recycleBin}</span>
+                <em>200 MB <Icon name="chevronRight" size={16} /></em>
+              </button>
+              <button type="button" role="menuitem">
+                <span><Icon name="settings" size={16} />{accountText.accountManage}</span>
+                <em>{accountText.edit} <Icon name="chevronRight" size={16} /></em>
+              </button>
+              <div className={`canvas-account-language-row ${languageMenuOpen ? 'active' : ''}`}>
+                <button
+                  type="button"
+                  role="menuitem"
+                  aria-haspopup="menu"
+                  aria-expanded={languageMenuOpen}
+                  onClick={() => setLanguageMenuOpen(open => !open)}
+                >
+                  <span><Icon name="globe" size={16} />{accountText.language}</span>
+                  <em>{accountText.languageName || activeLanguage.label} <Icon name="chevronRight" size={16} /></em>
+                </button>
+                {languageMenuOpen && (
+                  <div className="canvas-account-language-menu" role="menu" aria-label={accountText.language}>
+                    {CANVAS_LANGUAGES.map(language => (
+                      <button
+                        key={language.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={language.id === currentLanguage}
+                        className={language.id === currentLanguage ? 'active' : ''}
+                        onClick={() => {
+                          onLanguageChange?.(language.id);
+                          setLanguageMenuOpen(false);
+                        }}
+                      >
+                        <span>{language.label}</span>
+                        {language.id === currentLanguage && <Icon name="check" size={17} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <button type="button" className="canvas-account-logout" role="menuitem">
+              <Icon name="arrowRightUp" size={16} />
+              <span>{accountText.logout}</span>
+            </button>
+          </div>
+        )}
       </div>
       <ReactFlowProvider key={project.id}>
         <CanvasFlow
@@ -13704,6 +14141,7 @@ function CanvasPage({ project, apiConfigs, apiProviders, onBack, onRenameProject
           initialEdges={project.edges}
           initialViewport={project.viewport}
           initialTagColorLabels={project.tagColorLabels}
+          currentLanguage={currentLanguage}
           apiConfigs={apiConfigs}
           apiProviders={runtimeSettings.providers}
           onCanvasChange={handleCanvasChange}
@@ -13739,6 +14177,7 @@ function App() {
   const [workflowTemplates, setWorkflowTemplates] = useState([]);
   const [officialTemplates, setOfficialTemplates] = useState([]);
   const [officialPromptStyles, setOfficialPromptStyles] = useState([]);
+  const [currentLanguage, setCurrentLanguage] = useState(getInitialCanvasLanguage);
   const [storageReady, setStorageReady] = useState(false);
   const crossProjectClipboardRef = useRef(null);
   const [runtimeSettings, setRuntimeSettings] = useState({
@@ -13751,6 +14190,12 @@ function App() {
 
   const pendingInjectRef = useRef(null);
   const dataUrlMigrationCheckedRef = useRef(false);
+
+  useEffect(() => {
+    const language = CANVAS_LANGUAGES.find(item => item.id === currentLanguage) || CANVAS_LANGUAGES[1];
+    window.localStorage?.setItem(CANVAS_LANGUAGE_STORAGE_KEY, language.id);
+    document.documentElement.lang = language.htmlLang;
+  }, [currentLanguage]);
 
   useEffect(() => {
     if (window.location.pathname !== '/' || window.location.search || window.location.hash) return;
