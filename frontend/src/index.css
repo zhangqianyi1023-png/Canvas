@@ -25463,6 +25463,12 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   align-content: start;
 }
 
+.canvas-toolbar-wrap .keyboard-shortcuts-dialog {
+  position: fixed;
+  left: 78px;
+  bottom: 16px;
+}
+
 @media (max-width: 760px) {
   .canvas-material-drawer:not(.canvas-role-library) {
     left: 74px;
