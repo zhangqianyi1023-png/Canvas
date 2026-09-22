@@ -25829,6 +25829,41 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   bottom: auto;
 }
 
+/* 快捷键右栏连续排列，避免 Timeline / Agent 被左侧 Basic 的高度推到底部 */
+.canvas-toolbar-wrap .keyboard-shortcuts-grid {
+  grid-template-areas:
+    "basic zoom"
+    "basic timeline"
+    "basic agent";
+  align-items: start;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-basic {
+  grid-area: basic;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-zoom {
+  grid-area: zoom;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-timeline {
+  grid-area: timeline;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-agent {
+  grid-area: agent;
+}
+
+@media (max-width: 620px) {
+  .canvas-toolbar-wrap .keyboard-shortcuts-grid {
+    grid-template-areas: none;
+  }
+
+  .canvas-toolbar-wrap .keyboard-shortcuts-group {
+    grid-area: auto;
+  }
+}
+
 @media (max-width: 760px) {
   .canvas-material-drawer:not(.canvas-role-library) {
     left: 74px;
