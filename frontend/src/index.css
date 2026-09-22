@@ -25439,3 +25439,25 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   border-radius: 999px;
   background: color-mix(in srgb, var(--fg-tertiary) 48%, transparent);
 }
+
+/* 素材库沿用应用弹窗的尺寸与定位，给左侧工具栏留出完整呼吸位 */
+.canvas-material-drawer:not(.canvas-role-library) {
+  left: 82px;
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  width: min(720px, calc(100vw - 108px));
+  height: min(88vh, 900px);
+  transform: translateY(-50%);
+  border-radius: 20px;
+  background: var(--glass-bg);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+}
+
+@media (max-width: 760px) {
+  .canvas-material-drawer:not(.canvas-role-library) {
+    left: 74px;
+    width: calc(100vw - 86px);
+    height: calc(100vh - 32px);
+  }
+}
