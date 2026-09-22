@@ -53,28 +53,26 @@ function ShortcutKeys({ keys }) {
 export default function KeyboardShortcutsDialog({ open, onClose }) {
   if (!open) return null;
   return (
-    <div className="keyboard-shortcuts-overlay" onClick={onClose}>
-      <section className="keyboard-shortcuts-dialog" role="dialog" aria-modal="true" aria-labelledby="keyboard-shortcuts-title" onClick={event => event.stopPropagation()}>
-        <header className="keyboard-shortcuts-header">
-          <h2 id="keyboard-shortcuts-title">Keyboard Shortcuts</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="关闭快捷键"><Icon name="x" size={20} /></button>
-        </header>
-        <div className="keyboard-shortcuts-grid">
-          {SHORTCUT_GROUPS.map(group => (
-            <section key={group.title} className={`keyboard-shortcuts-group keyboard-shortcuts-${group.title.toLowerCase()}`}>
-              <h3>{group.title}</h3>
-              <div className="keyboard-shortcuts-list">
-                {group.items.map(([id, label, keys]) => (
-                  <div className="keyboard-shortcut-row" key={id}>
-                    <span className="keyboard-shortcut-label"><Icon name={ICONS[id]} size={18} /><span>{label}</span></span>
-                    <ShortcutKeys keys={keys} />
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      </section>
-    </div>
+    <section className="keyboard-shortcuts-dialog" role="dialog" aria-labelledby="keyboard-shortcuts-title">
+      <header className="keyboard-shortcuts-header">
+        <h2 id="keyboard-shortcuts-title">Keyboard Shortcuts</h2>
+        <button type="button" className="icon-button" onClick={onClose} aria-label="关闭快捷键"><Icon name="x" size={18} /></button>
+      </header>
+      <div className="keyboard-shortcuts-grid">
+        {SHORTCUT_GROUPS.map(group => (
+          <section key={group.title} className={`keyboard-shortcuts-group keyboard-shortcuts-${group.title.toLowerCase()}`}>
+            <h3>{group.title}</h3>
+            <div className="keyboard-shortcuts-list">
+              {group.items.map(([id, label, keys]) => (
+                <div className="keyboard-shortcut-row" key={id}>
+                  <span className="keyboard-shortcut-label"><Icon name={ICONS[id]} size={16} /><span>{label}</span></span>
+                  <ShortcutKeys keys={keys} />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </section>
   );
 }

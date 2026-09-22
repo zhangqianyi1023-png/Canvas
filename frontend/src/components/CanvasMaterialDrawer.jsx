@@ -54,15 +54,6 @@ const getMaterialMeta = material => {
   return `${size} · ${mime}`;
 };
 
-const DEFAULT_LIBRARY_FOLDERS = [
-  { id: 'character', name: 'Character' },
-  { id: 'scene', name: 'Scene' },
-  { id: 'item', name: 'Item' },
-  { id: 'style', name: 'Style' },
-  { id: 'sound-effect', name: 'Sound Effect' },
-  { id: 'others', name: 'Others' },
-];
-
 const ROLE_LIBRARY_CATEGORIES = [
   { id: 'all', label: 'All' },
   { id: 'ancient', label: 'Ancient History' },
@@ -70,13 +61,21 @@ const ROLE_LIBRARY_CATEGORIES = [
   { id: 'scifi', label: 'Science Fiction Future' },
 ];
 
+const MATERIAL_FILTERS = [
+  { id: 'all', label: '全部' },
+  { id: 'image', label: '图片' },
+  { id: 'video', label: '视频' },
+  { id: 'audio', label: '音频' },
+  { id: '3d', label: '3D' },
+];
+
 export default function CanvasMaterialDrawer({
   open,
   mode = 'materials',
   materials = [],
-  materialGroups = [],
   workflowTemplates = [],
   onClose,
+  onUploadFiles,
   onAddMaterial,
   onAddTemplate,
   onUpdateTemplate,
@@ -87,7 +86,7 @@ export default function CanvasMaterialDrawer({
     ? TABS.filter(tab => tab.id === 'characters')
     : TABS.filter(tab => tab.id !== 'characters');
   const [activeTab, setActiveTab] = useState(isCharacterMode ? 'characters' : 'images');
-  const [activeGroupId, setActiveGroupId] = useState('all');
+  const [activeMaterialType, setActiveMaterialType] = useState('all');
   const [searchQueries, setSearchQueries] = useState({ images: '', characters: '', templates: '' });
   const [detailMaterial, setDetailMaterial] = useState(null);
   const [previewTemplate, setPreviewTemplate] = useState(null);
@@ -106,17 +105,14 @@ export default function CanvasMaterialDrawer({
     () => materials.filter(material => !isVerifiedCharacterMaterial(material)),
     [materials],
   );
-  const groupCounts = useMemo(() => {
-    const counts = { all: imageMaterials.length };
-    materialGroups.forEach(group => {
-      counts[group.id] = imageMaterials.filter(material => material.groupId === group.id).length;
-    });
-    return counts;
-  }, [imageMaterials, materialGroups]);
   const filteredMaterials = useMemo(() => {
     let result = imageMaterials;
-    if (activeGroupId !== 'all') {
-      result = result.filter(material => material.groupId === activeGroupId);
+    if (activeMaterialType !== 'all') {
+      result = result.filter(material => (
+        activeMaterialType === '3d'
+          ? material.type === '3d' || material.kind === '3d'
+          : material.type === activeMaterialType
+      ));
     }
     const query = searchQueries.images.trim().toLowerCase();
     if (query) {
@@ -126,7 +122,7 @@ export default function CanvasMaterialDrawer({
       ));
     }
     return [...result].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [activeGroupId, imageMaterials, searchQueries.images]);
+  }, [activeMaterialType, imageMaterials, searchQueries.images]);
   const filteredCharacterMaterials = useMemo(() => {
     const query = searchQueries.characters.trim().toLowerCase();
     const result = query
@@ -150,6 +146,17 @@ export default function CanvasMaterialDrawer({
       ))
       .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
   }, [searchQueries.templates, workflowTemplates]);
+
+  const materialFilterCounts = useMemo(() => MATERIAL_FILTERS.reduce((counts, filter) => {
+    counts[filter.id] = filter.id === 'all'
+      ? imageMaterials.length
+      : imageMaterials.filter(material => (
+        filter.id === '3d'
+          ? material.type === '3d' || material.kind === '3d'
+          : material.type === filter.id
+      )).length;
+    return counts;
+  }, {}), [imageMaterials]);
 
   if (!open) return null;
 
@@ -176,8 +183,6 @@ export default function CanvasMaterialDrawer({
       ? '角色'
       : '素材';
   const visibleMaterials = activeTab === 'characters' ? filteredCharacterMaterials : filteredMaterials;
-  const libraryFolders = materialGroups.length > 0 ? materialGroups : DEFAULT_LIBRARY_FOLDERS;
-  const showLibraryHome = !isCharacterMode && activeGroupId === 'all' && !searchQueries.images.trim();
 
   return (
     <>
@@ -188,12 +193,10 @@ export default function CanvasMaterialDrawer({
       >
         <div className="canvas-material-drawer-header">
           <div className="canvas-material-drawer-title">
-            {!isCharacterMode && <button type="button" className="canvas-material-back" aria-label="返回素材库首页" onClick={() => setActiveGroupId('all')}><Icon name="arrowLeft" size={22} /></button>}
-            <h2>{isCharacterMode ? 'Role Library' : 'Library'}</h2>
-            {!isCharacterMode && <button type="button" className="canvas-material-mode"><Icon name="user" size={18} /> AI Character <Icon name="chevronDown" size={16} /></button>}
+            <h2>{isCharacterMode ? 'Role Library' : '素材库'}</h2>
           </div>
           <div className="canvas-material-drawer-actions">
-            <button type="button" className="canvas-material-add-button" aria-label="添加资产"><Icon name="add" size={22} /></button>
+            {isCharacterMode && <button type="button" className="canvas-material-add-button" aria-label="添加角色"><Icon name="add" size={22} /></button>}
             <div className="canvas-material-drawer-actions-secondary">
             <span>{currentCount} 个{currentCountLabel}</span>
             <button type="button" className="icon-button" onClick={() => window.dispatchEvent(new Event('focus'))} aria-label="刷新素材库">
@@ -227,11 +230,13 @@ export default function CanvasMaterialDrawer({
         )}
 
         <div className="canvas-material-search">
+          <Icon name="search" size={18} />
           <input
             value={searchQuery}
             onChange={event => setSearchQuery(event.target.value)}
-            placeholder={`搜索${TABS.find(tab => tab.id === activeTab)?.label || '素材'}...`}
+            placeholder={isCharacterMode ? '搜索角色...' : '搜索素材...'}
           />
+          {!isCharacterMode && <button type="button" className="canvas-material-upload-button" onClick={onUploadFiles}>上传</button>}
         </div>
 
         {isCharacterMode && (
@@ -253,43 +258,16 @@ export default function CanvasMaterialDrawer({
           </div>
         )}
 
-        {showLibraryHome && (
-          <div className="canvas-material-library-home">
-            <div className="canvas-material-quick-links">
-              <button type="button" className="canvas-material-quick-link"><Icon name="star" size={23} /><span>Favorite</span></button>
-              <button type="button" className="canvas-material-quick-link"><Icon name="user" size={23} /><span>Elements</span><span className="canvas-material-info-dot">?</span></button>
-            </div>
-            <div className="canvas-material-library-divider" />
-            <span className="canvas-material-folder-label">Folder</span>
-            <div className="canvas-material-folder-list">
-              {libraryFolders.map(folder => (
-                <button key={folder.id} type="button" className="canvas-material-folder" onClick={() => setActiveGroupId(folder.id)}>
-                  <Icon name="chevronRight" size={20} />
-                  <Icon name="folder" size={31} />
-                  <span>{folder.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {!showLibraryHome && activeTab === 'images' && !isCharacterMode && (
+        {activeTab === 'images' && !isCharacterMode && (
           <div className="canvas-material-groups">
-            <button
-              type="button"
-              className={`canvas-material-group ${activeGroupId === 'all' ? 'active' : ''}`}
-              onClick={() => setActiveGroupId('all')}
-            >
-              <Icon name="layers" size={14} /><span>全部</span><strong>{groupCounts.all || 0}</strong>
-            </button>
-            {materialGroups.map(group => (
+            {MATERIAL_FILTERS.map(filter => (
               <button
-                key={group.id}
+                key={filter.id}
                 type="button"
-                className={`canvas-material-group ${activeGroupId === group.id ? 'active' : ''}`}
-                onClick={() => setActiveGroupId(group.id)}
+                className={`canvas-material-group ${activeMaterialType === filter.id ? 'active' : ''}`}
+                onClick={() => setActiveMaterialType(filter.id)}
               >
-                <Icon name="folder" size={14} /><span>{group.name}</span><strong>{groupCounts[group.id] || 0}</strong>
+                <span>{filter.label}</span><strong>{materialFilterCounts[filter.id] || 0}</strong>
               </button>
             ))}
           </div>

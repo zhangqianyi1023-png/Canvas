@@ -24956,3 +24956,336 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
   color: var(--canvas-tooltip-fg);
 }
+
+/* 素材库：窄面板、轻边界、首屏直达内容 */
+.canvas-material-drawer:not(.canvas-role-library) {
+  left: 22px;
+  top: 12px;
+  bottom: 18px;
+  width: min(700px, calc(100vw - 44px));
+  border-color: #3b3b42;
+  border-radius: 24px;
+  background: #1b1b1e;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.4);
+}
+
+.canvas-material-drawer:not(.canvas-role-library).with-groups {
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-drawer-header {
+  min-height: 84px;
+  padding: 20px 22px 16px;
+  border-bottom-color: #2e2e34;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-drawer-header h2 {
+  color: #f3f3f5;
+  font-size: 28px;
+  letter-spacing: -0.035em;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-drawer-actions {
+  gap: 12px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-drawer-actions .icon-button {
+  width: 34px;
+  height: 34px;
+  color: #a9a9b3;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-drawer-actions .icon-button:hover,
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-drawer-actions .icon-button:focus-visible {
+  background: #303035;
+  color: #f7f7f8;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-tabs {
+  gap: 0;
+  padding: 14px 22px 12px;
+  border-bottom: 1px solid #2e2e34;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-tabs button {
+  height: 48px;
+  border-radius: 15px;
+  color: #8f8f99;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-tabs button.active {
+  background: #303034;
+  color: #f3f3f5;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-search {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 22px 12px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-search > .svg-icon {
+  color: #777782;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-search input {
+  height: 52px;
+  min-width: 0;
+  padding: 0 14px;
+  border-color: #414149;
+  border-radius: 14px;
+  background: #202024;
+  font-size: 16px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-search input::placeholder {
+  color: #777782;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-search input:focus {
+  border-color: #b9a5ff;
+  box-shadow: 0 0 0 3px rgba(185, 165, 255, 0.12);
+}
+
+.canvas-material-upload-button {
+  height: 52px;
+  min-width: 82px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 15px;
+  background: #f3f3f5;
+  color: #1a1a1d;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.canvas-material-upload-button:hover,
+.canvas-material-upload-button:focus-visible {
+  background: #fff;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-groups {
+  gap: 8px;
+  padding: 2px 22px 14px;
+  border-bottom: 1px solid #2e2e34;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-group {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  color: #888892;
+  font-size: 14px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-group strong {
+  color: #777782;
+  font-weight: 500;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-group:hover,
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-group.active {
+  background: #303034;
+  color: #f4f4f6;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-group.active strong {
+  color: #9d9da8;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-list {
+  gap: 16px;
+  padding: 16px 18px 24px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-card {
+  grid-template-rows: 240px auto;
+  border-color: #2b2b30;
+  border-radius: 17px;
+  background: #252529;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-card:hover {
+  border-color: #777185;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-preview {
+  height: 240px;
+  background: #141417;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-card-info {
+  min-height: 76px;
+  padding: 12px 14px 13px;
+  background: #29292d;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-title {
+  padding-right: 28px;
+  color: #f0f0f2;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-card-info p {
+  margin-top: 4px;
+  color: #898991;
+  font-size: 12px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-favorite {
+  right: 10px;
+  bottom: 12px;
+  width: 30px;
+  height: 30px;
+  color: #73737d;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-favorite:hover,
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-favorite:focus-visible {
+  background: #36363c;
+  color: #c5b9ff;
+}
+
+@media (max-width: 760px) {
+  .canvas-material-drawer:not(.canvas-role-library) {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+
+  .canvas-material-drawer:not(.canvas-role-library) .canvas-material-card {
+    grid-template-rows: 180px auto;
+  }
+
+  .canvas-material-drawer:not(.canvas-role-library) .canvas-material-preview {
+    height: 180px;
+  }
+}
+
+/* 快捷键：贴着左侧工具栏展开，不遮罩画布 */
+.canvas-toolbar-wrap .keyboard-shortcuts-dialog {
+  position: absolute;
+  left: calc(100% + 10px);
+  bottom: 0;
+  z-index: 70;
+  display: grid;
+  width: min(410px, calc(100vw - 92px));
+  max-height: min(500px, calc(100vh - 28px));
+  overflow: hidden auto;
+  border: 1px solid #3e3e46;
+  border-radius: 18px;
+  background: #202023;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
+  transform-origin: bottom left;
+  animation: keyboard-shortcuts-pop-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes keyboard-shortcuts-pop-in {
+  from { opacity: 0; transform: translateX(-5px) scale(0.97); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-header {
+  min-height: 56px;
+  margin: 0 16px;
+  border-bottom-color: #35353b;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-header h2 {
+  font-size: 16px;
+  letter-spacing: -0.025em;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-header .icon-button {
+  width: 28px;
+  height: 28px;
+  color: #a9a9b2;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  column-gap: 22px;
+  row-gap: 20px;
+  padding: 20px 16px 18px;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-group h3 {
+  margin-bottom: 9px;
+  color: #c5c5cc;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-list {
+  gap: 7px;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcut-row {
+  min-height: 26px;
+  gap: 8px;
+  color: #a8a8b1;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcut-label {
+  gap: 7px;
+  font-size: 12px;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcut-label .svg-icon {
+  color: #9f9fa9;
+}
+
+.canvas-toolbar-wrap .shortcut-keys {
+  gap: 3px;
+}
+
+.canvas-toolbar-wrap .shortcut-keys kbd {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-color: #414149;
+  border-radius: 7px;
+  background: #29292d;
+  color: #bdbdc5;
+  font-size: 11px;
+}
+
+.canvas-toolbar-wrap .shortcut-or {
+  font-size: 10px;
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-timeline,
+.canvas-toolbar-wrap .keyboard-shortcuts-agent {
+  grid-column: 2;
+}
+
+@media (max-width: 620px) {
+  .canvas-toolbar-wrap .keyboard-shortcuts-dialog {
+    left: calc(100% + 8px);
+    width: min(340px, calc(100vw - 78px));
+  }
+
+  .canvas-toolbar-wrap .keyboard-shortcuts-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .canvas-toolbar-wrap .keyboard-shortcuts-timeline,
+  .canvas-toolbar-wrap .keyboard-shortcuts-agent {
+    grid-column: auto;
+  }
+}

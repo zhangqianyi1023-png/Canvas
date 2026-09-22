@@ -16,7 +16,6 @@ import dagre from 'dagre';
 import StoryboardImageGenerator from './components/StoryboardImageGenerator';
 import CanvasMaterialDrawer from './components/CanvasMaterialDrawer';
 import CanvasHistoryDrawer from './components/CanvasHistoryDrawer';
-import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
 import TaskCenterDrawer from './components/TaskCenterDrawer';
 import CanvasBottomToolbar from './components/CanvasBottomToolbar';
 import NodeSearchDialog from './components/NodeSearchDialog';
@@ -11826,6 +11825,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         workflowTemplates={workflowTemplates || []}
         officialTemplates={officialTemplates}
         onClose={() => setMaterialDrawerOpen(false)}
+        onUploadFiles={openPaneUploadAtCanvasCenter}
         onAddMaterial={material => addMaterialToCanvas(material)}
         onAddTemplate={addWorkflowTemplateToCanvas}
         onAddOfficialTemplate={addOfficialTemplateToCanvas}
@@ -11854,7 +11854,6 @@ const ALIGN_SNAP_THRESHOLD = 5;
         onClose={() => setHistoryDrawerOpen(false)}
         onAddMaterial={material => addMaterialToCanvas(material)}
       />
-      <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <CanvasTemplateRunnerDrawer
         open={templateRunnerOpen}
         workflowTemplates={workflowTemplates || []}
@@ -11895,9 +11894,10 @@ const ALIGN_SNAP_THRESHOLD = 5;
         characterOpen={characterDrawerOpen}
         historyOpen={historyDrawerOpen}
         appsOpen={templateRunnerOpen}
+        shortcutsOpen={shortcutsOpen}
         onUploadFiles={openPaneUploadAtCanvasCenter}
-        onOpenShortcuts={() => {
-          setShortcutsOpen(true);
+        onToggleShortcuts={(next) => {
+          setShortcutsOpen(current => typeof next === 'boolean' ? next : !current);
           setMaterialDrawerOpen(false);
           setCharacterDrawerOpen(false);
           setHistoryDrawerOpen(false);

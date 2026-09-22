@@ -1,5 +1,6 @@
 import { Fragment, useState, useRef, useCallback, useEffect } from 'react';
 import Icon from './Icon';
+import KeyboardShortcutsDialog from './KeyboardShortcutsDialog';
 
 function tooltipLabel(id) {
   const map = {
@@ -49,11 +50,12 @@ export default function CanvasBottomToolbar({
   characterOpen = false,
   historyOpen = false,
   appsOpen = false,
+  shortcutsOpen = false,
   onToggleMaterials,
   onToggleCharacters,
   onToggleHistory,
   onToggleApps,
-  onOpenShortcuts,
+  onToggleShortcuts,
   onOpenNodeSearch,
 }) {
   const wrapRef = useRef(null);
@@ -129,8 +131,8 @@ export default function CanvasBottomToolbar({
 
   const handleOpenShortcuts = useCallback((event) => {
     event.stopPropagation();
-    onOpenShortcuts?.();
-  }, [onOpenShortcuts]);
+    onToggleShortcuts?.();
+  }, [onToggleShortcuts]);
 
   const handleOpenNodeSearch = useCallback((event) => {
     event.stopPropagation();
@@ -173,6 +175,7 @@ export default function CanvasBottomToolbar({
         <Divider />
         <RailButton id="tool-shortcuts" icon="keyboard" hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleOpenShortcuts} />
       </div>
+      <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => onToggleShortcuts?.(false)} />
       {open && (
         <div className="canvas-toolbar-panel" role="toolbar" aria-label="添加节点">
           {NODE_TOOL_GROUPS.map((group, groupIndex) => (
