@@ -25937,6 +25937,190 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   padding: 20px 16px 18px;
 }
 
+/* 模板库使用应用内的大号居中浏览弹窗 */
+.canvas-template-runner-drawer {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  z-index: 80;
+  width: min(94vw, 1560px);
+  height: min(82vh, 760px);
+  transform: translate(-50%, -50%);
+  grid-template-rows: auto minmax(0, 1fr);
+  border-color: var(--glass-border);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--glass-bg) 96%, #171719);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+}
+
+.canvas-template-runner-header {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 88px;
+  padding: 0 32px;
+  border-bottom-color: var(--border-default);
+}
+
+.canvas-template-library-tabs,
+.canvas-template-library-categories {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvas-template-library-tabs button,
+.canvas-template-library-categories button {
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--fg-secondary);
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.canvas-template-library-tabs button.active,
+.canvas-template-library-categories button.active,
+.canvas-template-library-tabs button:hover,
+.canvas-template-library-categories button:hover {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+
+.canvas-template-library-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 216px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 11px;
+  background: var(--bg-hover);
+  color: var(--fg-tertiary);
+}
+
+.canvas-template-library-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--fg-primary);
+  font: inherit;
+  font-size: 14px;
+}
+
+.canvas-template-library-body {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.canvas-template-library-categories {
+  gap: 12px;
+  padding: 22px 32px 12px;
+  overflow-x: auto;
+}
+
+.canvas-template-library-categories button {
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+.canvas-template-runner-drawer .canvas-template-runner-list {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-content: start;
+  gap: 28px;
+  padding: 14px 28px 30px;
+  overflow-y: auto;
+}
+
+.canvas-template-library-card {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.canvas-template-library-thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #35302d, #161618 72%);
+  color: var(--fg-tertiary);
+  transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+.canvas-template-library-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.canvas-template-library-card:hover .canvas-template-library-thumb,
+.canvas-template-library-card:focus-visible .canvas-template-library-thumb {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.canvas-template-library-card-title {
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .canvas-template-runner-drawer .canvas-template-runner-list {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .canvas-template-runner-drawer {
+    width: calc(100vw - 28px);
+    height: calc(100vh - 28px);
+  }
+
+  .canvas-template-runner-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0 16px;
+  }
+
+  .canvas-template-library-search {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: auto;
+    margin-bottom: 10px;
+  }
+
+  .canvas-template-runner-header {
+    min-height: 136px;
+  }
+
+  .canvas-template-library-tabs button {
+    padding: 8px 9px;
+    font-size: 13px;
+  }
+
+  .canvas-template-runner-drawer .canvas-template-runner-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 12px;
+    padding: 10px 16px 20px;
+  }
+}
+
 .canvas-toolbar-wrap .keyboard-shortcuts-group h3 {
   margin-bottom: 9px;
   color: #c5c5cc;

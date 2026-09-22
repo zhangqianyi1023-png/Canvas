@@ -31,11 +31,19 @@ export default function CanvasTemplateRunnerDrawer({
   const [values, setValues] = useState({});
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
+  const [templateTab, setTemplateTab] = useState('library');
+  const [templateSearch, setTemplateSearch] = useState('');
+  const [templateCategory, setTemplateCategory] = useState('Recommend');
   const fileInputRefs = useRef({});
 
   const templates = useMemo(() => (
     [...workflowTemplates].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
   ), [workflowTemplates]);
+  const visibleTemplates = useMemo(() => {
+    const query = templateSearch.trim().toLowerCase();
+    const source = templateTab === 'recent' ? templates.slice(0, 12) : templates;
+    return source.filter(template => !query || `${template.name || ''} ${template.description || ''}`.toLowerCase().includes(query));
+  }, [templateSearch, templateTab, templates]);
   const selectedTemplate = useMemo(
     () => templates.find(template => template.id === selectedTemplateId) || null,
     [selectedTemplateId, templates],
@@ -51,6 +59,8 @@ export default function CanvasTemplateRunnerDrawer({
       setValues({});
       setRunning(false);
       setError('');
+      setTemplateSearch('');
+      setTemplateCategory('Recommend');
     }
   }, [open]);
 
@@ -170,11 +180,20 @@ export default function CanvasTemplateRunnerDrawer({
       {!selectedTemplate ? (
         <>
           <header className="canvas-template-runner-header">
-            <div className="canvas-template-runner-title">
-              <h2>应用</h2>
-              <span>{templates.length} 个应用</span>
-            </div>
-            <button type="button" className="icon-button" onClick={onClose} aria-label="关闭应用">
+            <nav className="canvas-template-library-tabs" aria-label="模板库分类">
+              {[
+                ['library', 'Template Library'],
+                ['collection', 'My Collection'],
+                ['recent', 'Recent Use'],
+              ].map(([id, label]) => (
+                <button key={id} type="button" className={templateTab === id ? 'active' : ''} onClick={() => setTemplateTab(id)}>{label}</button>
+              ))}
+            </nav>
+            <label className="canvas-template-library-search">
+              <Icon name="search" size={16} />
+              <input value={templateSearch} onChange={event => setTemplateSearch(event.target.value)} placeholder="Search..." aria-label="搜索模板" />
+            </label>
+            <button type="button" className="icon-button" onClick={onClose} aria-label="关闭模板库">
               <Icon name="x" size={18} />
             </button>
           </header>
@@ -185,24 +204,29 @@ export default function CanvasTemplateRunnerDrawer({
               <p>还没有可运行的应用</p>
             </div>
           ) : (
-            <div className="canvas-template-runner-list" aria-label="应用列表">
-              {templates.map(template => (
+            <div className="canvas-template-library-body">
+              <nav className="canvas-template-library-categories" aria-label="模板分类">
+                {['Recommend', 'Photography portrait', 'E-commerce marketing', 'Anime', 'Games', 'Flat Design'].map(category => (
+                  <button key={category} type="button" className={templateCategory === category ? 'active' : ''} onClick={() => setTemplateCategory(category)}>{category}</button>
+                ))}
+              </nav>
+              <div className="canvas-template-runner-list" aria-label="模板列表">
+              {visibleTemplates.map(template => (
                 <button
                   key={template.id}
                   type="button"
-                  className="canvas-template-runner-item"
+                  className="canvas-template-library-card"
                   onClick={() => setSelectedTemplateId(template.id)}
                 >
-                  <span className="canvas-template-runner-item-icon">
-                    <Icon name="shoppingBag" size={18} />
+                  <span className="canvas-template-library-thumb">
+                    {template.coverUrl || template.thumbnailUrl || template.previewImage ? <img src={template.coverUrl || template.thumbnailUrl || template.previewImage} alt="" /> : <Icon name="apps" size={28} />}
                   </span>
-                  <span className="canvas-template-runner-item-body">
-                    <strong>{template.name || '未命名应用'}</strong>
-                    <em>{getTemplateNodeCount(template)} 节点 · {template.edges?.length || 0} 连线</em>
+                  <span className="canvas-template-library-card-title">
+                    {template.name || 'Untitled template'}
                   </span>
-                  <Icon name="arrowLeft" size={16} className="canvas-template-runner-item-arrow" />
                 </button>
               ))}
+              </div>
             </div>
           )}
         </>
