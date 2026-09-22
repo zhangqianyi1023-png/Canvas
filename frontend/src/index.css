@@ -25454,6 +25454,15 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
 }
 
+/* 快捷键内容保持在同一面板内，避免 Timeline / Agent 被底部裁掉 */
+.canvas-toolbar-wrap .keyboard-shortcuts-dialog {
+  max-height: min(720px, calc(100vh - 28px));
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-grid {
+  align-content: start;
+}
+
 @media (max-width: 760px) {
   .canvas-material-drawer:not(.canvas-role-library) {
     left: 74px;
