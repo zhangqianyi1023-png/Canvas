@@ -18,7 +18,7 @@ function tooltipLabel(id, labels = {}) {
     'tool-materials': labels.toolMaterials || '素材库',
     'tool-characters': labels.toolCharacters || '角色',
     'tool-history': labels.toolHistory || '历史',
-    'tool-apps': labels.toolApps || '应用',
+    'tool-apps': labels.toolApps || '模板库',
     'tool-shortcuts': labels.toolShortcuts || 'Keyboard shortcuts',
     'tool-clear': labels.toolClear || '清空画布',
   };
@@ -170,7 +170,7 @@ export default function CanvasBottomToolbar({
         </button>
         <RailButton id="tool-node-search" icon="search" labels={labels} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleOpenNodeSearch} />
         <RailButton id="tool-materials" icon="folder" labels={labels} active={materialOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleMaterials} />
-        <RailButton id="tool-apps" icon="aed" labels={labels} active={appsOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleApps} />
+        <RailButton id="tool-apps" icon="apps" labels={labels} active={appsOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleApps} />
         <RailButton id="tool-characters" icon="user" labels={labels} active={characterOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleCharacters} />
         <RailButton id="tool-history" icon="history" labels={labels} active={historyOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleHistory} />
         <Divider />
