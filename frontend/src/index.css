@@ -25289,3 +25289,153 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
     grid-column: auto;
   }
 }
+
+/* 画布面板统一标准：素材、角色、历史、快捷键共享同一套应用表面 */
+.canvas-material-drawer,
+.canvas-history-drawer,
+.canvas-toolbar-wrap .keyboard-shortcuts-dialog {
+  border-color: var(--glass-border);
+  border-radius: var(--canvas-panel-radius);
+  background: var(--glass-bg);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(16px);
+}
+
+.canvas-material-drawer-header,
+.canvas-history-header,
+.canvas-toolbar-wrap .keyboard-shortcuts-header {
+  border-bottom-color: var(--border-default);
+}
+
+.canvas-material-drawer-header h2,
+.canvas-history-header h2,
+.canvas-toolbar-wrap .keyboard-shortcuts-header h2 {
+  color: var(--fg-primary);
+  font-weight: var(--fw-semibold);
+}
+
+.canvas-material-drawer .icon-button,
+.canvas-history-actions button,
+.canvas-history-back,
+.canvas-toolbar-wrap .keyboard-shortcuts-header .icon-button {
+  color: var(--fg-secondary);
+}
+
+.canvas-material-drawer .icon-button:hover,
+.canvas-material-drawer .icon-button:focus-visible,
+.canvas-history-actions button:hover,
+.canvas-history-back:hover,
+.canvas-toolbar-wrap .keyboard-shortcuts-header .icon-button:hover,
+.canvas-toolbar-wrap .keyboard-shortcuts-header .icon-button:focus-visible {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+
+.canvas-material-tabs button,
+.canvas-material-group,
+.canvas-role-library-categories button,
+.canvas-history-tabs button {
+  color: var(--fg-secondary);
+}
+
+.canvas-material-tabs button.active,
+.canvas-material-group.active,
+.canvas-material-group:hover,
+.canvas-role-library-categories button.active,
+.canvas-role-library-categories button:hover,
+.canvas-history-tabs button.active,
+.canvas-history-tabs button:hover {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+
+.canvas-material-search input,
+.canvas-history-search,
+.canvas-role-library .canvas-material-search input {
+  border-color: var(--border-default);
+  background: color-mix(in srgb, var(--bg-app) 62%, var(--glass-bg));
+  color: var(--fg-primary);
+}
+
+.canvas-material-search input:focus,
+.canvas-history-search:focus-within,
+.canvas-role-library .canvas-material-search input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.canvas-material-card,
+.canvas-history-card {
+  border-color: var(--border-default);
+  border-radius: var(--canvas-panel-radius);
+  background: var(--bg-elevated);
+}
+
+.canvas-material-card:hover,
+.canvas-history-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-default));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.canvas-material-card-info,
+.canvas-history-card-info {
+  background: color-mix(in srgb, var(--bg-elevated) 88%, var(--bg-hover));
+}
+
+.canvas-material-title,
+.canvas-history-card-info strong {
+  color: var(--fg-primary);
+}
+
+.canvas-material-card-info p,
+.canvas-history-card-info time,
+.canvas-material-drawer .canvas-material-empty,
+.canvas-history-empty {
+  color: var(--fg-tertiary);
+}
+
+.canvas-role-card-actions button {
+  border-color: var(--border-default);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-hover) 86%, transparent);
+  color: var(--fg-primary);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+}
+
+.canvas-role-card-actions button:hover {
+  background: var(--bg-elevated);
+  color: var(--accent);
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-dialog {
+  border-radius: var(--canvas-panel-radius);
+}
+
+.canvas-toolbar-wrap .keyboard-shortcuts-group h3 {
+  color: var(--fg-secondary);
+}
+
+.canvas-toolbar-wrap .keyboard-shortcut-row,
+.canvas-toolbar-wrap .keyboard-shortcut-label {
+  color: var(--fg-secondary);
+}
+
+.canvas-toolbar-wrap .shortcut-keys kbd {
+  border-color: var(--border-default);
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+
+.canvas-material-drawer ::-webkit-scrollbar,
+.canvas-history-drawer ::-webkit-scrollbar,
+.canvas-toolbar-wrap .keyboard-shortcuts-dialog ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.canvas-material-drawer ::-webkit-scrollbar-thumb,
+.canvas-history-drawer ::-webkit-scrollbar-thumb,
+.canvas-toolbar-wrap .keyboard-shortcuts-dialog ::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-tertiary) 48%, transparent);
+}
