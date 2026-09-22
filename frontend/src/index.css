@@ -25446,7 +25446,7 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   top: 50%;
   right: auto;
   bottom: auto;
-  width: min(720px, calc(100vw - 108px));
+  width: min(640px, calc(100vw - 108px));
   height: min(88vh, 900px);
   transform: translateY(-50%);
   border-radius: 20px;
@@ -25468,33 +25468,33 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
 }
 
 .canvas-material-drawer:not(.canvas-role-library) .canvas-material-drawer-header h2 {
-  font-size: 22px;
+  font-size: var(--fs-2xl);
   letter-spacing: -0.025em;
 }
 
 .canvas-material-drawer:not(.canvas-role-library) .canvas-material-tabs button {
-  height: 42px;
-  font-size: 13px;
+  height: 40px;
+  font-size: 12px;
 }
 
 .canvas-material-drawer:not(.canvas-role-library) .canvas-material-search input {
-  height: 46px;
-  font-size: 14px;
+  height: 44px;
+  font-size: 13px;
 }
 
 .canvas-material-drawer:not(.canvas-role-library) .canvas-material-upload-button {
-  height: 46px;
-  min-width: 72px;
-  padding-inline: 16px;
-  border-radius: 13px;
-  font-size: 14px;
+  height: 44px;
+  min-width: 68px;
+  padding-inline: 14px;
+  border-radius: 12px;
+  font-size: 13px;
 }
 
 .canvas-material-drawer:not(.canvas-role-library) .canvas-material-group {
-  height: 34px;
-  padding-inline: 12px;
-  border-radius: 10px;
-  font-size: 12px;
+  height: 32px;
+  padding-inline: 11px;
+  border-radius: 9px;
+  font-size: 11px;
 }
 
 .canvas-material-drawer:not(.canvas-role-library) .canvas-material-card-info {
@@ -25503,11 +25503,11 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
 }
 
 .canvas-material-drawer:not(.canvas-role-library) .canvas-material-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: var(--fw-semibold);
 }
 
 .canvas-material-drawer:not(.canvas-role-library) .canvas-material-card-info p {
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 10px;
 }
