@@ -3022,15 +3022,65 @@ body {
   animation: canvas-agent-float 3.8s ease-in-out infinite;
 }
 
+.canvas-copilot-launcher::before {
+  position: absolute;
+  right: 72px;
+  bottom: 48px;
+  z-index: 2;
+  padding: 7px 11px;
+  border: 1px solid rgba(196, 181, 253, 0.24);
+  border-radius: 10px 10px 3px 10px;
+  background: rgba(35, 32, 44, 0.94);
+  color: #e9e3ff;
+  content: 'Agent';
+  font-size: 12px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.01em;
+  opacity: 0;
+  pointer-events: none;
+  animation: canvas-agent-hint 7s ease-in-out infinite;
+  transform: translateY(5px) scale(0.96);
+  transform-origin: right bottom;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.canvas-copilot-launcher::after {
+  position: absolute;
+  right: 66px;
+  bottom: 43px;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid rgba(196, 181, 253, 0.24);
+  border-bottom: 1px solid rgba(196, 181, 253, 0.24);
+  background: rgba(35, 32, 44, 0.94);
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  animation: canvas-agent-hint-tail 7s ease-in-out infinite;
+  transform: rotate(-15deg);
+  transition: opacity 0.18s ease;
+}
+
 .canvas-copilot-launcher img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   pointer-events: none;
+  animation: canvas-agent-blink 5.6s ease-in-out infinite;
 }
 
 .canvas-copilot-launcher:hover {
   transform: translateY(-4px) scale(1.04);
+}
+
+.canvas-copilot-launcher:hover::before,
+.canvas-copilot-launcher:hover::after {
+  opacity: 1;
+  animation: none;
+}
+
+.canvas-copilot-launcher:hover::before {
+  transform: translateY(0) scale(1);
 }
 
 .canvas-copilot-launcher.active {
@@ -3042,6 +3092,21 @@ body {
 @keyframes canvas-agent-float {
   0%, 100% { transform: translateY(0) rotate(-1deg); }
   50% { transform: translateY(-5px) rotate(1deg); }
+}
+
+@keyframes canvas-agent-blink {
+  0%, 44%, 48%, 100% { transform: scaleY(1); }
+  45%, 47% { transform: scaleY(0.92); }
+}
+
+@keyframes canvas-agent-hint {
+  0%, 62%, 100% { opacity: 0; transform: translateY(5px) scale(0.96); }
+  68%, 82% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes canvas-agent-hint-tail {
+  0%, 62%, 100% { opacity: 0; }
+  68%, 82% { opacity: 1; }
 }
 
 .canvas-copilot-drawer {
@@ -4076,14 +4141,14 @@ body {
 
 .canvas-material-drawer {
   position: absolute;
-  left: 20px;
-  top: 20px;
-  bottom: 20px;
+  left: 18px;
+  top: 18px;
+  bottom: 18px;
   z-index: 45;
   display: grid;
-  width: clamp(440px, 40vw, 700px);
+  width: clamp(360px, 32vw, 560px);
   border: 1px solid var(--glass-border);
-  border-radius: 22px;
+  border-radius: 18px;
   background: #1b1b1f;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
   overflow: hidden;
@@ -4102,8 +4167,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 22px 22px 16px;
+  gap: 10px;
+  padding: 18px 18px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -4111,7 +4176,7 @@ body {
   display: flex;
   align-items: center;
   min-width: 0;
-  gap: 14px;
+  gap: 10px;
 }
 
 .canvas-material-back,
@@ -4142,22 +4207,22 @@ body {
 .canvas-material-mode {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 42px;
+  gap: 6px;
+  height: 36px;
   margin-left: auto;
-  padding: 0 14px;
-  border-radius: 12px;
+  padding: 0 11px;
+  border-radius: 10px;
   background: #343438;
   color: #e7e7eb;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .canvas-material-add-button {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #343438;
   color: #f1f1f3;
 }
@@ -4177,7 +4242,7 @@ body {
 .canvas-material-drawer-header h2 {
   margin: 0;
   color: var(--fg-primary);
-  font-size: 24px;
+  font-size: 21px;
   font-weight: var(--fw-bold);
 }
 
@@ -4191,7 +4256,7 @@ body {
 .canvas-material-drawer-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .canvas-material-drawer-actions .icon-button {
@@ -4210,8 +4275,8 @@ body {
 .canvas-material-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 12px 22px 0;
+  gap: 6px;
+  padding: 10px 18px 0;
 }
 
 .canvas-template-thumbnail.official img {
@@ -4221,15 +4286,15 @@ body {
 }
 
 .canvas-material-tabs button {
-  height: 44px;
+  height: 38px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 13px;
+  border-radius: 10px;
   background: transparent;
   color: var(--fg-tertiary);
   cursor: pointer;
   font-family: inherit;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: var(--fw-bold);
 }
 
@@ -4245,19 +4310,19 @@ body {
 }
 
 .canvas-material-search {
-  padding: 16px 22px 10px;
+  padding: 14px 18px 8px;
 }
 
 .canvas-material-search input {
   width: 100%;
-  height: 48px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 13px;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 15px;
+  border-radius: 11px;
   background: #222226;
   color: var(--fg-primary);
   font-family: inherit;
-  font-size: 16px;
+  font-size: 14px;
   outline: none;
 }
 
@@ -4266,7 +4331,7 @@ body {
 }
 
 .canvas-material-library-home {
-  padding: 8px 22px 22px;
+  padding: 6px 18px 18px;
   overflow-y: auto;
 }
 
@@ -4278,9 +4343,9 @@ body {
 
 .canvas-material-quick-link {
   display: flex;
-  min-height: 48px;
+  min-height: 40px;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 0 6px;
   border: 0;
   border-radius: 10px;
@@ -4288,7 +4353,7 @@ body {
   color: #c8c8ce;
   cursor: pointer;
   font: inherit;
-  font-size: 18px;
+  font-size: 15px;
   text-align: left;
 }
 
@@ -4317,15 +4382,15 @@ body {
 
 .canvas-material-library-divider {
   height: 1px;
-  margin: 8px 0 28px;
+  margin: 8px 0 20px;
   background: rgba(255, 255, 255, 0.14);
 }
 
 .canvas-material-folder-label {
   display: block;
-  margin: 0 8px 14px;
+  margin: 0 6px 10px;
   color: #8d8d96;
-  font-size: 16px;
+  font-size: 13px;
 }
 
 .canvas-material-folder-list {
@@ -4335,10 +4400,10 @@ body {
 
 .canvas-material-folder {
   display: grid;
-  grid-template-columns: 22px 38px minmax(0, 1fr);
-  min-height: 54px;
+  grid-template-columns: 18px 30px minmax(0, 1fr);
+  min-height: 44px;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 0 6px;
   border: 0;
   border-radius: 11px;
@@ -4346,7 +4411,7 @@ body {
   color: #c3c3ca;
   cursor: pointer;
   font: inherit;
-  font-size: 18px;
+  font-size: 15px;
   text-align: left;
 }
 
@@ -4369,7 +4434,7 @@ body {
   display: flex;
   gap: 8px;
   max-width: 100%;
-  padding: 0 22px 14px;
+  padding: 0 18px 10px;
   overflow-x: auto;
 }
 
@@ -4378,10 +4443,10 @@ body {
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
-  height: 38px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 9px;
   background: transparent;
   color: var(--fg-secondary);
   cursor: pointer;
@@ -4406,19 +4471,19 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
-  gap: 14px;
+  gap: 10px;
   min-height: 0;
-  padding: 10px 22px 22px;
+  padding: 8px 18px 18px;
   overflow-y: auto;
 }
 
 .canvas-material-card {
   display: grid;
-  grid-template-rows: 150px auto;
+  grid-template-rows: 118px auto;
   gap: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  border-radius: 13px;
   background: #242428;
   cursor: grab;
 }
@@ -4547,7 +4612,7 @@ body {
   display: grid;
   place-items: center;
   width: 100%;
-  height: 150px;
+  height: 118px;
   overflow: hidden;
   border: 0;
   border-radius: 0;
@@ -4583,8 +4648,8 @@ body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   align-content: start;
-  min-height: 80px;
-  padding: 12px 14px 13px;
+  min-height: 68px;
+  padding: 9px 11px 10px;
   background: #29292d;
 }
 
@@ -4596,7 +4661,7 @@ body {
   color: var(--fg-primary);
   cursor: pointer;
   font-family: inherit;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: var(--fw-bold);
   overflow: hidden;
   text-align: left;
@@ -4609,7 +4674,7 @@ body {
   margin: 5px 0 0;
   overflow: hidden;
   color: var(--fg-tertiary);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -4618,11 +4683,11 @@ body {
 
 .canvas-material-favorite {
   position: absolute;
-  right: 10px;
-  bottom: 12px;
+  right: 7px;
+  bottom: 8px;
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   place-items: center;
   border: 0;
   border-radius: 9px;
@@ -4772,6 +4837,595 @@ body {
 
 .canvas-material-detail-add:hover {
   background: var(--accent);
+}
+
+/* 居中的角色库弹窗 */
+.canvas-role-library-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 44;
+  background: rgba(5, 5, 7, 0.46);
+  backdrop-filter: blur(2px);
+}
+
+.canvas-material-drawer.canvas-role-library {
+  left: 50%;
+  top: 50%;
+  right: auto;
+  bottom: auto;
+  width: min(94vw, 1120px);
+  height: min(84vh, 820px);
+  transform: translate(-50%, -50%);
+  border-radius: 20px;
+  background: #202022;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+}
+
+.canvas-material-drawer.canvas-role-library.without-groups {
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+}
+
+.canvas-role-library .canvas-material-drawer-header {
+  padding: 18px 20px 14px;
+}
+
+.canvas-role-library .canvas-material-drawer-header h2 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.canvas-role-library .canvas-material-drawer-title {
+  flex: 1;
+}
+
+.canvas-role-library .canvas-material-drawer-actions-secondary span {
+  display: none;
+}
+
+.canvas-role-library .canvas-material-search {
+  position: absolute;
+  top: 18px;
+  right: 64px;
+  width: 206px;
+  padding: 0;
+}
+
+.canvas-role-library .canvas-material-search input {
+  height: 38px;
+  border-radius: 11px;
+  background: #303034;
+  border-color: transparent;
+}
+
+.canvas-role-library-categories {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 20px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.canvas-role-library-categories button {
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #a4a4aa;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.canvas-role-library-categories button:hover,
+.canvas-role-library-categories button.active {
+  background: #353537;
+  color: #f3f3f5;
+}
+
+.canvas-role-library-categories .canvas-role-library-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #2b2b2e;
+}
+
+.canvas-role-library .canvas-material-list {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  padding: 8px 20px 20px;
+}
+
+.canvas-role-library .canvas-role-card {
+  display: block;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+}
+
+.canvas-role-library .canvas-role-card:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.canvas-role-library .canvas-role-card .canvas-material-preview {
+  height: 230px;
+  border-radius: 10px;
+  background: #303032;
+}
+
+.canvas-role-library .canvas-role-card .canvas-material-preview > img {
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.canvas-role-library .canvas-role-card:hover .canvas-material-preview > img {
+  transform: scale(1.02);
+  filter: brightness(0.78);
+}
+
+.canvas-role-library .canvas-role-card .canvas-material-preview > span:first-of-type {
+  display: none;
+}
+
+.canvas-role-card-actions {
+  position: absolute;
+  inset: auto 14px 14px;
+  display: grid;
+  gap: 7px;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.canvas-role-library .canvas-role-card:hover .canvas-role-card-actions,
+.canvas-role-library .canvas-role-card:focus-within .canvas-role-card-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.canvas-role-card-actions button {
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.64);
+  color: #222226;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
+  backdrop-filter: blur(8px);
+}
+
+.canvas-role-card-actions button:hover {
+  background: #fff;
+}
+
+.canvas-role-library .canvas-role-card .canvas-material-card-info {
+  min-height: 44px;
+  padding: 9px 4px 0;
+  background: transparent;
+}
+
+.canvas-role-library .canvas-role-card .canvas-material-title {
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
+}
+
+.canvas-role-library .canvas-role-card .canvas-material-card-info p {
+  display: none;
+}
+
+.canvas-role-library .canvas-role-card .canvas-material-favorite {
+  right: 0;
+  bottom: auto;
+  top: 235px;
+}
+
+@media (max-width: 900px) {
+  .canvas-role-library .canvas-material-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .canvas-role-library .canvas-role-card .canvas-material-preview {
+    height: 210px;
+  }
+}
+
+@media (max-width: 620px) {
+  .canvas-material-drawer.canvas-role-library {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 32px);
+  }
+
+  .canvas-role-library .canvas-material-search {
+    right: 54px;
+    width: 150px;
+  }
+
+  .canvas-role-library-categories {
+    overflow-x: auto;
+  }
+
+  .canvas-role-library .canvas-material-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* 生成历史 */
+.canvas-history-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 44;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 5, 7, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.canvas-history-drawer {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  width: min(94vw, 720px);
+  height: min(88vh, 900px);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  background: #1b1b1e;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+}
+
+.canvas-history-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 76px;
+  padding: 0 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.canvas-history-header h2 {
+  margin: 0;
+  color: #f2f2f4;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+}
+
+.canvas-history-back,
+.canvas-history-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #a9a9b0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.canvas-history-back {
+  width: 28px;
+  height: 36px;
+}
+
+.canvas-history-back:hover,
+.canvas-history-actions button:hover {
+  color: #fff;
+}
+
+.canvas-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+
+.canvas-history-actions button:first-child {
+  font-size: 15px;
+}
+
+.canvas-history-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 14px 18px 10px;
+}
+
+.canvas-history-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 40px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: #8f8f98;
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: var(--fw-semibold);
+}
+
+.canvas-history-tabs button.active,
+.canvas-history-tabs button:hover {
+  background: #303033;
+  color: #ededf0;
+}
+
+.canvas-history-tabs small {
+  color: #77777e;
+  font-size: 12px;
+}
+
+.canvas-history-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  margin: 0 20px 16px;
+  padding: 0 14px;
+  border: 1px solid #414146;
+  border-radius: 14px;
+  background: #202023;
+  color: #8e8e97;
+}
+
+.canvas-history-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.canvas-history-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f2f2f4;
+  font: inherit;
+  font-size: 15px;
+}
+
+.canvas-history-search input::placeholder {
+  color: #77777f;
+}
+
+.canvas-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 14px;
+  min-height: 0;
+  padding: 0 18px 20px;
+  overflow-y: auto;
+}
+
+.canvas-history-card {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 15px;
+  background: #252528;
+}
+
+.canvas-history-card-preview {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 248px;
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  background: #121215;
+  color: #888891;
+  cursor: pointer;
+}
+
+.canvas-history-card-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.canvas-history-card-preview > span {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(15, 15, 18, 0.78);
+  color: #e9e9ec;
+  font-size: 12px;
+}
+
+.canvas-history-card-info {
+  display: grid;
+  gap: 4px;
+  padding: 11px 14px 13px;
+}
+
+.canvas-history-card-info strong {
+  color: #f1f1f3;
+  font-size: 15px;
+}
+
+.canvas-history-card-info time {
+  color: #85858e;
+  font-size: 13px;
+}
+
+.canvas-history-empty {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 280px;
+  color: #77777f;
+}
+
+.canvas-history-empty p {
+  margin: 0;
+  font-size: 14px;
+}
+
+@media (max-width: 620px) {
+  .canvas-history-drawer {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 32px);
+  }
+
+  .canvas-history-header {
+    padding: 0 16px;
+  }
+
+  .canvas-history-grid {
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .canvas-history-card-preview {
+    height: 170px;
+  }
+}
+
+/* 快捷键面板 */
+.canvas-toolbar-rail .canvas-toolbar-rail-btn:last-child {
+  font-size: 0;
+}
+
+.keyboard-shortcuts-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 5, 7, 0.46);
+  backdrop-filter: blur(2px);
+}
+
+.keyboard-shortcuts-dialog {
+  width: min(92vw, 920px);
+  max-height: min(86vh, 720px);
+  overflow: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  background: #202022;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+}
+
+.keyboard-shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 82px;
+  margin: 0 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.keyboard-shortcuts-header h2 {
+  margin: 0;
+  color: #f2f2f4;
+  font-size: 23px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.03em;
+}
+
+.keyboard-shortcuts-header .icon-button {
+  color: #b5b5bd;
+}
+
+.keyboard-shortcuts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 72px;
+  row-gap: 24px;
+  padding: 38px 36px 34px;
+}
+
+.keyboard-shortcuts-group h3 {
+  margin: 0 0 16px;
+  color: #aaaab2;
+  font-size: 17px;
+  font-weight: var(--fw-bold);
+}
+
+.keyboard-shortcuts-list {
+  display: grid;
+  gap: 12px;
+}
+
+.keyboard-shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  gap: 16px;
+  color: #a9a9b1;
+}
+
+.keyboard-shortcut-label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+  font-size: 15px;
+}
+
+.keyboard-shortcut-label .svg-icon {
+  flex: 0 0 auto;
+  color: #a6a6ae;
+}
+
+.shortcut-keys {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.shortcut-keys kbd {
+  display: inline-grid;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 9px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: #252528;
+  color: #aaaab2;
+  font: inherit;
+  font-size: 14px;
+}
+
+.shortcut-or {
+  color: #9999a1;
+  font-size: 13px;
+}
+
+.keyboard-shortcuts-timeline,
+.keyboard-shortcuts-agent {
+  grid-column: 2;
+}
+
+@media (max-width: 700px) {
+  .keyboard-shortcuts-dialog {
+    width: calc(100vw - 24px);
+  }
+
+  .keyboard-shortcuts-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 28px 20px;
+  }
+
+  .keyboard-shortcuts-timeline,
+  .keyboard-shortcuts-agent {
+    grid-column: auto;
+  }
 }
 
 .canvas-template-runner-drawer {

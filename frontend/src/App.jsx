@@ -15,6 +15,8 @@ import '@reactflow/node-resizer/dist/style.css';
 import dagre from 'dagre';
 import StoryboardImageGenerator from './components/StoryboardImageGenerator';
 import CanvasMaterialDrawer from './components/CanvasMaterialDrawer';
+import CanvasHistoryDrawer from './components/CanvasHistoryDrawer';
+import KeyboardShortcutsDialog from './components/KeyboardShortcutsDialog';
 import TaskCenterDrawer from './components/TaskCenterDrawer';
 import CanvasBottomToolbar from './components/CanvasBottomToolbar';
 import NodeSearchDialog from './components/NodeSearchDialog';
@@ -1692,6 +1694,8 @@ export function CanvasFlow({
   const [menu, setMenu] = useState(null);
   const [materialDrawerOpen, setMaterialDrawerOpen] = useState(false);
   const [characterDrawerOpen, setCharacterDrawerOpen] = useState(false);
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [taskCenterOpen, setTaskCenterOpen] = useState(false);
   const [nodeSearchOpen, setNodeSearchOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
@@ -11844,6 +11848,13 @@ const ALIGN_SNAP_THRESHOLD = 5;
         onClose={() => setCharacterDrawerOpen(false)}
         onAddMaterial={material => addMaterialToCanvas(material)}
       />
+      <CanvasHistoryDrawer
+        open={historyDrawerOpen}
+        materials={materials || []}
+        onClose={() => setHistoryDrawerOpen(false)}
+        onAddMaterial={material => addMaterialToCanvas(material)}
+      />
+      <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <CanvasTemplateRunnerDrawer
         open={templateRunnerOpen}
         workflowTemplates={workflowTemplates || []}
@@ -11882,13 +11893,25 @@ const ALIGN_SNAP_THRESHOLD = 5;
       <CanvasBottomToolbar
         materialOpen={materialDrawerOpen}
         characterOpen={characterDrawerOpen}
+        historyOpen={historyDrawerOpen}
         appsOpen={templateRunnerOpen}
         onUploadFiles={openPaneUploadAtCanvasCenter}
+        onOpenShortcuts={() => {
+          setShortcutsOpen(true);
+          setMaterialDrawerOpen(false);
+          setCharacterDrawerOpen(false);
+          setHistoryDrawerOpen(false);
+          setTaskCenterOpen(false);
+          setTemplateRunnerOpen(false);
+          setCopilotOpen(false);
+          setCopilotPickingNode(false);
+        }}
         onOpenNodeSearch={() => {
           setNodeSearchOpen(true);
           setMenu(null);
           setMaterialDrawerOpen(false);
           setCharacterDrawerOpen(false);
+          setHistoryDrawerOpen(false);
           setTaskCenterOpen(false);
           setTemplateRunnerOpen(false);
           setCopilotOpen(false);
@@ -11897,6 +11920,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         onToggleMaterials={() => {
           setMaterialDrawerOpen(open => !open);
           setCharacterDrawerOpen(false);
+          setHistoryDrawerOpen(false);
           setTaskCenterOpen(false);
           setTemplateRunnerOpen(false);
           setCopilotOpen(false);
@@ -11905,6 +11929,17 @@ const ALIGN_SNAP_THRESHOLD = 5;
         onToggleCharacters={() => {
           setCharacterDrawerOpen(open => !open);
           setMaterialDrawerOpen(false);
+          setHistoryDrawerOpen(false);
+          setTaskCenterOpen(false);
+          setTemplateRunnerOpen(false);
+          setCopilotOpen(false);
+          setCopilotPickingNode(false);
+        }}
+        onToggleHistory={() => {
+          setHistoryDrawerOpen(open => !open);
+          setMaterialDrawerOpen(false);
+          setCharacterDrawerOpen(false);
+          setHistoryDrawerOpen(false);
           setTaskCenterOpen(false);
           setTemplateRunnerOpen(false);
           setCopilotOpen(false);
@@ -11914,6 +11949,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setTemplateRunnerOpen(open => !open);
           setMaterialDrawerOpen(false);
           setCharacterDrawerOpen(false);
+          setHistoryDrawerOpen(false);
           setTaskCenterOpen(false);
           setCopilotOpen(false);
           setCopilotPickingNode(false);

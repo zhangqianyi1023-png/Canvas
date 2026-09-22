@@ -16,7 +16,9 @@ function tooltipLabel(id) {
     'tool-storyboard': '分镜工作台',
     'tool-materials': '素材库',
     'tool-characters': '角色',
+    'tool-history': '历史',
     'tool-apps': '应用',
+    'tool-shortcuts': 'Keyboard shortcuts',
     'tool-clear': '清空画布',
   };
   return map[id] || '';
@@ -45,10 +47,13 @@ export default function CanvasBottomToolbar({
   onUploadFiles,
   materialOpen = false,
   characterOpen = false,
+  historyOpen = false,
   appsOpen = false,
   onToggleMaterials,
   onToggleCharacters,
+  onToggleHistory,
   onToggleApps,
+  onOpenShortcuts,
   onOpenNodeSearch,
 }) {
   const wrapRef = useRef(null);
@@ -112,10 +117,20 @@ export default function CanvasBottomToolbar({
     onToggleCharacters?.();
   }, [onToggleCharacters]);
 
+  const handleToggleHistory = useCallback((event) => {
+    event.stopPropagation();
+    onToggleHistory?.();
+  }, [onToggleHistory]);
+
   const handleToggleApps = useCallback((event) => {
     event.stopPropagation();
     onToggleApps?.();
   }, [onToggleApps]);
+
+  const handleOpenShortcuts = useCallback((event) => {
+    event.stopPropagation();
+    onOpenShortcuts?.();
+  }, [onOpenShortcuts]);
 
   const handleOpenNodeSearch = useCallback((event) => {
     event.stopPropagation();
@@ -154,6 +169,9 @@ export default function CanvasBottomToolbar({
         <RailButton id="tool-materials" icon="folder" active={materialOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleMaterials} />
         <RailButton id="tool-apps" icon="aed" active={appsOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleApps} />
         <RailButton id="tool-characters" icon="user" active={characterOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleCharacters} />
+        <RailButton id="tool-history" icon="history" active={historyOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleHistory} />
+        <Divider />
+        <RailButton id="tool-shortcuts" icon="keyboard" hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleOpenShortcuts} />
       </div>
       {open && (
         <div className="canvas-toolbar-panel" role="toolbar" aria-label="添加节点">

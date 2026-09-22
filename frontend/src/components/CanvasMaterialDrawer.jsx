@@ -63,6 +63,13 @@ const DEFAULT_LIBRARY_FOLDERS = [
   { id: 'others', name: 'Others' },
 ];
 
+const ROLE_LIBRARY_CATEGORIES = [
+  { id: 'all', label: 'All' },
+  { id: 'ancient', label: 'Ancient History' },
+  { id: 'contemporary', label: 'Contemporary Reality' },
+  { id: 'scifi', label: 'Science Fiction Future' },
+];
+
 export default function CanvasMaterialDrawer({
   open,
   mode = 'materials',
@@ -86,6 +93,7 @@ export default function CanvasMaterialDrawer({
   const [previewTemplate, setPreviewTemplate] = useState(null);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [templateMenuId, setTemplateMenuId] = useState(null);
+  const [roleCategory, setRoleCategory] = useState('all');
   const tabRefs = useRef([]);
 
   const searchQuery = searchQueries[activeTab] || '';
@@ -127,8 +135,12 @@ export default function CanvasMaterialDrawer({
           || (material.prompt || '').toLowerCase().includes(query)
         ))
       : characterMaterials;
-    return [...result].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [characterMaterials, searchQueries.characters]);
+    const hasCategorizedRoles = result.some(material => material.category || material.roleCategory);
+    const categoryFiltered = roleCategory === 'all' || !hasCategorizedRoles
+      ? result
+      : result.filter(material => String(material.category || material.roleCategory || '').toLowerCase() === roleCategory);
+    return [...categoryFiltered].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [characterMaterials, roleCategory, searchQueries.characters]);
   const filteredTemplates = useMemo(() => {
     const query = searchQueries.templates.trim().toLowerCase();
     return [...workflowTemplates]
@@ -169,14 +181,15 @@ export default function CanvasMaterialDrawer({
 
   return (
     <>
+      {isCharacterMode && <div className="canvas-role-library-overlay" onClick={onClose} aria-hidden="true" />}
       <aside
-        className={`canvas-material-drawer nodrag nopan ${activeTab === 'images' ? 'with-groups' : 'without-groups'} ${isCharacterMode ? 'character-mode' : ''}`}
+        className={`canvas-material-drawer nodrag nopan ${activeTab === 'images' ? 'with-groups' : 'without-groups'} ${isCharacterMode ? 'character-mode canvas-role-library' : ''}`}
         onPointerDown={event => event.stopPropagation()}
       >
         <div className="canvas-material-drawer-header">
           <div className="canvas-material-drawer-title">
             {!isCharacterMode && <button type="button" className="canvas-material-back" aria-label="返回素材库首页" onClick={() => setActiveGroupId('all')}><Icon name="arrowLeft" size={22} /></button>}
-            <h2>{isCharacterMode ? '角色' : 'Library'}</h2>
+            <h2>{isCharacterMode ? 'Role Library' : 'Library'}</h2>
             {!isCharacterMode && <button type="button" className="canvas-material-mode"><Icon name="user" size={18} /> AI Character <Icon name="chevronDown" size={16} /></button>}
           </div>
           <div className="canvas-material-drawer-actions">
@@ -220,6 +233,25 @@ export default function CanvasMaterialDrawer({
             placeholder={`搜索${TABS.find(tab => tab.id === activeTab)?.label || '素材'}...`}
           />
         </div>
+
+        {isCharacterMode && (
+          <div className="canvas-role-library-categories" role="tablist" aria-label="角色分类">
+            {ROLE_LIBRARY_CATEGORIES.map(category => (
+              <button
+                key={category.id}
+                type="button"
+                className={roleCategory === category.id ? 'active' : ''}
+                onClick={() => setRoleCategory(category.id)}
+              >
+                {category.label}
+              </button>
+            ))}
+            <button type="button" className="canvas-role-library-filter" aria-label="筛选角色">
+              <Icon name="filter" size={15} />
+              <span>Filter</span>
+            </button>
+          </div>
+        )}
 
         {showLibraryHome && (
           <div className="canvas-material-library-home">
@@ -271,15 +303,29 @@ export default function CanvasMaterialDrawer({
                 <p>{activeTab === 'characters' ? '还没有已认证角色' : '没有匹配的生成历史'}</p>
               </div>
             ) : visibleMaterials.map(material => (
-              <article key={material.id} className="canvas-material-card" draggable onDragStart={event => startMaterialDrag(event, material)}>
-                <button type="button" className="canvas-material-preview" onClick={() => setDetailMaterial(material)}>
+              <article key={material.id} className={`canvas-material-card ${isCharacterMode ? 'canvas-role-card' : ''}`} draggable onDragStart={event => startMaterialDrag(event, material)}>
+                <div
+                  className="canvas-material-preview"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetailMaterial(material)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') setDetailMaterial(material);
+                  }}
+                >
                   {material.type === 'video' ? (
                     <video src={material.imageUrl} muted preload="metadata" />
                   ) : material.imageUrl ? (
                     <img src={material.imageUrl} alt={material.name || '素材'} loading="lazy" decoding="async" />
                   ) : <Icon name="fileText" size={30} />}
                   <span>{getMaterialKindLabel(material)}</span>
-                </button>
+                  {isCharacterMode && (
+                    <span className="canvas-role-card-actions" onClick={event => event.stopPropagation()}>
+                      <button type="button" onClick={() => setDetailMaterial(material)}>View</button>
+                      <button type="button" onClick={() => onAddMaterial(material)}>Add to canvas</button>
+                    </span>
+                  )}
+                </div>
                 <div className="canvas-material-card-info">
                   <button type="button" className="canvas-material-title" onClick={() => setDetailMaterial(material)}>
                     {material.name || '未命名素材'}
