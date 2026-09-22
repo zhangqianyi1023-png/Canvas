@@ -25461,3 +25461,53 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
     height: calc(100vh - 32px);
   }
 }
+
+/* 素材库内容层级：更紧凑、更接近应用内面板的精致密度 */
+.canvas-material-drawer:not(.canvas-role-library) {
+  font-size: 13px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-drawer-header h2 {
+  font-size: 22px;
+  letter-spacing: -0.025em;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-tabs button {
+  height: 42px;
+  font-size: 13px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-search input {
+  height: 46px;
+  font-size: 14px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-upload-button {
+  height: 46px;
+  min-width: 72px;
+  padding-inline: 16px;
+  border-radius: 13px;
+  font-size: 14px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-group {
+  height: 34px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-card-info {
+  min-height: 68px;
+  padding: 10px 12px 11px;
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-title {
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
+}
+
+.canvas-material-drawer:not(.canvas-role-library) .canvas-material-card-info p {
+  margin-top: 3px;
+  font-size: 11px;
+}
