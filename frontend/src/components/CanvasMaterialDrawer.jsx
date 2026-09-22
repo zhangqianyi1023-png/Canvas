@@ -93,6 +93,7 @@ export default function CanvasMaterialDrawer({
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [templateMenuId, setTemplateMenuId] = useState(null);
   const [roleCategory, setRoleCategory] = useState('all');
+  const [roleSearchOpen, setRoleSearchOpen] = useState(false);
   const tabRefs = useRef([]);
 
   const searchQuery = searchQueries[activeTab] || '';
@@ -188,7 +189,7 @@ export default function CanvasMaterialDrawer({
     <>
       {isCharacterMode && <div className="canvas-role-library-overlay" onClick={onClose} aria-hidden="true" />}
       <aside
-        className={`canvas-material-drawer nodrag nopan ${activeTab === 'images' ? 'with-groups' : 'without-groups'} ${isCharacterMode ? 'character-mode canvas-role-library' : ''}`}
+        className={`canvas-material-drawer nodrag nopan ${activeTab === 'images' ? 'with-groups' : 'without-groups'} ${isCharacterMode ? `character-mode canvas-role-library${roleSearchOpen ? ' role-search-open' : ''}` : ''}`}
         onPointerDown={event => event.stopPropagation()}
       >
         <div className="canvas-material-drawer-header">
@@ -198,6 +199,17 @@ export default function CanvasMaterialDrawer({
           <div className="canvas-material-drawer-actions">
             {isCharacterMode && <button type="button" className="canvas-material-add-button" aria-label="添加角色"><Icon name="add" size={22} /></button>}
             <div className="canvas-material-drawer-actions-secondary">
+            {isCharacterMode && (
+              <button
+                type="button"
+                className={`icon-button canvas-role-search-toggle${roleSearchOpen ? ' active' : ''}`}
+                onClick={() => setRoleSearchOpen(current => !current)}
+                aria-label={roleSearchOpen ? '收起角色搜索' : '搜索角色'}
+                aria-expanded={roleSearchOpen}
+              >
+                <Icon name="search" size={18} />
+              </button>
+            )}
             <span>{currentCount} 个{currentCountLabel}</span>
             <button type="button" className="icon-button" onClick={() => window.dispatchEvent(new Event('focus'))} aria-label="刷新素材库">
               <Icon name="refresh" size={20} />

@@ -25511,3 +25511,33 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
   margin-top: 3px;
   font-size: 10px;
 }
+
+/* 角色库搜索默认收起，避免占用标题栏；点击搜索 icon 后再展开 */
+.canvas-material-drawer.canvas-role-library {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.canvas-role-library .canvas-material-search {
+  display: none;
+}
+
+.canvas-role-library.role-search-open {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.canvas-role-library.role-search-open .canvas-material-search {
+  position: static;
+  display: grid;
+  grid-column: 1;
+  width: auto;
+  padding: 12px 20px 0;
+}
+
+.canvas-role-library .canvas-role-search-toggle {
+  display: grid;
+}
+
+.canvas-role-library .canvas-role-search-toggle.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
