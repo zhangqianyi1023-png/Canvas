@@ -25466,7 +25466,8 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal.is-video {
 .canvas-toolbar-wrap .keyboard-shortcuts-dialog {
   position: fixed;
   left: 78px;
-  bottom: 16px;
+  top: -6px;
+  bottom: auto;
 }
 
 @media (max-width: 760px) {
