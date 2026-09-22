@@ -59,6 +59,7 @@ import {
   RiPaletteLine,
   RiPauseFill,
   RiPlayLine,
+  RiPriceTag3Line,
   RiQuestionLine,
   RiQuoteText,
   RiRefreshLine,
@@ -104,6 +105,7 @@ const iconMap = {
   messageAi3: RiMessageAi3Fill,
   mic: RiMicLine,
   more: RiMoreLine,
+  tag: RiPriceTag3Line,
   movieAi: RiClapperboardFill,
   videoEdit: ({ size, className, ...props }) => (
     <svg className={className} width={size} height={size} viewBox="0 0 1024 1024" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>

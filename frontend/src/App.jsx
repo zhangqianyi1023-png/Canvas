@@ -50,6 +50,7 @@ import { setEdgeDeleteHandler } from './edgeRegistry';
 import ChatView from './ChatView';
 import MaterialsView from './MaterialsView';
 import Icon from './components/Icon';
+import { NODE_TAG_COLORS, NODE_TAG_COLOR_MAP, normalizeNodeTagColors } from './nodeTagColors';
 import { publicAsset } from './publicAsset';
 import {
   isSupportedImageFile,
@@ -1492,6 +1493,152 @@ function CanvasSmartSplitterOverlay({
   );
 }
 
+const getCanvasNodeDisplayName = (node) => {
+  const label = String(node?.data?.label || '').trim();
+  if (label) return label;
+  if (node?.type === 'result') return getDefaultNodeLabel(node);
+  if (node?.type === 'videoInput') return '视频';
+  if (node?.type === 'videoEditor') return '视频编辑器';
+  if (node?.type === 'character') return '角色';
+  if (node?.type === 'smartSplitter') return '智能拆分器';
+  if (node?.type === 'group') return '组合';
+  if (node?.type === 'stack') return '素材堆';
+  if (node?.type === 'playlist') return 'Playlist';
+  if (node?.type === 'threeD') return '3D Viewfinder';
+  return '节点';
+};
+
+const normalizeTagColorLabels = (labels) => {
+  if (!labels || typeof labels !== 'object') return {};
+  return Object.fromEntries(Object.entries(labels)
+    .filter(([colorId, label]) => NODE_TAG_COLOR_MAP[colorId] && String(label || '').trim())
+    .map(([colorId, label]) => [colorId, String(label).trim().slice(0, 16)]));
+};
+
+function CanvasTagFilterBar({ groups, activeColorId, openColorId, tagColorLabels, onSetActive, onSetOpen, onRenameColor, onLocateNode }) {
+  const [editingColorId, setEditingColorId] = useState('');
+  const [draftLabel, setDraftLabel] = useState('');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!editingColorId) return undefined;
+    const frameId = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [editingColorId]);
+
+  useEffect(() => {
+    if (openColorId !== editingColorId) {
+      setEditingColorId('');
+    }
+  }, [editingColorId, openColorId]);
+
+  if (!groups.length) return null;
+
+  return (
+    <div className="canvas-tag-filter-bar nodrag nopan" aria-label="节点标记筛选">
+      {groups.map(group => (
+        <div className="canvas-tag-filter-item" key={group.color.id}>
+          <button
+            type="button"
+            className={`canvas-tag-filter-dot ${activeColorId === group.color.id ? 'is-active' : ''}`}
+            style={{ '--node-tag-color': group.color.value }}
+            aria-label={`${group.label}，${group.nodes.length} 个节点`}
+            aria-expanded={openColorId === group.color.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              const isOpen = openColorId === group.color.id;
+              onSetActive(isOpen && activeColorId === group.color.id ? '' : group.color.id);
+              onSetOpen(isOpen ? '' : group.color.id);
+            }}
+          >
+            <span />
+          </button>
+          <span className="canvas-tag-filter-tooltip">{group.label} · {group.nodes.length} 个节点</span>
+          {openColorId === group.color.id && (
+            <div className="canvas-tag-filter-menu" role="menu" aria-label={`${group.label}标记节点`}>
+              <div className="canvas-tag-filter-menu-header">
+                <span className="canvas-tag-filter-menu-color" style={{ '--node-tag-color': group.color.value }} />
+                {editingColorId === group.color.id ? (
+                  <input
+                    ref={inputRef}
+                    value={draftLabel}
+                    maxLength={16}
+                    aria-label="标记名称"
+                    onChange={(event) => setDraftLabel(event.target.value)}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        const nextLabel = draftLabel.trim();
+                        onRenameColor(group.color.id, nextLabel || group.color.label);
+                        setEditingColorId('');
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        setEditingColorId('');
+                        setDraftLabel(group.label);
+                      }
+                    }}
+                    onBlur={() => {
+                      const nextLabel = draftLabel.trim();
+                      onRenameColor(group.color.id, nextLabel || group.color.label);
+                      setEditingColorId('');
+                    }}
+                  />
+                ) : (
+                  <strong>{group.label}</strong>
+                )}
+                <button
+                  type="button"
+                  className="canvas-tag-filter-edit-btn"
+                  aria-label={`修改${group.label}名称`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (editingColorId === group.color.id) {
+                      const nextLabel = draftLabel.trim();
+                      onRenameColor(group.color.id, nextLabel || group.color.label);
+                      setEditingColorId('');
+                      return;
+                    }
+                    setDraftLabel(tagColorLabels[group.color.id] || group.color.label);
+                    setEditingColorId(group.color.id);
+                  }}
+                >
+                  <Icon name={editingColorId === group.color.id ? 'check' : 'edit'} size={15} />
+                </button>
+                <span>{group.nodes.length} 个节点</span>
+              </div>
+              <div className="canvas-tag-filter-node-list">
+                {group.nodes.map(node => (
+                  <button
+                    key={node.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onLocateNode(node.id);
+                    }}
+                  >
+                    <span className="canvas-tag-filter-node-thumb">
+                      <Icon name={node.type === 'result' && node.data?.resultType === 'generateVideo' ? 'video' : node.type === 'videoInput' ? 'videoGenFill' : 'fileText'} size={15} />
+                    </span>
+                    <span>{getCanvasNodeDisplayName(node)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CanvasProcessorExpandedDialog({
   open,
   type,
@@ -1595,6 +1742,7 @@ export function CanvasFlow({
   projectId,
   initialNodes = [], initialEdges = [],
   initialViewport,
+  initialTagColorLabels = {},
   onCanvasChange, apiConfigs = [], apiProviders = [],
   materials, setMaterials, materialGroups,
   workflowTemplates, setWorkflowTemplates,
@@ -1706,6 +1854,9 @@ export function CanvasFlow({
   const [miniMapAvailable, setMiniMapAvailable] = useState(() => (
     typeof window !== 'undefined' && window.innerWidth >= CANVAS_MINIMAP_MIN_VIEWPORT_WIDTH
   ));
+  const [activeTagColorId, setActiveTagColorId] = useState('');
+  const [openTagColorId, setOpenTagColorId] = useState('');
+  const [tagColorLabels, setTagColorLabels] = useState(() => normalizeTagColorLabels(initialTagColorLabels));
   const [snapEnabled, setSnapEnabled] = useState(getInitialSnapEnabled);
   const [alignmentGuides, setAlignmentGuides] = useState(null); // { guides: [], snappedPos: null }
   const [optionDragGhost, setOptionDragGhost] = useState(null);
@@ -2494,11 +2645,12 @@ const ALIGN_SNAP_THRESHOLD = 5;
       onCanvasChange(snapshot.nodes, snapshot.edges, {
         viewport: getViewport(),
         pairMap: { ...pairMap.current },
+        tagColorLabels,
       });
     }, 240);
 
     return undefined;
-  }, [nodes, edges, getViewport, onCanvasChange]);
+  }, [nodes, edges, getViewport, onCanvasChange, tagColorLabels]);
 
   useEffect(() => () => {
     if (canvasChangeTimerRef.current) {
@@ -2509,8 +2661,9 @@ const ALIGN_SNAP_THRESHOLD = 5;
     onCanvasChange?.(snapshot.nodes, snapshot.edges, {
       viewport: getViewport(),
       pairMap: { ...pairMap.current },
+      tagColorLabels,
     });
-  }, [getViewport, onCanvasChange]);
+  }, [getViewport, onCanvasChange, tagColorLabels]);
 
   // 连线
   const onConnect = useCallback(
@@ -3031,6 +3184,88 @@ const ALIGN_SNAP_THRESHOLD = 5;
       minZoom: CANVAS_MIN_ZOOM,
       maxZoom: 1.2,
     });
+  }, [fitView, setNodes, updateGeneratorVisibility]);
+
+  const onNodeTagToggle = useCallback((nodeId, colorId) => {
+    if (!NODE_TAG_COLOR_MAP[colorId]) return;
+    setNodes(current => current.map(node => {
+      if (node.id !== nodeId) return node;
+      const currentColors = normalizeNodeTagColors(node.data?.tagColors);
+      const hasColor = currentColors.includes(colorId);
+      const nextColors = hasColor
+        ? currentColors.filter(item => item !== colorId)
+        : [...currentColors, colorId];
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          tagColors: nextColors,
+        },
+      };
+    }));
+  }, [setNodes]);
+
+  const tagGroups = useMemo(() => (
+    NODE_TAG_COLORS.map(color => ({
+      color,
+      label: tagColorLabels[color.id] || color.label,
+      nodes: nodes.filter(node => normalizeNodeTagColors(node.data?.tagColors).includes(color.id)),
+    })).filter(group => group.nodes.length > 0)
+  ), [nodes, tagColorLabels]);
+
+  const renameTagColor = useCallback((colorId, label) => {
+    if (!NODE_TAG_COLOR_MAP[colorId]) return;
+    const fallbackLabel = NODE_TAG_COLOR_MAP[colorId].label;
+    const nextLabel = String(label || '').trim().slice(0, 16);
+    setTagColorLabels(current => {
+      const next = { ...current };
+      if (!nextLabel || nextLabel === fallbackLabel) {
+        delete next[colorId];
+      } else {
+        next[colorId] = nextLabel;
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!activeTagColorId) return;
+    const stillExists = tagGroups.some(group => group.color.id === activeTagColorId);
+    if (!stillExists) setActiveTagColorId('');
+  }, [activeTagColorId, tagGroups]);
+
+  useEffect(() => {
+    if (!openTagColorId) return;
+    const closeTagMenu = (event) => {
+      if (event.type === 'keydown' && event.key !== 'Escape') return;
+      if (event.type === 'pointerdown' && event.target?.closest?.('.canvas-tag-filter-bar')) return;
+      setOpenTagColorId('');
+      setActiveTagColorId('');
+    };
+    document.addEventListener('pointerdown', closeTagMenu);
+    document.addEventListener('keydown', closeTagMenu);
+    return () => {
+      document.removeEventListener('pointerdown', closeTagMenu);
+      document.removeEventListener('keydown', closeTagMenu);
+    };
+  }, [openTagColorId]);
+
+  const focusTaggedNode = useCallback((nodeId) => {
+    if (!nodesRef.current.some(node => node.id === nodeId && node.type !== 'generator')) return;
+    setNodes(current => current.map(node => ({
+      ...node,
+      selected: node.id === nodeId,
+    })));
+    updateGeneratorVisibility(null);
+    fitView({
+      nodes: [{ id: nodeId }],
+      duration: 520,
+      padding: 0.32,
+      minZoom: CANVAS_MIN_ZOOM,
+      maxZoom: 1.2,
+    });
+    setOpenTagColorId('');
+    setActiveTagColorId('');
   }, [fitView, setNodes, updateGeneratorVisibility]);
 
   // 查找节点的所有上下游边
@@ -11248,8 +11483,27 @@ const ALIGN_SNAP_THRESHOLD = 5;
         },
       }));
     });
-    return renderedNodes;
-  }, [activeResultId, createVideoEditorFromResult, deleteCanvasNode, duplicateNodeFromToolbar, edges, getGroupMinimumSize, groupSelectionFromToolbar, handleRunGroup, isSelectionBoxActive, nodes, onCaptureVideoFrame, onGroupNameChange, onGroupResize, onResultImageDimensionsChange, onResultImageUpload, onResultNodeDragByScreenDelta, onResultTextChange, onResultTextEditingChange, onResultVideoDimensionsChange, onResultVideoUpload, onVideoQuickTrimChange, openSaveTemplateDialog, ungroupNodes]);
+    return renderedNodes.map(node => {
+      const nodeTagColors = normalizeNodeTagColors(node.data?.tagColors);
+      const isTagHighlighted = activeTagColorId && nodeTagColors.includes(activeTagColorId);
+      const activeTagColor = isTagHighlighted ? NODE_TAG_COLOR_MAP[activeTagColorId] : null;
+      const className = [
+        node.className || '',
+        isTagHighlighted ? 'node-tag-highlighted' : '',
+      ].filter(Boolean).join(' ');
+      return {
+        ...node,
+        className,
+        style: activeTagColor
+          ? { ...node.style, '--active-node-tag-color': activeTagColor.value }
+          : node.style,
+        data: {
+          ...node.data,
+          onNodeTagToggle,
+        },
+      };
+    });
+  }, [activeResultId, activeTagColorId, createVideoEditorFromResult, deleteCanvasNode, duplicateNodeFromToolbar, edges, getGroupMinimumSize, groupSelectionFromToolbar, handleRunGroup, isSelectionBoxActive, nodes, onCaptureVideoFrame, onGroupNameChange, onGroupResize, onNodeTagToggle, onResultImageDimensionsChange, onResultImageUpload, onResultNodeDragByScreenDelta, onResultTextChange, onResultTextEditingChange, onResultVideoDimensionsChange, onResultVideoUpload, onVideoQuickTrimChange, openSaveTemplateDialog, ungroupNodes]);
 
   // 组合背景、连线、内容节点依次位于 0/1/2 层。连线不会再被组合色块遮挡，
   // 同时实际节点和节点里的交互圆点仍稳定显示在线条之上。
@@ -11607,6 +11861,16 @@ const ALIGN_SNAP_THRESHOLD = 5;
         <CanvasHoverGlow rootRef={canvasContainerRef} />
         <CanvasFlowHoverBorder />
         <CanvasDotGrid viewportTransform={viewportTransform} />
+        <CanvasTagFilterBar
+          groups={tagGroups}
+          activeColorId={activeTagColorId}
+          openColorId={openTagColorId}
+          tagColorLabels={tagColorLabels}
+          onSetActive={setActiveTagColorId}
+          onSetOpen={setOpenTagColorId}
+          onRenameColor={renameTagColor}
+          onLocateNode={focusTaggedNode}
+        />
         <ReactFlow
           nodes={nodesForRender}
           edges={edgesForRender}
@@ -12442,6 +12706,7 @@ const createDefaultProject = (name = 'Untitled') => ({
   nodes: [],
   edges: [],
   viewport: { x: 0, y: 0, zoom: 1 },
+  tagColorLabels: {},
 });
 
 const createDefaultMaterialGroup = () => ({
@@ -12616,9 +12881,10 @@ const prepareProjectsForStorage = (projects) => (
   }))
 );
 
-const isSameCanvasSnapshot = (project, nodes, edges) => (
+const isSameCanvasSnapshot = (project, nodes, edges, meta = {}) => (
   JSON.stringify(project.nodes) === JSON.stringify(nodes) &&
-  JSON.stringify(project.edges) === JSON.stringify(edges)
+  JSON.stringify(project.edges) === JSON.stringify(edges) &&
+  JSON.stringify(normalizeTagColorLabels(project.tagColorLabels)) === JSON.stringify(normalizeTagColorLabels(meta.tagColorLabels))
 );
 
 const formatDate = (dateValue) => {
@@ -13420,12 +13686,24 @@ function CanvasPage({ project, apiConfigs, apiProviders, onBack, onRenameProject
           aria-label="画布名称"
         />
       </div>
+      <div className="canvas-account-pill" aria-label="积分与账号">
+        {/* 仅作为当前原型的顶部账号信息展示，不接入真实积分或用户系统。 */}
+        <div className="canvas-account-credits" aria-label="当前积分 1000">
+          <span className="canvas-account-credit-icon" aria-hidden="true">↯</span>
+          <span className="canvas-account-credit-value">1000</span>
+        </div>
+        <button type="button" className="canvas-account-profile" aria-label="打开账号菜单">
+          <img src={publicAsset('canvas-agent-mascot.png')} alt="" aria-hidden="true" />
+          <Icon name="chevronDown" size={16} />
+        </button>
+      </div>
       <ReactFlowProvider key={project.id}>
         <CanvasFlow
           projectId={project.id}
           initialNodes={project.nodes}
           initialEdges={project.edges}
           initialViewport={project.viewport}
+          initialTagColorLabels={project.tagColorLabels}
           apiConfigs={apiConfigs}
           apiProviders={runtimeSettings.providers}
           onCanvasChange={handleCanvasChange}
@@ -13778,12 +14056,13 @@ function App() {
 
   const updateProjectCanvas = useCallback((projectId, nodes, edges, meta = {}) => {
     setProjects(prev => prev.map(project => (
-      project.id === projectId && !isSameCanvasSnapshot(project, nodes, edges)
+      project.id === projectId && !isSameCanvasSnapshot(project, nodes, edges, meta)
         ? {
             ...project,
             nodes,
             edges,
             viewport: meta.viewport || project.viewport,
+            tagColorLabels: normalizeTagColorLabels(meta.tagColorLabels),
             updatedAt: new Date().toISOString(),
           }
         : project

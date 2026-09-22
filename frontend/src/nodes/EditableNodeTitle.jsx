@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { NODE_TAG_COLOR_MAP, normalizeNodeTagColors } from '../nodeTagColors';
 
-function EditableNodeTitle({ icon, value, fallback, onChange, onEditingChange }) {
+function EditableNodeTitle({ icon, value, fallback, tagColors, onChange, onEditingChange }) {
   const resolvedFallback = fallback || '未命名节点';
   const currentValue = String(value || '').trim() || resolvedFallback;
+  const normalizedTagColors = normalizeNodeTagColors(tagColors);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(currentValue);
   const previousValueRef = useRef(currentValue);
@@ -86,7 +88,17 @@ function EditableNodeTitle({ icon, value, fallback, onChange, onEditingChange })
           }}
         />
       ) : (
-        <span className="node-title-text" title={currentValue}>{currentValue}</span>
+        <>
+          <span className="node-title-text" title={currentValue}>{currentValue}</span>
+          {normalizedTagColors.length > 0 && (
+            <span className="node-title-tag-dots" aria-label={`标记：${normalizedTagColors.map(colorId => NODE_TAG_COLOR_MAP[colorId].label).join('、')}`}>
+              {normalizedTagColors.map(colorId => {
+                const color = NODE_TAG_COLOR_MAP[colorId];
+                return <span key={colorId} style={{ '--node-tag-color': color.value }} title={color.label} />;
+              })}
+            </span>
+          )}
+        </>
       )}
     </span>
   );

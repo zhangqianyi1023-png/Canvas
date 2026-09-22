@@ -2,14 +2,33 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from '../components/Icon';
 import { useCanvasWheelHandoff } from '../canvasWheelHandoff';
+import { NODE_TAG_COLORS, normalizeNodeTagColors } from '../nodeTagColors';
 
-function NodeHoverToolbar({ actions = [], onDelete, hidden = false, portal = false, forceVisible = false, variant = '', onToolbarPointerEnter, onToolbarPointerLeave }) {
+function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, onDelete, hidden = false, portal = false, forceVisible = false, variant = '', onToolbarPointerEnter, onToolbarPointerLeave }) {
   const layerRef = useRef(null);
   const toolbarRef = useRef(null);
   const [pos, setPos] = useState(null);
   const [openMenuId, setOpenMenuId] = useState('');
+  const normalizedTagColors = normalizeNodeTagColors(tagColors);
   const items = [
     ...actions,
+    ...(typeof onTagToggle === 'function' ? [{
+      id: 'node-tags',
+      label: '标记',
+      title: normalizedTagColors.length > 0
+        ? `已 Pin：${normalizedTagColors.map(colorId => NODE_TAG_COLORS.find(color => color.id === colorId)?.label).filter(Boolean).join('、')}`
+        : '添加标记',
+      icon: 'tag',
+      compact: true,
+      menuLabel: '节点标记颜色',
+      menuItems: NODE_TAG_COLORS.map(color => ({
+        id: color.id,
+        label: color.label,
+        color: color.value,
+        active: normalizedTagColors.includes(color.id),
+        onClick: () => onTagToggle(color.id),
+      })),
+    }] : []),
     ...(onDelete ? [{
       id: 'delete',
       label: '删除',
@@ -111,6 +130,14 @@ function NodeHoverToolbar({ actions = [], onDelete, hidden = false, portal = fal
                 ? <img className="node-hover-toolbar-icon" src={item.iconSrc} alt="" aria-hidden="true" />
                 : <Icon name={item.icon} size={14} />}
               <span className="node-hover-toolbar-label">{item.label}</span>
+              {item.id === 'node-tags' && normalizedTagColors.length > 0 && (
+                <span className="node-hover-toolbar-tag-dots" aria-hidden="true">
+                  {normalizedTagColors.slice(0, 3).map(colorId => {
+                    const color = NODE_TAG_COLORS.find(item => item.id === colorId);
+                    return color ? <span key={colorId} style={{ '--node-tag-color': color.value }} /> : null;
+                  })}
+                </span>
+              )}
               {item.compact ? <span className="node-hover-toolbar-tooltip" role="tooltip" aria-hidden="true">{item.title || item.label}</span> : null}
             </button>
             {menuOpen && (
@@ -128,7 +155,12 @@ function NodeHoverToolbar({ actions = [], onDelete, hidden = false, portal = fal
                       menuItem.onClick?.(event);
                     }}
                   >
-                    {menuItem.label}
+                    {menuItem.color ? (
+                      <span className="node-hover-toolbar-menu-color" style={{ '--node-tag-color': menuItem.color }}>
+                        {menuItem.active ? <Icon name="check" size={13} /> : null}
+                      </span>
+                    ) : menuItem.icon ? <Icon name={menuItem.icon} size={15} /> : null}
+                    <span>{menuItem.label}</span>
                   </button>
                 ))}
               </div>

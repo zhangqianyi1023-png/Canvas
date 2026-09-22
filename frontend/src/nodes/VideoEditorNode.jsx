@@ -53,6 +53,7 @@ function VideoEditorNode({ id, data, selected }) {
           icon={<Icon name="movieAi" size={16} />}
           value={title}
           fallback="视频编辑器"
+          tagColors={data?.tagColors}
           onChange={(nextLabel) => data?.onNodeTitleChange?.(id, nextLabel)}
           onEditingChange={setIsTitleEditing}
         />
@@ -84,6 +85,8 @@ function VideoEditorNode({ id, data, selected }) {
         portal
         forceVisible={selected}
         variant="video-editor"
+        tagColors={data?.tagColors}
+        onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
         actions={[
           {
             id: 'download-video',

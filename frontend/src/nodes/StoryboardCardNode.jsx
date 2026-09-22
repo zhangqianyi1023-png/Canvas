@@ -182,7 +182,12 @@ function StoryboardCardNode({ id, selected, data }) {
 
       <Handle type="source" position={Position.Right} style={{ background: 'var(--success-alt)' }} />
       <InteractiveHandle side="right" nodeId={id} onDragCreate={data?.onInteractiveDragCreate} />
-      <NodeHoverToolbar hidden={isMultiSelected || selected} onDelete={() => data?.onDeleteNode?.(id)} />
+      <NodeHoverToolbar
+        hidden={isMultiSelected || selected}
+        tagColors={data?.tagColors}
+        onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
+        onDelete={() => data?.onDeleteNode?.(id)}
+      />
     </div>
   );
 }

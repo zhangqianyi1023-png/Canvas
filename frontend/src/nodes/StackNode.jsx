@@ -32,6 +32,8 @@ function StackNode({ id, selected, data }) {
         forceVisible={selected || toolbarOpen}
         onToolbarPointerEnter={openToolbar}
         onToolbarPointerLeave={closeToolbar}
+        tagColors={data?.tagColors}
+        onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
         actions={[{
           id: 'unstack',
           label: '展开',
@@ -44,4 +46,3 @@ function StackNode({ id, selected, data }) {
 }
 
 export default memo(StackNode);
-

@@ -53,6 +53,7 @@ function SmartSplitterNode({ id, selected, data }) {
           icon={<Icon name="smartSplitter" size={16} />}
           value={label}
           fallback="智能拆分器"
+          tagColors={data?.tagColors}
           onChange={(nextLabel) => data?.onNodeTitleChange?.(id, nextLabel)}
           onEditingChange={setIsTitleEditing}
         />
@@ -77,6 +78,8 @@ function SmartSplitterNode({ id, selected, data }) {
         forceVisible={!isMultiSelected && toolbarOpen}
         onToolbarPointerEnter={openToolbar}
         onToolbarPointerLeave={closeToolbar}
+        tagColors={data?.tagColors}
+        onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
         onDelete={() => data?.onDeleteNode?.(id)}
       />
     </div>

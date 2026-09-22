@@ -3641,6 +3641,7 @@ function ResultNode({ id, selected, data }) {
             icon={<Icon name={titleIcon} size={16} />}
             value={displayLabel}
             fallback={isStoryboardScriptResult ? '分镜工作台' : '结果'}
+            tagColors={data?.tagColors}
             onChange={(nextLabel) => data?.onResultDataChange?.(id, { label: nextLabel })}
             onEditingChange={setIsTitleEditing}
           />
@@ -3752,6 +3753,8 @@ function ResultNode({ id, selected, data }) {
         variant={isVideoResult ? 'video' : ''}
         onToolbarPointerEnter={openTextToolbar}
         onToolbarPointerLeave={scheduleCloseTextToolbar}
+        tagColors={data?.tagColors}
+        onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
         actions={[
           ...(isTextResult ? [{
             id: 'edit-text',
@@ -3859,6 +3862,18 @@ function ResultNode({ id, selected, data }) {
                 { id: 'current', label: '截取当前帧', onClick: () => { void captureVideoFrame('current'); } },
                 { id: 'first', label: '截取首帧', onClick: () => { void captureVideoFrame('first'); } },
                 { id: 'last', label: '截取尾帧', onClick: () => { void captureVideoFrame('last'); } },
+              ],
+            },
+            {
+              id: 'video-more-tools',
+              label: '更多',
+              title: '更多',
+              icon: 'more',
+              compact: true,
+              // 原型入口：当前只展示菜单按钮，不接真实解析或合规校验能力。
+              menuItems: [
+                { id: 'analyze-video', label: '解析', icon: 'video' },
+                { id: 'seedance-compliance', label: 'Seedance 2.0 合规验证', icon: 'certificate' },
               ],
             },
             {

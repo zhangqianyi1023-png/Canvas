@@ -106,6 +106,8 @@ function GroupNode({ id, selected, data }) {
         forceVisible={!isMultiSelected && (selected || toolbarOpen)}
         onToolbarPointerEnter={openToolbar}
         onToolbarPointerLeave={closeToolbar}
+        tagColors={data?.tagColors}
+        onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
         actions={[
           {
             id: 'run-group',

@@ -132,6 +132,7 @@ function VideoInputNode({ id, data, selected }) {
           icon={<Icon name="videoGenFill" size={16} />}
           value={title}
           fallback="视频"
+          tagColors={data?.tagColors}
           onChange={(nextLabel) => data?.onNodeTitleChange?.(id, nextLabel)}
           onEditingChange={setIsTitleEditing}
         />
@@ -203,6 +204,8 @@ function VideoInputNode({ id, data, selected }) {
         hidden={!showSelectedToolbar}
         portal
         forceVisible={showSelectedToolbar}
+        tagColors={data?.tagColors}
+        onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
         actions={[
           {
             id: 'upload-more',
