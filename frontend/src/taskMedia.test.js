@@ -97,3 +97,16 @@ test('task center displays relative server media as a full same-origin URL when 
     globalThis.window = previousWindow;
   }
 });
+
+test('task center display URLs include the Vite base path when deployed under a subpath', () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = { location: { origin: 'http://118.25.16.178', pathname: '/canvas-v2/' } };
+  try {
+    assert.equal(
+      toDisplayMediaUrl('/uploads/local.png'),
+      'http://118.25.16.178/canvas-v2/uploads/local.png',
+    );
+  } finally {
+    globalThis.window = previousWindow;
+  }
+});

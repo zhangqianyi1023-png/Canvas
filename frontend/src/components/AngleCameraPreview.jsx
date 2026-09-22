@@ -31,6 +31,7 @@ function AngleCameraPreview({
   yaw = 0,
   pitch = 0,
   distance = 4,
+  secondaryCamera = null,
   disabled = false,
   onChange,
 }) {
@@ -52,24 +53,43 @@ function AngleCameraPreview({
     const safeYaw = normalizeYaw(yaw);
     const safePitch = clamp(Number(pitch) || 0, -60, 60);
     const safeDistance = clamp(Number(distance) || 4, 1, 8);
-    const yawRadians = THREE.MathUtils.degToRad(safeYaw);
-    const pitchRadians = THREE.MathUtils.degToRad(safePitch);
-    const orbitRadius = 2.08 + (safeDistance - 1) / 7 * 0.72;
-    const horizontalRadius = Math.cos(pitchRadians) * orbitRadius;
 
-    current.cameraRig.position.set(
-      Math.sin(yawRadians) * horizontalRadius,
-      -Math.sin(pitchRadians) * orbitRadius,
-      Math.cos(yawRadians) * horizontalRadius,
-    );
-    current.cameraRig.lookAt(0, 0, 0);
-    const linePositions = current.viewLine.geometry.attributes.position;
-    linePositions.setXYZ(0, current.cameraRig.position.x, current.cameraRig.position.y, current.cameraRig.position.z);
-    linePositions.setXYZ(1, 0, 0, 0);
-    linePositions.needsUpdate = true;
-    current.viewLine.computeLineDistances();
+    const placeCamera = (rig, line, camera) => {
+      const nextYaw = normalizeYaw(camera.yaw);
+      const nextPitch = clamp(Number(camera.pitch) || 0, -60, 60);
+      const nextDistance = clamp(Number(camera.distance) || 4, 1, 8);
+      const yawRadians = THREE.MathUtils.degToRad(nextYaw);
+      const pitchRadians = THREE.MathUtils.degToRad(nextPitch);
+      const orbitRadius = 2.08 + (nextDistance - 1) / 7 * 0.72;
+      const horizontalRadius = Math.cos(pitchRadians) * orbitRadius;
+
+      rig.position.set(
+        Math.sin(yawRadians) * horizontalRadius,
+        -Math.sin(pitchRadians) * orbitRadius,
+        Math.cos(yawRadians) * horizontalRadius,
+      );
+      rig.lookAt(0, 0, 0);
+      const linePositions = line.geometry.attributes.position;
+      linePositions.setXYZ(0, rig.position.x, rig.position.y, rig.position.z);
+      linePositions.setXYZ(1, 0, 0, 0);
+      linePositions.needsUpdate = true;
+      line.computeLineDistances();
+    };
+
+    placeCamera(current.cameraRig, current.viewLine, {
+      yaw: safeYaw,
+      pitch: safePitch,
+      distance: safeDistance,
+    });
+
+    const shouldShowSecondary = Boolean(secondaryCamera);
+    current.secondaryCameraRig.visible = shouldShowSecondary;
+    current.secondaryViewLine.visible = shouldShowSecondary;
+    if (shouldShowSecondary) {
+      placeCamera(current.secondaryCameraRig, current.secondaryViewLine, secondaryCamera);
+    }
     current.renderer.render(current.scene, current.viewCamera);
-  }, [distance, pitch, yaw]);
+  }, [distance, pitch, secondaryCamera, yaw]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -141,6 +161,33 @@ function AngleCameraPreview({
     cameraRig.add(cameraBody, cameraLens, cameraTop);
     scene.add(cameraRig);
 
+    const secondaryCameraRig = new THREE.Group();
+    const secondaryCameraBody = new THREE.Mesh(
+      new THREE.BoxGeometry(0.36, 0.24, 0.26),
+      new THREE.MeshStandardMaterial({
+        color: 0xffc082,
+        transparent: true,
+        opacity: 0.58,
+        roughness: 0.48,
+        metalness: 0.12,
+      }),
+    );
+    const secondaryCameraLens = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.12, 0.16, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0x201915,
+        transparent: true,
+        opacity: 0.62,
+        roughness: 0.42,
+        metalness: 0.3,
+      }),
+    );
+    secondaryCameraLens.rotation.x = Math.PI / 2;
+    secondaryCameraLens.position.z = -0.2;
+    secondaryCameraRig.add(secondaryCameraBody, secondaryCameraLens);
+    secondaryCameraRig.visible = false;
+    scene.add(secondaryCameraRig);
+
     const viewLine = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
       new THREE.LineDashedMaterial({
@@ -153,6 +200,20 @@ function AngleCameraPreview({
     );
     viewLine.computeLineDistances();
     scene.add(viewLine);
+
+    const secondaryViewLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+      new THREE.LineDashedMaterial({
+        color: 0xffb35c,
+        dashSize: 0.1,
+        gapSize: 0.08,
+        transparent: true,
+        opacity: 0.46,
+      }),
+    );
+    secondaryViewLine.computeLineDistances();
+    secondaryViewLine.visible = false;
+    scene.add(secondaryViewLine);
 
     const floor = new THREE.GridHelper(7, 14, 0x4c5664, 0x333a44);
     floor.position.y = -2.86;
@@ -167,7 +228,9 @@ function AngleCameraPreview({
       subject,
       subjectFrame,
       cameraRig,
+      secondaryCameraRig,
       viewLine,
+      secondaryViewLine,
       texture: null,
     };
 

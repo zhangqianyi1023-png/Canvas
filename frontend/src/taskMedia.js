@@ -17,6 +17,14 @@ function getApiOrigin() {
   return '';
 }
 
+function getBasePath() {
+  const base = String(import.meta.env?.BASE_URL || '').trim();
+  if (base && base !== '/') return `/${base.replace(/^\/+|\/+$/g, '')}`;
+  const pathname = typeof window !== 'undefined' ? String(window.location?.pathname || '') : '';
+  const segment = pathname.split('/').filter(Boolean)[0] || '';
+  return segment ? `/${segment}` : '';
+}
+
 export function isCanvasServerUrl(value) {
   const url = String(value || '').trim();
   if (!url) return false;
@@ -81,5 +89,6 @@ export function toDisplayMediaUrl(value) {
   if (!value) return '';
   if (!value.startsWith('/')) return value;
   const origin = getApiOrigin();
-  return origin ? `${origin}${value}` : value;
+  const path = value.startsWith('/uploads/') ? `${getBasePath()}${value}` : value;
+  return origin ? `${origin}${path}` : path;
 }

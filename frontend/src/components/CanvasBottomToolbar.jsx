@@ -17,7 +17,6 @@ function tooltipLabel(id) {
     'tool-materials': '素材库',
     'tool-characters': '角色',
     'tool-apps': '应用',
-    'tool-feedback': '反馈',
     'tool-clear': '清空画布',
   };
   return map[id] || '';
@@ -50,7 +49,6 @@ export default function CanvasBottomToolbar({
   onToggleMaterials,
   onToggleCharacters,
   onToggleApps,
-  onOpenFeedback,
   onOpenNodeSearch,
 }) {
   const wrapRef = useRef(null);
@@ -119,11 +117,6 @@ export default function CanvasBottomToolbar({
     onToggleApps?.();
   }, [onToggleApps]);
 
-  const handleOpenFeedback = useCallback((event) => {
-    event.stopPropagation();
-    onOpenFeedback?.();
-  }, [onOpenFeedback]);
-
   const handleOpenNodeSearch = useCallback((event) => {
     event.stopPropagation();
     setOpen(false);
@@ -161,8 +154,6 @@ export default function CanvasBottomToolbar({
         <RailButton id="tool-materials" icon="folder" active={materialOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleMaterials} />
         <RailButton id="tool-apps" icon="aed" active={appsOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleApps} />
         <RailButton id="tool-characters" icon="user" active={characterOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleCharacters} />
-        <Divider />
-        <RailButton id="tool-feedback" text="反馈" hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleOpenFeedback} />
       </div>
       {open && (
         <div className="canvas-toolbar-panel" role="toolbar" aria-label="添加节点">

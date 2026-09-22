@@ -11,6 +11,7 @@ import InteractiveHandle from './InteractiveHandle';
 import NodeHoverToolbar from './NodeHoverToolbar';
 import EditableNodeTitle from './EditableNodeTitle';
 import Icon from '../components/Icon';
+import AngleCameraPreview from '../components/AngleCameraPreview';
 import ImagePreviewOverlay from '../components/ImagePreviewOverlay';
 import ImageActionOverlay from './ImageActionOverlay';
 import VideoFrameCaptureControls from './VideoFrameCaptureControls.jsx';
@@ -36,7 +37,7 @@ import {
 } from '../videoFormats';
 import { uploadVideoFile } from '../uploadVideo';
 import { calculateExpandedImageLayout } from '../resultImageExpansionLayout';
-import { preferCanvasServerUrls } from '../taskMedia';
+import { preferCanvasServerUrls, toDisplayMediaUrl } from '../taskMedia';
 import { shouldCloseExpandedImagesOnKeyDown } from '../resultImageExpansionInteraction';
 import { copyImageToClipboard, downloadImages } from '../imageDownload';
 import { getTaskDurationLabel, isTaskActive } from '../taskTiming';
@@ -70,6 +71,32 @@ const DEFAULT_SUBJECT_REPLACEMENT_BOX = {
 const VIDEO_EXTENSION_DIRECTIONS = ['片尾延长', '片头延长'];
 const VIDEO_EXTENSION_DURATIONS = Array.from({ length: 12 }, (_, index) => index + 4);
 const VIDEO_EXTENSION_METHODS = ['自然延续', '动作延续', '延续运镜', '推进场景'];
+const VIDEO_RETAKE_MODES = ['保持不变', '固定', '切换', '平滑移动'];
+const VIDEO_RETAKE_CAMERA_ANGLES = ['正面', '侧前方', '侧后方', '背面', '俯视', '仰视'];
+const VIDEO_RETAKE_SHOT_SIZES = ['特写', '中景', '全景', '远景'];
+const VIDEO_RETAKE_CAMERA_POSITIONS = {
+  正面: { x: 50, y: 50, yaw: 0, pitch: 0 },
+  侧前方: { x: 74, y: 40, yaw: 45, pitch: 0 },
+  侧后方: { x: 78, y: 62, yaw: 135, pitch: 0 },
+  背面: { x: 50, y: 82, yaw: 180, pitch: 0 },
+  俯视: { x: 50, y: 24, yaw: 0, pitch: -35 },
+  仰视: { x: 50, y: 74, yaw: 0, pitch: 35 },
+  自定义视角: { x: 68, y: 48, yaw: 25, pitch: -8 },
+};
+const VIDEO_RETAKE_SHOT_DISTANCE = {
+  特写: 1.4,
+  中景: 4,
+  全景: 6.2,
+  远景: 8,
+};
+const DEFAULT_VIDEO_RETAKE_CAMERA_SETTINGS = {
+  fixed: { angle: '正面', shotSize: '特写', ...VIDEO_RETAKE_CAMERA_POSITIONS.正面, distance: VIDEO_RETAKE_SHOT_DISTANCE.特写, custom: false },
+  start: { angle: '俯视', shotSize: '全景', ...VIDEO_RETAKE_CAMERA_POSITIONS.俯视, distance: VIDEO_RETAKE_SHOT_DISTANCE.全景, custom: false },
+  end: { angle: '侧后方', shotSize: '远景', ...VIDEO_RETAKE_CAMERA_POSITIONS.侧后方, distance: VIDEO_RETAKE_SHOT_DISTANCE.远景, custom: false },
+};
+const DEFAULT_VIDEO_RETAKE_SEGMENTS = [{ id: 'shot-1', start: 0, end: 14.4 }];
+const DEFAULT_VIDEO_RETAKE_PLAYHEAD_TIME = 5;
+const VIDEO_RETAKE_MIN_SEGMENT_DURATION = 1;
 const REFERENCE_IMAGE_PREVIEW_MAX_SIZE = 220;
 const REFERENCE_IMAGE_PREVIEW_MARGIN = 12;
 const REFERENCE_IMAGE_PREVIEW_GAP = 10;
@@ -876,6 +903,18 @@ function ResultNode({ id, selected, data }) {
   const [videoExtensionReferences, setVideoExtensionReferences] = useState([]);
   const [videoExtensionReferencePreview, setVideoExtensionReferencePreview] = useState(null);
   const [videoExtensionMentionOpen, setVideoExtensionMentionOpen] = useState(false);
+  const [videoRetakeOpen, setVideoRetakeOpen] = useState(false);
+  const [videoRetakePosition, setVideoRetakePosition] = useState(null);
+  const [videoRetakeStatus, setVideoRetakeStatus] = useState('');
+  const [videoRetakeMode, setVideoRetakeMode] = useState('固定');
+  const [videoRetakeSegments, setVideoRetakeSegments] = useState(DEFAULT_VIDEO_RETAKE_SEGMENTS);
+  const [selectedVideoRetakeSegmentId, setSelectedVideoRetakeSegmentId] = useState('shot-1');
+  const [videoRetakePlayheadTime, setVideoRetakePlayheadTime] = useState(DEFAULT_VIDEO_RETAKE_PLAYHEAD_TIME);
+  const [isVideoRetakePlayheadDragging, setIsVideoRetakePlayheadDragging] = useState(false);
+  const [videoRetakeSwitchViewTab, setVideoRetakeSwitchViewTab] = useState('start');
+  const [videoRetakeCameraSettings, setVideoRetakeCameraSettings] = useState(DEFAULT_VIDEO_RETAKE_CAMERA_SETTINGS);
+  const [videoRetakePreviewImage, setVideoRetakePreviewImage] = useState('');
+  const [videoRetakePrompt, setVideoRetakePrompt] = useState('');
   const [sourceSubject, setSourceSubject] = useState(null);
   const [removalSubject, setRemovalSubject] = useState(null);
   const [targetSubject, setTargetSubject] = useState(null);
@@ -889,9 +928,12 @@ function ResultNode({ id, selected, data }) {
   const subjectReplacementPanelRef = useRef(null);
   const subjectRemovalPanelRef = useRef(null);
   const videoExtensionPanelRef = useRef(null);
+  const videoRetakePanelRef = useRef(null);
+  const videoRetakeFilmstripRef = useRef(null);
   const subjectReplacementStatusTimerRef = useRef(null);
   const subjectRemovalStatusTimerRef = useRef(null);
   const videoExtensionStatusTimerRef = useRef(null);
+  const videoRetakeStatusTimerRef = useRef(null);
   const subjectMaskDragStartRef = useRef(null);
   const subjectMaskDragModeRef = useRef('draw');
   const subjectMaskResizeHandleRef = useRef('');
@@ -899,6 +941,7 @@ function ResultNode({ id, selected, data }) {
   const videoExtensionUploadInputRef = useRef(null);
   const targetSubjectObjectUrlRef = useRef('');
   const videoExtensionObjectUrlsRef = useRef(new Set());
+  const videoRetakePlayheadDraggingRef = useRef(false);
   const isTextFormatEditing = isTextEditing || isTextExpandedEditing;
   const shouldShowTextFormatToolbar = isTextResult
     && !isMultiSelected
@@ -966,6 +1009,36 @@ function ResultNode({ id, selected, data }) {
   const videoExtensionCredits = useMemo(() => (
     420 + videoExtensionDuration * 28 + videoExtensionReferences.length * 24
   ), [videoExtensionDuration, videoExtensionReferences.length]);
+  const selectedVideoRetakeSegment = useMemo(() => (
+    videoRetakeSegments.find(segment => segment.id === selectedVideoRetakeSegmentId)
+    || videoRetakeSegments[0]
+    || DEFAULT_VIDEO_RETAKE_SEGMENTS[0]
+  ), [selectedVideoRetakeSegmentId, videoRetakeSegments]);
+  const videoRetakeTotalDuration = useMemo(() => (
+    Math.max(...videoRetakeSegments.map(segment => Number(segment.end) || 0), DEFAULT_VIDEO_RETAKE_SEGMENTS[0].end)
+  ), [videoRetakeSegments]);
+  const videoRetakePlayheadPercent = useMemo(() => (
+    videoRetakeTotalDuration > 0
+      ? Math.max(0, Math.min(100, (videoRetakePlayheadTime / videoRetakeTotalDuration) * 100))
+      : 0
+  ), [videoRetakePlayheadTime, videoRetakeTotalDuration]);
+  const videoRetakeCredits = useMemo(() => {
+    const modeCost = videoRetakeMode === '保持不变' ? 220 : videoRetakeMode === '固定' ? 360 : 460;
+    return modeCost + Math.max(0, videoRetakeSegments.length - 1) * 80;
+  }, [videoRetakeMode, videoRetakeSegments.length]);
+  const activeVideoRetakeCameraKey = videoRetakeMode === '切换'
+    ? videoRetakeSwitchViewTab
+    : 'fixed';
+  const activeVideoRetakeCamera = videoRetakeCameraSettings[activeVideoRetakeCameraKey]
+    || DEFAULT_VIDEO_RETAKE_CAMERA_SETTINGS.fixed;
+  const videoRetakeAngle = activeVideoRetakeCamera.custom ? '自定义视角' : activeVideoRetakeCamera.angle;
+  const videoRetakeShotSize = activeVideoRetakeCamera.shotSize;
+  const videoRetakeCameraYaw = Number(activeVideoRetakeCamera.yaw) || 0;
+  const videoRetakeCameraPitch = Number(activeVideoRetakeCamera.pitch) || 0;
+  const videoRetakeCameraDistance = Number(activeVideoRetakeCamera.distance) || VIDEO_RETAKE_SHOT_DISTANCE[videoRetakeShotSize] || 4;
+  const secondaryVideoRetakeCamera = videoRetakeMode === '切换'
+    ? videoRetakeCameraSettings[videoRetakeSwitchViewTab === 'start' ? 'end' : 'start']
+    : null;
   const canvasImageChoices = useMemo(() => (
     subjectReplacementOpen
       ? data?.onGetCanvasImageChoices?.(id) || []
@@ -1117,6 +1190,42 @@ function ResultNode({ id, selected, data }) {
     return () => window.cancelAnimationFrame(frameId);
   }, [isVideoResult, videoExtensionOpen]);
 
+  useLayoutEffect(() => {
+    if (!videoRetakeOpen || !isVideoResult) {
+      return undefined;
+    }
+
+    let frameId = 0;
+    const updatePosition = () => {
+      const anchor = resultNodeRef.current?.querySelector?.('.result-video-wrap')
+        || resultNodeRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const panelWidth = Math.min(760, Math.max(560, rect.width + 320));
+      const left = Math.max(12 + panelWidth / 2, Math.min(window.innerWidth - 12 - panelWidth / 2, rect.left + rect.width / 2));
+      const top = Math.min(window.innerHeight - 280, rect.bottom + 8);
+      const nextPosition = {
+        left: Math.round(left * 10) / 10,
+        top: Math.round(top * 10) / 10,
+        width: Math.round(panelWidth),
+        maxHeight: Math.max(280, Math.round(window.innerHeight - top - 12)),
+      };
+      setVideoRetakePosition(current => (
+        current
+        && current.left === nextPosition.left
+        && current.top === nextPosition.top
+        && current.width === nextPosition.width
+        && current.maxHeight === nextPosition.maxHeight
+          ? current
+          : nextPosition
+      ));
+      frameId = window.requestAnimationFrame(updatePosition);
+    };
+
+    updatePosition();
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isVideoResult, videoRetakeOpen]);
+
   useEffect(() => {
     if (!videoEnhancementOpen) return undefined;
 
@@ -1222,6 +1331,19 @@ function ResultNode({ id, selected, data }) {
   }, [videoExtensionMentionOpen, videoExtensionOpen, videoExtensionSettingsOpen]);
 
   useEffect(() => {
+    if (!videoRetakeOpen) return undefined;
+
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') setVideoRetakeOpen(false);
+    };
+
+    document.addEventListener('keydown', closeOnEscape, true);
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape, true);
+    };
+  }, [videoRetakeOpen]);
+
+  useEffect(() => {
     if (selected && isVideoResult) return undefined;
     const timer = window.setTimeout(() => setVideoEnhancementOpen(false), 0);
     return () => window.clearTimeout(timer);
@@ -1233,17 +1355,43 @@ function ResultNode({ id, selected, data }) {
       setSubjectReplacementOpen(false);
       setSubjectRemovalOpen(false);
       setVideoExtensionOpen(false);
+      setVideoRetakeOpen(false);
       setIsSubjectMaskSelecting(false);
       setReplacementSourceMenuOpen(false);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [isVideoResult, selected]);
 
+  useEffect(() => {
+    if (!videoRetakeOpen || !isVideoResult) {
+      setVideoRetakePreviewImage('');
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      const video = resultVideoRef.current;
+      if (!video || !video.videoWidth || !video.videoHeight) return;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        setVideoRetakePreviewImage(canvas.toDataURL('image/png'));
+      } catch {
+        // 视频源如果不允许被 canvas 读取，就让 3D 控件使用默认占位平面。
+        setVideoRetakePreviewImage('');
+      }
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [isVideoResult, videoRetakeOpen, videoUrl]);
+
   useEffect(() => () => {
     window.clearTimeout(videoEnhancementStatusTimerRef.current);
     window.clearTimeout(subjectReplacementStatusTimerRef.current);
     window.clearTimeout(subjectRemovalStatusTimerRef.current);
     window.clearTimeout(videoExtensionStatusTimerRef.current);
+    window.clearTimeout(videoRetakeStatusTimerRef.current);
     if (targetSubjectObjectUrlRef.current) {
       URL.revokeObjectURL(targetSubjectObjectUrlRef.current);
       targetSubjectObjectUrlRef.current = '';
@@ -1759,7 +1907,11 @@ function ResultNode({ id, selected, data }) {
       index === coverIndex ? uploadPreviewUrl : url
     ));
   }, [allImageUrls, coverIndex, uploadPreviewUrl]);
-  const displayedCoverUrl = displayedImageUrls[coverIndex] || uploadPreviewUrl || coverImageUrl;
+  const displayedBrowserImageUrls = useMemo(
+    () => displayedImageUrls.map(url => toDisplayMediaUrl(url)),
+    [displayedImageUrls],
+  );
+  const displayedCoverUrl = displayedBrowserImageUrls[coverIndex] || toDisplayMediaUrl(uploadPreviewUrl || coverImageUrl);
 
   // 展开时把节点 zIndex 顶到最高，避免被旁边节点遮住；收起时复位
   useEffect(() => {
@@ -2584,6 +2736,199 @@ function ResultNode({ id, selected, data }) {
     showVideoExtensionStatus('仅原型展示，暂未接入真实延长');
   }, [data, id, showVideoExtensionStatus, videoExtensionCredits, videoExtensionDirection, videoExtensionDuration, videoExtensionMethod, videoExtensionPrompt, videoExtensionReferences, videoUrl]);
 
+  const showVideoRetakeStatus = useCallback((message, duration = 1800) => {
+    setVideoRetakeStatus(message);
+    window.clearTimeout(videoRetakeStatusTimerRef.current);
+    videoRetakeStatusTimerRef.current = window.setTimeout(() => {
+      setVideoRetakeStatus('');
+    }, duration);
+  }, []);
+
+  const formatVideoRetakeTime = useCallback((time) => (
+    `${Number(time || 0).toFixed(1)}s`
+  ), []);
+
+  const formatVideoRetakeSegmentLabel = useCallback((segment, index, total) => (
+    `分镜 ${index + 1}/${total} ${formatVideoRetakeTime(segment.start)}-${formatVideoRetakeTime(segment.end)}`
+  ), [formatVideoRetakeTime]);
+
+  const syncVideoRetakePlayhead = useCallback((nextTime, segments = videoRetakeSegments) => {
+    const totalDuration = Math.max(...segments.map(segment => Number(segment.end) || 0), DEFAULT_VIDEO_RETAKE_SEGMENTS[0].end);
+    const time = Math.round(Math.max(0, Math.min(totalDuration, Number(nextTime) || 0)) * 10) / 10;
+    const segmentAtTime = segments.find(segment => time >= segment.start && time <= segment.end);
+    if (segmentAtTime) setSelectedVideoRetakeSegmentId(segmentAtTime.id);
+    setVideoRetakePlayheadTime(time);
+    return time;
+  }, [videoRetakeSegments]);
+
+  const getVideoRetakeTimeFromPointer = useCallback((event) => {
+    const rect = videoRetakeFilmstripRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return videoRetakePlayheadTime;
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    return Math.round(ratio * videoRetakeTotalDuration * 10) / 10;
+  }, [videoRetakePlayheadTime, videoRetakeTotalDuration]);
+
+  const moveVideoRetakePlayheadFromPointer = useCallback((event) => {
+    syncVideoRetakePlayhead(getVideoRetakeTimeFromPointer(event));
+  }, [getVideoRetakeTimeFromPointer, syncVideoRetakePlayhead]);
+
+  const handleVideoRetakePlayheadPointerDown = useCallback((event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    videoRetakePlayheadDraggingRef.current = true;
+    setIsVideoRetakePlayheadDragging(true);
+    moveVideoRetakePlayheadFromPointer(event);
+  }, [moveVideoRetakePlayheadFromPointer]);
+
+  const handleVideoRetakePlayheadPointerMove = useCallback((event) => {
+    if (!videoRetakePlayheadDraggingRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    moveVideoRetakePlayheadFromPointer(event);
+  }, [moveVideoRetakePlayheadFromPointer]);
+
+  const handleVideoRetakePlayheadPointerUp = useCallback((event) => {
+    if (!videoRetakePlayheadDraggingRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    videoRetakePlayheadDraggingRef.current = false;
+    setIsVideoRetakePlayheadDragging(false);
+    moveVideoRetakePlayheadFromPointer(event);
+  }, [moveVideoRetakePlayheadFromPointer]);
+
+  const handleVideoRetakePlayheadKeyDown = useCallback((event) => {
+    const step = event.shiftKey ? 1 : 0.2;
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    event.stopPropagation();
+    syncVideoRetakePlayhead(videoRetakePlayheadTime + (event.key === 'ArrowRight' ? step : -step));
+  }, [syncVideoRetakePlayhead, videoRetakePlayheadTime]);
+
+  const updateVideoRetakeCameraSetting = useCallback((patch, key = activeVideoRetakeCameraKey) => {
+    setVideoRetakeCameraSettings(current => ({
+      ...current,
+      [key]: {
+        ...(current[key] || DEFAULT_VIDEO_RETAKE_CAMERA_SETTINGS.fixed),
+        ...patch,
+      },
+    }));
+  }, [activeVideoRetakeCameraKey]);
+
+  const chooseVideoRetakeAngle = useCallback((angle) => {
+    if (angle === '自定义视角') {
+      updateVideoRetakeCameraSetting({
+        angle: '自定义视角',
+        custom: true,
+        yaw: activeVideoRetakeCamera.yaw ?? VIDEO_RETAKE_CAMERA_POSITIONS.自定义视角.yaw,
+        pitch: activeVideoRetakeCamera.pitch ?? VIDEO_RETAKE_CAMERA_POSITIONS.自定义视角.pitch,
+      });
+      return;
+    }
+    const preset = VIDEO_RETAKE_CAMERA_POSITIONS[angle] || VIDEO_RETAKE_CAMERA_POSITIONS.正面;
+    updateVideoRetakeCameraSetting({
+      angle,
+      custom: false,
+      ...preset,
+    });
+  }, [activeVideoRetakeCamera.pitch, activeVideoRetakeCamera.yaw, updateVideoRetakeCameraSetting]);
+
+  const chooseVideoRetakeShotSize = useCallback((shotSize) => {
+    updateVideoRetakeCameraSetting({
+      shotSize,
+      distance: VIDEO_RETAKE_SHOT_DISTANCE[shotSize] || 4,
+    });
+  }, [updateVideoRetakeCameraSetting]);
+
+  const handleVideoRetakeCameraChange = useCallback(({ yaw, pitch }) => {
+    updateVideoRetakeCameraSetting({
+      angle: '自定义视角',
+      custom: true,
+      yaw,
+      pitch,
+    });
+  }, [updateVideoRetakeCameraSetting]);
+
+  const resetVideoRetakePrototype = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setVideoRetakeSegments(DEFAULT_VIDEO_RETAKE_SEGMENTS);
+    setSelectedVideoRetakeSegmentId('shot-1');
+    setVideoRetakePlayheadTime(DEFAULT_VIDEO_RETAKE_PLAYHEAD_TIME);
+    setVideoRetakeMode('固定');
+    setVideoRetakeSwitchViewTab('start');
+    setVideoRetakeCameraSettings(DEFAULT_VIDEO_RETAKE_CAMERA_SETTINGS);
+    setVideoRetakePrompt('');
+    showVideoRetakeStatus('已重置重拍设置');
+  }, [showVideoRetakeStatus]);
+
+  const splitVideoRetakeSegment = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setVideoRetakeSegments(current => {
+      const targetIndex = current.findIndex(segment => segment.id === selectedVideoRetakeSegmentId);
+      if (targetIndex < 0) return current;
+      const target = current[targetIndex];
+      if ((target.end - target.start) <= 1.2) {
+        showVideoRetakeStatus('当前分镜太短，暂不再拆分');
+        return current;
+      }
+      const splitAt = Math.round(videoRetakePlayheadTime * 10) / 10;
+      if (
+        splitAt <= target.start + VIDEO_RETAKE_MIN_SEGMENT_DURATION
+        || splitAt >= target.end - VIDEO_RETAKE_MIN_SEGMENT_DURATION
+      ) {
+        showVideoRetakeStatus('请把指针移动到分镜中间一点再裁剪');
+        return current;
+      }
+      // 原型切分：这里只改变本地时间轴展示，不会真的裁剪视频文件。
+      const first = { ...target, end: splitAt };
+      const second = {
+        id: `shot-${Date.now()}`,
+        start: splitAt,
+        end: target.end,
+      };
+      const nextSegments = [
+        ...current.slice(0, targetIndex),
+        first,
+        second,
+        ...current.slice(targetIndex + 1),
+      ];
+      setSelectedVideoRetakeSegmentId(first.id);
+      setVideoRetakePlayheadTime(splitAt);
+      showVideoRetakeStatus('已拆分为两个分镜片段');
+      return nextSegments;
+    });
+  }, [selectedVideoRetakeSegmentId, showVideoRetakeStatus, videoRetakePlayheadTime]);
+
+  const runVideoRetakePrototype = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    if (!isVideoResult || !videoUrl) return;
+
+    // 仅原型：创建一个连线的下游视频节点，让重拍流程看起来完整。
+    // 这里不会真的裁剪、重拍生成，也不会消耗积分。
+    const result = data?.onCreateVideoRetakePrototype?.(id, {
+      mode: videoRetakeMode,
+      angle: videoRetakeAngle,
+      shotSize: videoRetakeShotSize,
+      cameraSettings: videoRetakeCameraSettings,
+      activeView: videoRetakeMode === '切换' ? videoRetakeSwitchViewTab : 'fixed',
+      prompt: videoRetakePrompt.trim(),
+      segment: selectedVideoRetakeSegment,
+      segments: videoRetakeSegments,
+      credits: videoRetakeCredits,
+      videoUrl,
+    });
+    if (result?.ok) {
+      setVideoRetakeOpen(false);
+      return;
+    }
+    showVideoRetakeStatus('仅原型展示，暂未接入真实重拍');
+  }, [data, id, isVideoResult, selectedVideoRetakeSegment, showVideoRetakeStatus, videoRetakeAngle, videoRetakeCameraSettings, videoRetakeCredits, videoRetakeMode, videoRetakePrompt, videoRetakeSegments, videoRetakeShotSize, videoRetakeSwitchViewTab, videoUrl]);
+
   const toggleCard = useCallback((index) => {
     setExpandedCardIndex(prev => prev === index ? null : index);
   }, []);
@@ -2686,6 +3031,7 @@ function ResultNode({ id, selected, data }) {
             {displayedImageUrls.map((url, index) => {
               const isCover = index === coverIndex;
               const isHover = hoveredImageIndex === index;
+              const displayUrl = displayedBrowserImageUrls[index] || toDisplayMediaUrl(url);
               return (
                 <div
                   className={`result-image-expanded-card canvas-image-preview-trigger ${isCover ? 'is-cover' : ''}`}
@@ -2695,13 +3041,13 @@ function ResultNode({ id, selected, data }) {
                   onMouseLeave={() => scheduleCloseExpandedImageToolbar(index)}
                   onDoubleClick={(e) => {
                     if (e.target.closest('.image-action-toolbar, .image-action-layer, .result-image-set-cover-btn')) return;
-                    openPreview(url, e, allImageUrls, index);
+                    openPreview(displayUrl, e, displayedBrowserImageUrls, index);
                   }}
                   onDragStart={(e) => handleImageDragStart(e, url, index)}
                   draggable
                 >
                   <img
-                    src={url}
+                    src={displayUrl}
                     alt={`生成图 ${index + 1}`}
                     loading="lazy"
                     decoding="async"
@@ -2757,7 +3103,7 @@ function ResultNode({ id, selected, data }) {
             if (e.target.closest('.result-image-stack-toggle, .image-action-toolbar, .image-action-layer')) return;
             if (didMoveImageStackPointer(e)) return;
             e.stopPropagation();
-            openPreview(coverImageUrl, e, allImageUrls, coverIndex);
+            openPreview(displayedCoverUrl, e, displayedBrowserImageUrls, coverIndex);
           }}
           onPointerDown={beginImageStackDrag}
           title="双击查看大图，点击右上角「N张」展开"
@@ -2821,7 +3167,7 @@ function ResultNode({ id, selected, data }) {
           onContextMenu={(event) => openImageContextMenu(event, coverImageUrl, coverIndex)}
           onDoubleClick={(event) => {
             if (isImagePreviewExcludedTarget(event.target)) return;
-            openPreview(coverImageUrl, event, allImageUrls, coverIndex);
+            openPreview(displayedCoverUrl, event, displayedBrowserImageUrls, coverIndex);
           }}
         >
           <img
@@ -3434,6 +3780,7 @@ function ResultNode({ id, selected, data }) {
                 setSubjectRemovalOpen(false);
                 setIsSubjectMaskSelecting(false);
                 setVideoExtensionOpen(false);
+                setVideoRetakeOpen(false);
                 setVideoEnhancementOpen(current => !current);
               },
             },
@@ -3448,6 +3795,7 @@ function ResultNode({ id, selected, data }) {
                 setVideoEnhancementOpen(false);
                 setSubjectRemovalOpen(false);
                 setVideoExtensionOpen(false);
+                setVideoRetakeOpen(false);
                 setSubjectReplacementOpen(current => !current);
               },
             },
@@ -3462,6 +3810,7 @@ function ResultNode({ id, selected, data }) {
                 setVideoEnhancementOpen(false);
                 setSubjectReplacementOpen(false);
                 setVideoExtensionOpen(false);
+                setVideoRetakeOpen(false);
                 setSubjectRemovalOpen(current => !current);
               },
             },
@@ -3479,7 +3828,26 @@ function ResultNode({ id, selected, data }) {
                 setIsSubjectMaskSelecting(false);
                 setVideoExtensionSettingsOpen(false);
                 setVideoExtensionMentionOpen(false);
+                setVideoRetakeOpen(false);
                 setVideoExtensionOpen(current => !current);
+              },
+            },
+            {
+              id: 'retake-video',
+              label: '视频重拍',
+              title: '视频重拍',
+              icon: 'movieAi',
+              active: videoRetakeOpen,
+              onClick: (event) => {
+                event.stopPropagation();
+                setVideoEnhancementOpen(false);
+                setSubjectReplacementOpen(false);
+                setSubjectRemovalOpen(false);
+                setVideoExtensionOpen(false);
+                setVideoExtensionSettingsOpen(false);
+                setVideoExtensionMentionOpen(false);
+                setIsSubjectMaskSelecting(false);
+                setVideoRetakeOpen(current => !current);
               },
             },
             {
@@ -4055,6 +4423,238 @@ function ResultNode({ id, selected, data }) {
               className="video-enhancement-prototype-generate"
               onClick={runVideoExtensionPrototype}
               aria-label="生成视频延长原型"
+              title="生成"
+            >
+              <Icon name="arrowUp" size={20} />
+            </button>
+          </footer>
+        </section>,
+        document.body,
+      )}
+      {isVideoResult && videoRetakeOpen && videoRetakePosition && typeof document !== 'undefined' && createPortal(
+        <section
+          ref={videoRetakePanelRef}
+          className="video-retake-prototype-panel nodrag nopan"
+          style={{
+            left: videoRetakePosition.left,
+            top: videoRetakePosition.top,
+            width: videoRetakePosition.width,
+            maxHeight: videoRetakePosition.maxHeight,
+          }}
+          role="dialog"
+          aria-label="视频重拍"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <header className="video-retake-prototype-topbar">
+            <div className="video-retake-prototype-shot-title">
+              <strong>
+                {formatVideoRetakeSegmentLabel(
+                  selectedVideoRetakeSegment,
+                  Math.max(0, videoRetakeSegments.findIndex(segment => segment.id === selectedVideoRetakeSegment.id)),
+                  videoRetakeSegments.length,
+                )}
+              </strong>
+              <span>视频重拍</span>
+            </div>
+            <div className="video-retake-prototype-tools">
+              <button type="button" aria-label="播放预览" title="播放预览">
+                <Icon name="play" size={16} />
+              </button>
+              <button type="button" onClick={splitVideoRetakeSegment} aria-label="裁剪分镜" title="裁剪">
+                <Icon name="split" size={16} />
+              </button>
+              <button type="button" onClick={resetVideoRetakePrototype} aria-label="重置重拍设置" title="重置">
+                <Icon name="refresh" size={16} />
+              </button>
+              <button
+                type="button"
+                className="video-enhancement-prototype-close"
+                onClick={() => setVideoRetakeOpen(false)}
+                aria-label="关闭视频重拍"
+                title="关闭"
+              >
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+          </header>
+
+          <div className="video-retake-prototype-timeline" aria-label="视频重拍时间轴">
+            <div
+              ref={videoRetakeFilmstripRef}
+              className={`video-retake-prototype-filmstrip ${isVideoRetakePlayheadDragging ? 'is-dragging' : ''}`}
+              role="slider"
+              tabIndex={0}
+              aria-label="重拍裁剪指针"
+              aria-valuemin={0}
+              aria-valuemax={videoRetakeTotalDuration}
+              aria-valuenow={videoRetakePlayheadTime}
+              aria-valuetext={formatVideoRetakeTime(videoRetakePlayheadTime)}
+              onPointerDown={handleVideoRetakePlayheadPointerDown}
+              onPointerMove={handleVideoRetakePlayheadPointerMove}
+              onPointerUp={handleVideoRetakePlayheadPointerUp}
+              onPointerCancel={handleVideoRetakePlayheadPointerUp}
+              onKeyDown={handleVideoRetakePlayheadKeyDown}
+            >
+              {Array.from({ length: 8 }, (_, index) => (
+                <div className="video-retake-prototype-frame" key={index}>
+                  <video src={videoUrl} muted playsInline preload="metadata" />
+                </div>
+              ))}
+              <span
+                className="video-retake-prototype-cursor"
+                style={{ left: `${videoRetakePlayheadPercent}%` }}
+                aria-hidden="true"
+              >
+                <span>{formatVideoRetakeTime(videoRetakePlayheadTime)}</span>
+              </span>
+            </div>
+            <div className="video-retake-prototype-segments">
+              {videoRetakeSegments.map((segment, index) => (
+                <button
+                  key={segment.id}
+                  type="button"
+                  className={segment.id === selectedVideoRetakeSegment.id ? 'active' : ''}
+                  style={{ flexGrow: Math.max(1, segment.end - segment.start) }}
+                  onClick={() => {
+                    setSelectedVideoRetakeSegmentId(segment.id);
+                    setVideoRetakePlayheadTime(Math.round(((segment.start + segment.end) / 2) * 10) / 10);
+                  }}
+                  aria-pressed={segment.id === selectedVideoRetakeSegment.id}
+                >
+                  <span>{`分镜 ${index + 1}`}</span>
+                  <small>{`${formatVideoRetakeTime(segment.start)}-${formatVideoRetakeTime(segment.end)}`}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="video-retake-prototype-mode-row" role="tablist" aria-label="镜头变化">
+            <span>镜头变化</span>
+            {VIDEO_RETAKE_MODES.map(mode => (
+              <button
+                key={mode}
+                type="button"
+                className={videoRetakeMode === mode ? 'active' : ''}
+                role="tab"
+                aria-selected={videoRetakeMode === mode}
+                onClick={() => setVideoRetakeMode(mode)}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
+          {videoRetakeMode === '切换' && (
+            <div className="video-retake-view-tabs" role="tablist" aria-label="切换镜头视角">
+              {[
+                { key: 'start', label: '开始视角' },
+                { key: 'end', label: '结束视角' },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  className={videoRetakeSwitchViewTab === tab.key ? 'active' : ''}
+                  role="tab"
+                  aria-selected={videoRetakeSwitchViewTab === tab.key}
+                  onClick={() => setVideoRetakeSwitchViewTab(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="video-retake-prototype-body">
+            <section className="video-retake-camera-control" aria-label="摄像机角度控制">
+              <div className="video-retake-camera-title" aria-hidden="true">
+                <span>透视</span>
+                <strong>{videoRetakeAngle}</strong>
+              </div>
+              <AngleCameraPreview
+                imageUrl={videoRetakePreviewImage}
+                yaw={videoRetakeCameraYaw}
+                pitch={videoRetakeCameraPitch}
+                distance={videoRetakeCameraDistance}
+                secondaryCamera={secondaryVideoRetakeCamera}
+                disabled={videoRetakeMode === '保持不变'}
+                onChange={handleVideoRetakeCameraChange}
+              />
+              <span className="video-retake-camera-hint">拖动相机调整视角</span>
+            </section>
+
+            <section className="video-retake-settings" aria-label="重拍设置">
+              <div className="video-retake-setting-group">
+                <span>{videoRetakeMode === '切换' ? `${videoRetakeSwitchViewTab === 'start' ? '开始' : '结束'}视角` : '视角'}</span>
+                <div className="video-retake-camera-options" role="radiogroup" aria-label="视角">
+                  {[...VIDEO_RETAKE_CAMERA_ANGLES, '自定义视角'].map(angle => (
+                    <button
+                      key={angle}
+                      type="button"
+                      className={videoRetakeAngle === angle ? 'active' : ''}
+                      role="radio"
+                      aria-checked={videoRetakeAngle === angle}
+                      onClick={() => chooseVideoRetakeAngle(angle)}
+                      disabled={videoRetakeMode === '保持不变'}
+                    >
+                      {angle}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="video-retake-setting-group">
+                <span>{videoRetakeMode === '切换' ? `${videoRetakeSwitchViewTab === 'start' ? '开始' : '结束'}视角 · 景别` : '景别'}</span>
+                <div className="video-retake-shot-options" role="radiogroup" aria-label="景别">
+                  {VIDEO_RETAKE_SHOT_SIZES.map(shotSize => (
+                    <button
+                      key={shotSize}
+                      type="button"
+                      className={videoRetakeShotSize === shotSize ? 'active' : ''}
+                      role="radio"
+                      aria-checked={videoRetakeShotSize === shotSize}
+                      onClick={() => chooseVideoRetakeShotSize(shotSize)}
+                      disabled={videoRetakeMode === '保持不变'}
+                    >
+                      {shotSize}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="video-retake-setting-group">
+                <span>补充镜头要求</span>
+                <textarea
+                  value={videoRetakePrompt}
+                  onChange={(event) => setVideoRetakePrompt(event.target.value)}
+                  placeholder={videoRetakeMode === '保持不变' ? '当前分镜保持原视频，不做镜头变化' : '补充镜头要求，例如：缓慢绕到人物侧后方（可选）'}
+                  rows={3}
+                  disabled={videoRetakeMode === '保持不变'}
+                />
+              </div>
+
+              <div className="video-retake-mode-hint" role="status">
+                {videoRetakeMode === '保持不变' && '当前分镜会沿用原片段，只作为分镜结构预览。'}
+                {videoRetakeMode === '固定' && '适合保持一个固定视角，只调整视角、景别或主体状态。'}
+                {videoRetakeMode === '切换' && '适合把当前片段切到另一个镜头视角，形成更明显的镜头变化。'}
+                {videoRetakeMode === '平滑移动' && '适合模拟推拉、横移、环绕等连续运镜。'}
+              </div>
+            </section>
+          </div>
+
+          <footer className="video-enhancement-prototype-footer video-retake-prototype-footer">
+            <span className="video-enhancement-prototype-status" role="status">{videoRetakeStatus}</span>
+            <div className="video-enhancement-prototype-action-pill" aria-label={`需要消耗 ${videoRetakeCredits} 积分`}>
+              <span className="video-enhancement-prototype-credit-icon" aria-hidden="true">
+                <Icon name="aed" size={18} />
+              </span>
+              <strong>{videoRetakeCredits}</strong>
+            </div>
+            <button
+              type="button"
+              className="video-enhancement-prototype-generate"
+              onClick={runVideoRetakePrototype}
+              aria-label="生成视频重拍原型"
               title="生成"
             >
               <Icon name="arrowUp" size={20} />

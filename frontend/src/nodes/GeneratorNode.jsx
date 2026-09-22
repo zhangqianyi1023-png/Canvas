@@ -764,15 +764,6 @@ function GeneratorNode({ id, data }) {
   const selectedVideoModel = videoModelOptions.includes(videoForm.model)
     ? videoForm.model
     : selectedVideoApi?.defaultModel || videoModelOptions[0] || videoForm.model || 'sora-2';
-  const textApiOptions = textApiConfigs.length > 0
-    ? textApiConfigs.map(api => ({ value: api.id, label: api.name || 'API' }))
-    : [{ value: '', label: '未配置 API', disabled: true }];
-  const imageApiOptions = imageApiConfigs.length > 0
-    ? imageApiConfigs.map(api => ({ value: api.id, label: api.name || 'API' }))
-    : [{ value: '', label: '未配置 API', disabled: true }];
-  const videoApiOptions = videoApiConfigs.length > 0
-    ? videoApiConfigs.map(api => ({ value: api.id, label: api.name || 'API' }))
-    : [{ value: '', label: '未配置 API', disabled: true }];
   const textModelSelectOptions = hasTextModelOptions
     ? textModelOptions
     : models.length > 0
@@ -1167,24 +1158,6 @@ function GeneratorNode({ id, data }) {
     setForm(current => ({ ...current, ...patch }));
     data?.onGeneratorDataChange?.(id, patch);
   }, [data, id, isGenerationLocked]);
-
-  const handleTextApiChange = useCallback((value) => {
-    if (isGenerationLocked) return;
-    setSelectedTextApiId(value);
-    data?.onGeneratorDataChange?.(id, { text_api_id: value });
-  }, [id, isGenerationLocked, data?.onGeneratorDataChange]);
-
-  const handleImageApiChange = useCallback((value) => {
-    if (isGenerationLocked) return;
-    setSelectedImageApiId(value);
-    data?.onGeneratorDataChange?.(id, { image_api_id: value });
-  }, [id, isGenerationLocked, data?.onGeneratorDataChange]);
-
-  const handleVideoApiChange = useCallback((value) => {
-    if (isGenerationLocked) return;
-    setSelectedVideoApiId(value);
-    data?.onGeneratorDataChange?.(id, { video_api_id: value });
-  }, [id, isGenerationLocked, data?.onGeneratorDataChange]);
 
   const handleImageRatioChange = useCallback((preset) => {
     if (isGenerationLocked) return;
@@ -2248,13 +2221,6 @@ function GeneratorNode({ id, data }) {
           <div className="processor-footer">
             <div className="processor-model-group">
               <ProcessorModelDropdown
-                value={selectedTextApi?.id || ''}
-                options={textApiOptions}
-                onChange={handleTextApiChange}
-                disabled={isGenerationLocked}
-                placeholder="未配置 API"
-              />
-              <ProcessorModelDropdown
                 value={selectedTextModel}
                 options={textModelSelectOptions}
                 onChange={value => handleChange('model_name', value)}
@@ -2348,13 +2314,6 @@ function GeneratorNode({ id, data }) {
           <div className="processor-footer">
             <div className="processor-model-group">
               <ProcessorModelDropdown
-                value={selectedVideoApi?.id || ''}
-                options={videoApiOptions}
-                onChange={handleVideoApiChange}
-                disabled={isGenerationLocked}
-                placeholder="未配置 API"
-              />
-              <ProcessorModelDropdown
                 value={selectedVideoModel}
                 options={videoModelSelectOptions}
                 onChange={value => handleVideoChange('model', value)}
@@ -2394,7 +2353,6 @@ function GeneratorNode({ id, data }) {
         <div className="node-body">
           {renderReferenceMaterialsField()}
           <div className="node-field">
-            <label>正向提示词</label>
             <ImageMentionTextarea
               value={form.image_prompt}
               onChange={nextValue => handleChange('image_prompt', nextValue)}
@@ -2470,13 +2428,6 @@ function GeneratorNode({ id, data }) {
           )}
           <div className="processor-footer">
             <div className="processor-model-group">
-              <ProcessorModelDropdown
-                value={selectedImageApi?.id || ''}
-                options={imageApiOptions}
-                onChange={handleImageApiChange}
-                disabled={isGenerationLocked}
-                placeholder="未配置 API"
-              />
               <ProcessorModelDropdown
                 value={selectedImageModel}
                 options={imageModelSelectOptions}
@@ -2557,15 +2508,6 @@ function GeneratorNode({ id, data }) {
             </div>
           )}
           <div className="processor-footer">
-            <div className="processor-model-group">
-              <ProcessorModelDropdown
-                value={selectedTextApi?.id || ''}
-                options={textApiOptions}
-                onChange={handleTextApiChange}
-                disabled={isGenerationLocked}
-                placeholder="未配置 API"
-              />
-            </div>
             <button className="processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
               <Icon name="settings" size={15} />
               <span className="processor-settings-summary">音色 {form.audio_voice}</span>
@@ -2597,9 +2539,6 @@ function GeneratorNode({ id, data }) {
       <div className="node-body">
         {renderReferenceMaterialsField()}
         <div className="node-field text-processor-composer">
-          <button type="button" className="text-processor-attach" aria-label="添加参考内容" disabled={isGenerationLocked}>
-            <Icon name="add" size={23} />
-          </button>
           <ImageMentionTextarea
             value={form.user_prompt}
             onChange={nextValue => handleChange('user_prompt', nextValue)}
@@ -2613,13 +2552,6 @@ function GeneratorNode({ id, data }) {
       <div className="processor-footer-wrap">
         <div className="processor-footer">
           <div className="processor-model-group">
-            <ProcessorModelDropdown
-              value={selectedTextApi?.id || ''}
-              options={textApiOptions}
-              onChange={handleTextApiChange}
-              disabled={isGenerationLocked}
-              placeholder="未配置 API"
-            />
             <ProcessorModelDropdown
               value={selectedTextModel}
               options={textModelSelectOptions}
