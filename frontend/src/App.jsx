@@ -15093,7 +15093,10 @@ function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, 
                       <strong>公开画布</strong>
                       <small>发布后其他用户可以查看画布内容</small>
                     </span>
-                    <input type="checkbox" checked={communityPublicCanvas} onChange={event => setCommunityPublicCanvas(event.target.checked)} />
+                    <span className="canvas-share-switch">
+                      <input type="checkbox" checked={communityPublicCanvas} onChange={event => setCommunityPublicCanvas(event.target.checked)} />
+                      <span aria-hidden="true" />
+                    </span>
                   </label>
                   <button type="button" className="canvas-share-primary" onClick={() => setShareStatus('已提交发布')}>
                     发布到社区

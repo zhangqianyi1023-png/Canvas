@@ -3041,7 +3041,7 @@ body {
 .canvas-share-popover {
   position: absolute;
   top: calc(100% + 10px);
-  right: 0;
+  left: 50%;
   z-index: 82;
   display: grid;
   width: 400px;
@@ -3053,6 +3053,7 @@ body {
   box-shadow: var(--canvas-floating-shadow);
   color: var(--fg-primary);
   backdrop-filter: blur(18px);
+  transform: translateX(-50%);
 }
 
 .canvas-share-tabs {
@@ -3225,10 +3226,60 @@ body {
   font-weight: var(--fw-semibold);
 }
 
-.canvas-share-toggle input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
+.canvas-share-switch {
+  position: relative;
+  display: inline-flex;
+  width: 42px;
+  height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.canvas-share-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.canvas-share-switch > span {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--bg-hover);
+  pointer-events: none;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.canvas-share-switch > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #f6f7f9;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.3);
+  content: '';
+  transition: transform 0.16s ease;
+}
+
+.canvas-share-switch input:checked + span {
+  border-color: color-mix(in srgb, var(--accent) 66%, var(--border-default));
+  background: var(--accent);
+}
+
+.canvas-share-switch input:checked + span::after {
+  transform: translateX(18px);
+}
+
+.canvas-share-switch input:focus-visible + span {
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .canvas-share-primary {
