@@ -98,6 +98,7 @@ export const stripRuntimeNodeData = (node) => {
     onNodeResize,
     onImageAspectChange,
     onVideoAspectChange,
+    onImageEditorStateChange,
     onResultMediaAspectChange,
     onOpenVideoEditor,
     onCreateVideoFromShot,
@@ -140,6 +141,7 @@ export const stripRuntimeNodeData = (node) => {
   void onNodeResize;
   void onImageAspectChange;
   void onVideoAspectChange;
+  void onImageEditorStateChange;
   void onResultMediaAspectChange;
   void onOpenVideoEditor;
   void onCreateVideoFromShot;

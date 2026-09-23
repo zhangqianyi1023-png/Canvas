@@ -51,6 +51,12 @@ const VIDEO_GENERATION_MODE_LABELS = {
   [VIDEO_GENERATION_MODE_OMNI]: '全能参考',
   [VIDEO_GENERATION_MODE_FIRST_LAST]: '首尾帧',
 };
+const AUDIO_LYRICS_MODE_ADAPTIVE = 'adaptive';
+const AUDIO_LYRICS_MODE_CUSTOM = 'custom';
+const AUDIO_LYRICS_MODE_OPTIONS = [
+  { value: AUDIO_LYRICS_MODE_ADAPTIVE, label: '自适应' },
+  { value: AUDIO_LYRICS_MODE_CUSTOM, label: '自定义' },
+];
 const normalizePrompt = (value) => (value || '').replace(/\s+/g, ' ').trim();
 const uniqueList = (values = []) => [...new Set((values || []).filter(Boolean))];
 const isSeedance2VideoModel = (model = '') => {
@@ -718,7 +724,7 @@ const ProcessorModelDropdown = ({
       bottom: openUp ? viewportHeight - rect.top + 6 : 'auto',
       width,
       maxHeight: Math.max(120, Math.min(320, openUp ? above : below)),
-      zIndex: 20080,
+      zIndex: 820,
     });
   }, [menuMinWidth, menuPortal]);
 
@@ -973,6 +979,8 @@ function GeneratorNode({ id, data }) {
     audio_text: data?.audio_text || data?.promptDraft || '',
     audio_voice: data?.audio_voice || '冰糖',
     audio_style: data?.audio_style || '',
+    audio_lyrics_mode: data?.audio_lyrics_mode || AUDIO_LYRICS_MODE_ADAPTIVE,
+    audio_lyrics_text: data?.audio_lyrics_text || '',
   });
 
   const apiConfigs = useMemo(() => data?.apiConfigs || [], [data?.apiConfigs]);
@@ -1288,6 +1296,12 @@ function GeneratorNode({ id, data }) {
     .map(prompt => prompt.trim())
     .filter(Boolean)
     .join('\n\n');
+  const audioLyricsMode = AUDIO_LYRICS_MODE_OPTIONS.some(option => option.value === form.audio_lyrics_mode)
+    ? form.audio_lyrics_mode
+    : AUDIO_LYRICS_MODE_ADAPTIVE;
+  const isCustomAudioLyrics = audioLyricsMode === AUDIO_LYRICS_MODE_CUSTOM;
+  const audioLyricsSummary = AUDIO_LYRICS_MODE_OPTIONS.find(option => option.value === audioLyricsMode)?.label || '自适应';
+  const audioGenerationCredits = isCustomAudioLyrics ? 12 : 10;
   const combinedStoryboardScriptPrompt = [connectedPrompt, form.storyboard_script_prompt]
     .map(prompt => prompt.trim())
     .filter(Boolean)
@@ -2089,6 +2103,8 @@ function GeneratorNode({ id, data }) {
       audio_text: form.audio_text,
       audio_voice: form.audio_voice,
       audio_style: form.audio_style,
+      audio_lyrics_mode: audioLyricsMode,
+      audio_lyrics_text: form.audio_lyrics_text,
       text_api_id: selectedTextApi?.id || '',
     };
     data?.onRunAudioGeneration?.(id, {
@@ -2099,7 +2115,7 @@ function GeneratorNode({ id, data }) {
       voice: form.audio_voice,
       style: form.audio_style,
     }, generationConfig);
-  }, [buildCommonGenerationConfig, combinedAudioText, data, form.api_base_url, form.api_key, form.audio_style, form.audio_text, form.audio_voice, id, isAudioGenerationRunning, resetError, selectedTextApi, selectedTextModel]);
+  }, [audioLyricsMode, buildCommonGenerationConfig, combinedAudioText, data, form.api_base_url, form.api_key, form.audio_lyrics_text, form.audio_style, form.audio_text, form.audio_voice, id, isAudioGenerationRunning, resetError, selectedTextApi, selectedTextModel]);
 
   // ===== 通用：文本参考卡片 =====
   const renderTextReferenceCard = () => connectedTextReferences.length > 0 ? (
@@ -2821,7 +2837,6 @@ function GeneratorNode({ id, data }) {
   // ===== 音频处理器（处理器，不是节点） =====
   // generatorType === 'generateAudio'，CSS class: audio-processor-node
   if (generatorType === 'generateAudio') {
-    const audioVoiceOptions = ['冰糖', '茉莉', '苏打', '白桦', 'Mia', 'Chloe', 'Milo', 'Dean'];
     return (
       <div
         className={`custom-node processor-node audio-processor-node ${status}`}
@@ -2832,50 +2847,63 @@ function GeneratorNode({ id, data }) {
         {renderErrorMessage()}
         <div className="node-body">
           {renderReferenceMaterialsField()}
-          <div className="node-field">
-            <label>{labels.audioText}</label>
+          <div className={`node-field audio-lyrics-composer ${isCustomAudioLyrics ? 'has-custom-lyrics' : ''}`}>
             <textarea
               value={form.audio_text}
               onChange={event => handleChange('audio_text', event.target.value)}
-              placeholder={labels.audioTextPlaceholder}
+              placeholder="描述要生成的音频内容、情绪、节奏、用途等..."
               rows={4}
               disabled={isGenerationLocked}
             />
-          </div>
-          <div className="node-field">
-            <label>{labels.audioStyle}</label>
-            <textarea
-              value={form.audio_style}
-              onChange={event => handleChange('audio_style', event.target.value)}
-              placeholder={labels.audioStylePlaceholder}
-              rows={2}
-              disabled={isGenerationLocked}
-            />
-          </div>
-        </div>
-        <div className="processor-footer-wrap">
-          {showSettings && (
-            <div className="processor-settings-panel">
-              <div className="settings-section">
-                <div className="settings-label">{labels.voice}</div>
-                <OptionRow
-                  options={audioVoiceOptions.map(value => ({ value, label: value }))}
-                  value={form.audio_voice}
-                  onChange={value => handleChange('audio_voice', value)}
+            {isCustomAudioLyrics && (
+              <div className="audio-lyrics-custom-field">
+                <textarea
+                  value={form.audio_lyrics_text}
+                  onChange={event => handleChange('audio_lyrics_text', event.target.value)}
+                  placeholder="输入自定义歌词..."
+                  rows={4}
+                  disabled={isGenerationLocked}
                 />
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+        <div className="processor-footer-wrap" ref={settingsWrapRef}>
           <div className="processor-footer">
-            <button className="processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
-              <Icon name="settings" size={15} />
-              <span className="processor-settings-summary">{formatGeneratorText(labels.voiceSummary, { voice: form.audio_voice })}</span>
-            </button>
+            <div className="processor-model-group">
+              <ProcessorModelDropdown
+                value={selectedTextModel}
+                options={textModelSelectOptions}
+                onChange={value => handleChange('model_name', value)}
+                disabled={isGenerationLocked || (!selectedTextApi && !hasTextModelOptions)}
+                placeholder={labels.noTextModel}
+              />
+              <div className="audio-lyrics-settings-anchor">
+                <button className="processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
+                  <span className="processor-settings-summary">歌词：{audioLyricsSummary}</span>
+                </button>
+                {showSettings && (
+                  <div className="processor-settings-panel audio-lyrics-settings-panel">
+                    <div className="settings-section">
+                      <div className="settings-label">歌词</div>
+                      <OptionRow
+                        options={AUDIO_LYRICS_MODE_OPTIONS}
+                        value={audioLyricsMode}
+                        onChange={value => handleChange('audio_lyrics_mode', value)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
             <VoicePromptInput
               disabled={isGenerationLocked}
               labels={labels}
               onComplete={nextText => handleChange('audio_text', appendVoicePromptText(form.audio_text, nextText))}
             />
+            <span className="processor-credit-pill" aria-label={`需要消耗 ${audioGenerationCredits} 积分`}>
+              {audioGenerationCredits} 积分
+            </span>
             <button
               className={`processor-run-btn ${isAudioGenerationRunning ? 'cancel' : ''}`}
               onClick={handleAudioGenerate}

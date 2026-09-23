@@ -16,6 +16,7 @@ function tooltipLabel(id, labels = {}) {
     'tool-smart-splitter': labels.toolSmartSplitter || '智能拆分器',
     'tool-video-gen': labels.toolVideo || '视频',
     'tool-storyboard': labels.toolStoryboard || '分镜工作台',
+    'tool-image-editor': labels.toolImageEditor || '图片编辑器',
     'tool-materials': labels.toolMaterials || '素材库',
     'tool-characters': labels.toolCharacters || '角色',
     'tool-history': labels.toolHistory || '历史',
@@ -34,6 +35,7 @@ const TOOLBAR_ID_BY_NODE_TYPE = {
   smartSplitter: 'tool-smart-splitter',
   generateStoryboardScript: 'tool-storyboard',
   videoEditor: 'tool-video-editor',
+  imageEditor: 'tool-image-editor',
 };
 
 function getToolbarItemId(item) {

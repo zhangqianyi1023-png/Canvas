@@ -10,15 +10,18 @@ export const SUPPORTED_AUDIO_TYPES = [
 ];
 
 const SUPPORTED_AUDIO_EXTENSIONS = ['.mp3', '.wav', '.webm', '.m4a', '.aac', '.ogg'];
+const UNSUPPORTED_AUDIO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.m4v', '.webm.mp4'];
 
-export const SUPPORTED_AUDIO_ACCEPT = SUPPORTED_AUDIO_TYPES.join(',');
+export const SUPPORTED_AUDIO_ACCEPT = [...SUPPORTED_AUDIO_TYPES, ...SUPPORTED_AUDIO_EXTENSIONS].join(',');
 
 export const SUPPORTED_AUDIO_LABEL = 'MP3、WAV、WebM、M4A、AAC、OGG';
 
 export const isSupportedAudioFile = (file) => {
   const mime = String(file?.type || '').toLowerCase();
-  if (SUPPORTED_AUDIO_TYPES.includes(mime)) return true;
   const name = String(file?.name || '').toLowerCase();
+  if (mime.startsWith('video/')) return false;
+  if (UNSUPPORTED_AUDIO_EXTENSIONS.some(ext => name.endsWith(ext))) return false;
+  if (SUPPORTED_AUDIO_TYPES.includes(mime)) return true;
   return SUPPORTED_AUDIO_EXTENSIONS.some(ext => name.endsWith(ext));
 };
 

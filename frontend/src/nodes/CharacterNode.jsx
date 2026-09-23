@@ -13,6 +13,11 @@ import {
 import { uploadImageFile } from '../uploadImage';
 import { uploadAudioFile } from '../uploadAudio';
 import {
+  SUPPORTED_AUDIO_ACCEPT,
+  getUnsupportedAudioMessage,
+  isSupportedAudioFile,
+} from '../audioFormats';
+import {
   buildAvatarCertificationSubmitAssets,
   buildTalentPackageFromCharacterPayload,
   getAvatarCertificationPackageStatus,
@@ -21,7 +26,6 @@ import {
   getTalentPackageCertifiedAssets,
 } from '../talentPackage';
 
-const AUDIO_ACCEPT = 'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/webm,audio/mp4,audio/aac,audio/ogg,.mp3,.wav,.webm,.m4a,.aac,.ogg';
 const MAIN_VISUAL_CLICK_DELAY_MS = 220;
 const CHARACTER_NODE_THREE_VIEW_MIN_WIDTH = 1240;
 
@@ -609,9 +613,9 @@ function CharacterNode({ id, data, selected }) {
   }, [data, id, isMainVisualBusy, isThreeViewBusy]);
 
   const uploadAudio = useCallback((files) => {
-    const file = Array.from(files || []).find(item => item.type.startsWith('audio/') || /\.(mp3|wav|webm|m4a|aac|ogg)$/i.test(item.name || ''));
+    const file = Array.from(files || []).find(isSupportedAudioFile);
     if (!file) {
-      setUploadError('请选择 MP3、WAV、WebM、M4A、AAC 或 OGG 音频');
+      setUploadError(getUnsupportedAudioMessage());
       return;
     }
     setUploadError('');
@@ -1155,7 +1159,7 @@ function CharacterNode({ id, data, selected }) {
         <input
           ref={audioInputRef}
           type="file"
-          accept={AUDIO_ACCEPT}
+          accept={SUPPORTED_AUDIO_ACCEPT}
           onChange={(event) => {
             uploadAudio(event.target.files);
             event.target.value = '';

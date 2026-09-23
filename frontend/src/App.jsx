@@ -34,6 +34,7 @@ import SettingsView from './components/SettingsView';
 
 import VideoInputNode from './nodes/VideoInputNode';
 import VideoEditorNode from './nodes/VideoEditorNode';
+import ImageEditorNode from './nodes/ImageEditorNode';
 import RemovedNode from './nodes/RemovedNode';
 import CharacterNode from './nodes/CharacterNode';
 import ResultNode from './nodes/ResultNode';
@@ -272,6 +273,7 @@ const CANVAS_LANGUAGE_TEXT = {
     toolImage: 'Image',
     toolAudio: 'Audio',
     toolVideoEditor: 'Video editor',
+    toolImageEditor: 'Image editor',
     toolSmartSplitter: 'Smart splitter',
     toolVideo: 'Video',
     toolStoryboard: 'Storyboard workspace',
@@ -335,6 +337,7 @@ const CANVAS_LANGUAGE_TEXT = {
     toolImage: '图片',
     toolAudio: '音频',
     toolVideoEditor: '视频编辑器',
+    toolImageEditor: '图片编辑器',
     toolSmartSplitter: '智能拆分器',
     toolVideo: '视频',
     toolStoryboard: '分镜工作台',
@@ -398,6 +401,7 @@ const CANVAS_LANGUAGE_TEXT = {
     toolImage: '画像',
     toolAudio: '音声',
     toolVideoEditor: '動画エディター',
+    toolImageEditor: '画像エディター',
     toolSmartSplitter: 'スマート分割',
     toolVideo: '動画',
     toolStoryboard: '絵コンテワークスペース',
@@ -460,6 +464,7 @@ const CANVAS_LANGUAGE_TEXT = {
     toolImage: '이미지',
     toolAudio: '오디오',
     toolVideoEditor: '비디오 편집기',
+    toolImageEditor: '이미지 편집기',
     toolSmartSplitter: '스마트 분할',
     toolVideo: '비디오',
     toolStoryboard: '스토리보드 작업대',
@@ -522,6 +527,7 @@ const CANVAS_LANGUAGE_TEXT = {
     toolImage: 'Image',
     toolAudio: 'Audio',
     toolVideoEditor: 'Editeur video',
+    toolImageEditor: 'Editeur image',
     toolSmartSplitter: 'Decoupage intelligent',
     toolVideo: 'Video',
     toolStoryboard: 'Atelier storyboard',
@@ -594,6 +600,7 @@ const getProviderMaxTextTokens = (provider, fallback = DEFAULT_MAX_TEXT_TOKENS) 
 const nodeTypes = {
   videoInput: VideoInputNode,
   videoEditor: VideoEditorNode,
+  imageEditor: ImageEditorNode,
   character: CharacterNode,
   product: RemovedNode,
   ecommerceVideoPlanner: RemovedNode,
@@ -1504,11 +1511,20 @@ const getNodeDownloadVideos = (node) => {
   return [];
 };
 
+const getNodeDownloadAudios = (node) => {
+  if (!node) return [];
+  if (node.type === 'result' && node.data?.resultType === 'generateAudio') {
+    return uniqueValues([node.data?.audioUrl]);
+  }
+  return [];
+};
+
 const getDownloadMediaItemsForNode = (node) => {
   const label = safeDownloadNamePart(String(node?.data?.label || getDefaultNodeLabel(node)).trim() || 'node');
   const nodeSuffix = node?.id ? node.id.slice(0, 8) : 'node';
   const images = getNodeDownloadImages(node);
   const videos = getNodeDownloadVideos(node);
+  const audios = getNodeDownloadAudios(node);
   return [
     ...images.map((url, index) => ({
       url,
@@ -1519,6 +1535,11 @@ const getDownloadMediaItemsForNode = (node) => {
       url,
       filename: `${label}-${nodeSuffix}${videos.length > 1 ? `-video-${index + 1}` : ''}`,
       type: 'video',
+    })),
+    ...audios.map((url, index) => ({
+      url,
+      filename: `${label}-${nodeSuffix}${audios.length > 1 ? `-audio-${index + 1}` : ''}`,
+      type: 'audio',
     })),
   ];
 };
@@ -1531,6 +1552,7 @@ const getDefaultNodeLabel = (node) => {
   if (!node) return '节点';
   if (node.type === 'videoInput') return '视频';
   if (node.type === 'videoEditor') return '视频编辑器';
+  if (node.type === 'imageEditor') return '图片编辑器';
   if (node.type === 'character') return '角色';
   if (node.type === 'product') return '已移除商品素材';
   if (node.type === 'ecommerceVideoPlanner') return '已移除电商视频企划';
@@ -1562,6 +1584,7 @@ const INPUT_NODE_DEFAULT_SIZES = {
   generateImage: { width: 280, height: 373 },
   generateVideo: { width: 320, height: 180 },
   generateAudio: { width: 300, height: 150 },
+  imageEditor: { width: 300, height: 230 },
   videoEditor: { width: 300, height: 210 },
   playlist: { width: 360, height: 220 },
   threeD: { width: 360, height: 330 },
@@ -2618,6 +2641,33 @@ const ALIGN_SNAP_THRESHOLD = 5;
     } catch (error) {
       console.warn('[downloadVideo] 下载失败', error);
       window.alert('视频下载失败，请稍后重试');
+    }
+  }, []);
+
+  const downloadNodeAudios = useCallback(async (nodeId) => {
+    const node = nodesRef.current.find(item => item.id === nodeId);
+    const audios = getNodeDownloadAudios(node);
+    if (audios.length === 0) {
+      window.alert('当前节点没有可下载的音频');
+      return;
+    }
+    const label = safeDownloadNamePart(String(node?.data?.label || getDefaultNodeLabel(node)).trim() || 'audio');
+    const items = audios.map((url, index) => ({
+      url,
+      filename: `${label}-${nodeId.slice(0, 8)}${audios.length > 1 ? `-${index + 1}` : ''}`,
+      type: 'audio',
+    }));
+    try {
+      const result = await downloadMedia(items, 'selected-audio', {
+        zip: audios.length > 1,
+        zipFilename: `${label}-audios-${new Date().toISOString().slice(0, 10)}`,
+      });
+      if (result.downloaded === 0) {
+        window.alert('音频下载失败，请稍后重试');
+      }
+    } catch (error) {
+      console.warn('[downloadAudio] 下载失败', error);
+      window.alert('音频下载失败，请稍后重试');
     }
   }, []);
 
@@ -4818,6 +4868,37 @@ const ALIGN_SNAP_THRESHOLD = 5;
               videoUrl,
               videoEditorTimeline: timeline || n.data?.videoEditorTimeline,
             },
+          }
+        : n
+    )));
+  }, [setNodes]);
+
+  const onImageEditorStateChange = useCallback((nodeId, imageEditorState) => {
+    const canvasWidth = Number(imageEditorState?.canvasSize?.width) || 300;
+    const canvasHeight = Number(imageEditorState?.canvasSize?.height) || 230;
+    const ratio = canvasWidth > 0 && canvasHeight > 0 ? canvasWidth / canvasHeight : 300 / 230;
+    const maxWidth = 320;
+    const maxHeight = 420;
+    const minWidth = 180;
+    const minHeight = 140;
+    const nextStyle = ratio >= 1
+      ? {
+          width: maxWidth,
+          height: Math.max(minHeight, Math.round(maxWidth / ratio)),
+        }
+      : {
+          width: Math.max(minWidth, Math.round(maxHeight * ratio)),
+          height: maxHeight,
+        };
+    setNodes(nds => nds.map(n => (
+      n.id === nodeId
+        ? {
+            ...n,
+            style: {
+              ...n.style,
+              ...nextStyle,
+            },
+            data: { ...n.data, imageEditorState },
           }
         : n
     )));
@@ -7760,6 +7841,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
           audio_text: data.audio_text || '',
           audio_voice: data.audio_voice || '冰糖',
           audio_style: data.audio_style || '',
+          audio_lyrics_mode: data.audio_lyrics_mode || 'adaptive',
+          audio_lyrics_text: data.audio_lyrics_text || '',
           text_api_id: provider?.id || data.text_api_id || '',
         },
       };
@@ -8046,6 +8129,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           onResultVideoUpload,
           onResultAudioUpload,
           onDownloadVideo: downloadNodeVideos,
+          onDownloadAudio: downloadNodeAudios,
           onResultExpandStateChange,
           onResultTextChange,
           onTextEditingChange: onResultTextEditingChange,
@@ -8135,6 +8219,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
           audio_text: options.audioText || options.audio_text || '',
           audio_voice: options.audioVoice || options.audio_voice || '冰糖',
           audio_style: options.audioStyle || options.audio_style || '',
+          audio_lyrics_mode: options.audioLyricsMode || options.audio_lyrics_mode || 'adaptive',
+          audio_lyrics_text: options.audioLyricsText || options.audio_lyrics_text || '',
         },
         hidden: true,
       },
@@ -8968,7 +9054,12 @@ const ALIGN_SNAP_THRESHOLD = 5;
     }
 
     if (action === 'favorite') {
-      openSaveMaterialModal({ type: payload?.mediaType === 'video' ? 'video' : 'image', url: imageUrl, sourceId: nodeId });
+      const mediaType = payload?.mediaType === 'video'
+        ? 'video'
+        : payload?.mediaType === 'audio'
+          ? 'audio'
+          : 'image';
+      openSaveMaterialModal({ type: mediaType, url: imageUrl, sourceId: nodeId });
       return;
     }
 
@@ -9631,7 +9722,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         videoUrl: '',
         assemblyBrief: config.workflowText || assemblerNode.data?.workflowText || '',
         onOpenVideoEditor,
-        onDownloadVideo: downloadNodeVideos,
+        onDownloadVideo: downloadNodeVideos, onDownloadAudio: downloadNodeAudios,
         onNodeTitleChange,
         onInteractiveDragCreate,
         onDeleteNode: deleteCanvasNode,
@@ -9678,7 +9769,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         videoEditorTimeline: timeline,
         videoUrl: sourceUrl,
         onOpenVideoEditor,
-        onDownloadVideo: downloadNodeVideos,
+        onDownloadVideo: downloadNodeVideos, onDownloadAudio: downloadNodeAudios,
         onNodeTitleChange,
         onInteractiveDragCreate,
         onDeleteNode: deleteCanvasNode,
@@ -9688,7 +9779,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
       connectCanvasNodes(resultNodeId, editorId);
       setActiveVideoEditorNodeId(editorId);
     });
-  }, [connectCanvasNodes, deleteCanvasNode, downloadNodeVideos, getNodeDownstreamPosition, onInteractiveDragCreate, onNodeTitleChange, onOpenVideoEditor, setNodes]);
+  }, [connectCanvasNodes, deleteCanvasNode, downloadNodeVideos, downloadNodeAudios, getNodeDownstreamPosition, onInteractiveDragCreate, onNodeTitleChange, onOpenVideoEditor, setNodes]);
 
   const onCaptureVideoFrame = useCallback(async (nodeId, dataUrl, metadata = {}) => {
     if (!dataUrl || !nodeId) return;
@@ -9784,6 +9875,13 @@ const ALIGN_SNAP_THRESHOLD = 5;
           videoUrl: data.videoUrl,
         };
       }
+      if (node.type === 'imageEditor') {
+        return {
+          ...base,
+          label: data.label,
+          imageEditorState: data.imageEditorState,
+        };
+      }
       if (WORKFLOW_TEXT_NODE_TYPES.has(node.type)) {
         return {
           ...base,
@@ -9856,6 +9954,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
           audio_text: data.audio_text,
           audio_voice: data.audio_voice,
           audio_style: data.audio_style,
+          audio_lyrics_mode: data.audio_lyrics_mode,
+          audio_lyrics_text: data.audio_lyrics_text,
           generator: generatorNode ? {
             connectedPrompt: generatorNode.data?.connectedPrompt,
             connectedTextReferences: generatorNode.data?.connectedTextReferences,
@@ -9895,6 +9995,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
             audio_text: generatorNode.data?.audio_text,
             audio_voice: generatorNode.data?.audio_voice,
             audio_style: generatorNode.data?.audio_style,
+            audio_lyrics_mode: generatorNode.data?.audio_lyrics_mode,
+            audio_lyrics_text: generatorNode.data?.audio_lyrics_text,
             text_api_id: generatorNode.data?.text_api_id,
           } : null,
         };
@@ -10073,12 +10175,33 @@ const ALIGN_SNAP_THRESHOLD = 5;
               videoEditorTimeline: entry.videoEditorTimeline || createEmptyVideoEditorTimeline(),
               videoUrl: entry.videoUrl || '',
               onOpenVideoEditor,
-              onDownloadVideo: downloadNodeVideos,
+              onDownloadVideo: downloadNodeVideos, onDownloadAudio: downloadNodeAudios,
               onNodeTitleChange,
               onInteractiveDragCreate,
               onDeleteNode: deleteCanvasNode,
             },
             style: baseStyle || { width: 300, height: 210 },
+          });
+          newNodeIds.push(newId);
+          continue;
+        }
+        if (entry.type === 'imageEditor') {
+          additions.push({
+            id: newId,
+            type: 'imageEditor',
+            position: pos,
+            parentNode: parentId || undefined,
+            extent: parentId ? 'parent' : undefined,
+            data: {
+              label: entry.label || '图片编辑器',
+              imageEditorState: entry.imageEditorState || null,
+              onImageEditorStateChange,
+              onNodeTitleChange,
+              onInteractiveDragCreate,
+              onDeleteNode: deleteCanvasNode,
+              onImageAction: handleImageAction,
+            },
+            style: baseStyle || { width: 300, height: 230 },
           });
           newNodeIds.push(newId);
           continue;
@@ -10205,6 +10328,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
               audio_text: entry.audio_text || '',
               audio_voice: entry.audio_voice || '冰糖',
               audio_style: entry.audio_style || '',
+              audio_lyrics_mode: entry.audio_lyrics_mode || 'adaptive',
+              audio_lyrics_text: entry.audio_lyrics_text || '',
               imageSource: entry.imageSource,
               text_api_id: entry.text_api_id || '',
               text_model_name: entry.text_model_name || '',
@@ -10541,10 +10666,28 @@ const ALIGN_SNAP_THRESHOLD = 5;
           videoEditorTimeline: extraData.videoEditorTimeline || createEmptyVideoEditorTimeline(),
           videoUrl: extraData.videoUrl || '',
           onOpenVideoEditor,
-          onDownloadVideo: downloadNodeVideos,
+          onDownloadVideo: downloadNodeVideos, onDownloadAudio: downloadNodeAudios,
           onNodeTitleChange,
           onInteractiveDragCreate,
           onDeleteNode: deleteCanvasNode,
+          ...extraData,
+        },
+      }]);
+    } else if (type === 'imageEditor') {
+      createdNodeId = `image_editor_${ts}`;
+      setNodes(nds => [...nds, {
+        id: createdNodeId,
+        type: 'imageEditor',
+        position,
+        style: { width: 300, height: 230 },
+        data: {
+          label: extraData.label || '图片编辑器',
+          imageEditorState: extraData.imageEditorState || null,
+          onImageEditorStateChange,
+          onNodeTitleChange,
+          onInteractiveDragCreate,
+          onDeleteNode: deleteCanvasNode,
+          onImageAction: handleImageAction,
           ...extraData,
         },
       }]);
@@ -10651,13 +10794,13 @@ const ALIGN_SNAP_THRESHOLD = 5;
     }
     if (createdNodeId && batchSourceIds.length > 0) {
       connectMultipleCanvasNodes(batchSourceIds, createdNodeId);
-    } else if (createdNodeId && (type === 'smartSplitter' || type === 'videoEditor' || type === 'playlist' || type === 'threeD' || type === 'character') && menu?.dragSourceId) {
+    } else if (createdNodeId && (type === 'smartSplitter' || type === 'videoEditor' || type === 'imageEditor' || type === 'playlist' || type === 'threeD' || type === 'character') && menu?.dragSourceId) {
       connectCanvasNodes(menu.dragSourceId, createdNodeId, menu?.dragSourceHandle || null);
     }
 
     setMenu(null);
     return createdNodeId;
-  }, [setNodes, onVideoInputChange, onOpenVideoEditor, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, handleImageAction, onImageActionEditingChange, runtimeSettings.activeProviderId, runtimeSettings.providers, onNodeTitleChange, onInteractiveDragCreate, deleteCanvasNode, onNodeResize, downloadNodeVideos, createGeneratePair, createViewfinderCapture, menu, connectCanvasNodes, connectMultipleCanvasNodes, createSmartSplitterRuntimeData]);
+  }, [setNodes, onVideoInputChange, onOpenVideoEditor, onImageEditorStateChange, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, handleImageAction, onImageActionEditingChange, runtimeSettings.activeProviderId, runtimeSettings.providers, onNodeTitleChange, onInteractiveDragCreate, deleteCanvasNode, onNodeResize, downloadNodeVideos, downloadNodeAudios, createGeneratePair, createViewfinderCapture, menu, connectCanvasNodes, connectMultipleCanvasNodes, createSmartSplitterRuntimeData]);
 
   const getCopilotCanvasState = useCallback(() => {
     const currentNodes = nodesRef.current;
@@ -11028,6 +11171,17 @@ const ALIGN_SNAP_THRESHOLD = 5;
       });
       return;
     }
+    if (material.type === 'audio') {
+      createGeneratePair('generateAudio', targetPosition, null, {
+        audioUrl: material.imageUrl,
+        audioName: material.name,
+        audioSource: 'upload',
+        materialId: material.id,
+        materialName: material.name,
+        materialPrompt,
+      });
+      return;
+    }
     if (material.type === 'text' || !material.imageUrl) {
       createGeneratePair('generateText', targetPosition, null, {
         resultText: materialPrompt || material.name || '',
@@ -11057,7 +11211,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           const normalizedData = n.data?.resultType === 'generateImage'
             ? { ...n.data, ...normalizeImageResultData(n.data) }
             : n.data;
-          return { ...n, data: { ...normalizedData, label: normalizedData?.label || getDefaultNodeLabel(n), apiConfigs, apiProviders, onDeleteNode: deleteCanvasNode, onInteractiveDragCreate, onNodeResize, onResultMediaAspectChange, onResultCardUpdate, onResultDataChange, onResultImageUpload, onResultVideoUpload, onResultAudioUpload, onDownloadVideo: downloadNodeVideos, onResultExpandStateChange, onResultTextChange, onTextEditingChange: onResultTextEditingChange, onStoryboardCardClickPlaceholder, onStoryboardCoverBatchGenerate: runStoryboardCoverBatchGeneration, onOpenVideoWorkbench: openVideoWorkbench, onCreateVideoEnhancementPrototype: createVideoEnhancementPrototype, onCreateVideoSubjectReplacementPrototype: createVideoSubjectReplacementPrototype, onCreateVideoSubjectRemovalPrototype: createVideoSubjectRemovalPrototype, onCreateVideoExtensionPrototype: createVideoExtensionPrototype, onCreateVideoRetakePrototype: createVideoRetakePrototype, onGetCanvasImageChoices: getCanvasImageChoices, onGetCanvasMediaChoices: getCanvasMediaChoices, onImageAction: handleImageAction, onImageActionEditingChange, allowedModels: runtimeSettings.allowedModels } };
+          return { ...n, data: { ...normalizedData, label: normalizedData?.label || getDefaultNodeLabel(n), apiConfigs, apiProviders, onDeleteNode: deleteCanvasNode, onInteractiveDragCreate, onNodeResize, onResultMediaAspectChange, onResultCardUpdate, onResultDataChange, onResultImageUpload, onResultVideoUpload, onResultAudioUpload, onDownloadVideo: downloadNodeVideos, onDownloadAudio: downloadNodeAudios, onResultExpandStateChange, onResultTextChange, onTextEditingChange: onResultTextEditingChange, onStoryboardCardClickPlaceholder, onStoryboardCoverBatchGenerate: runStoryboardCoverBatchGeneration, onOpenVideoWorkbench: openVideoWorkbench, onCreateVideoEnhancementPrototype: createVideoEnhancementPrototype, onCreateVideoSubjectReplacementPrototype: createVideoSubjectReplacementPrototype, onCreateVideoSubjectRemovalPrototype: createVideoSubjectRemovalPrototype, onCreateVideoExtensionPrototype: createVideoExtensionPrototype, onCreateVideoRetakePrototype: createVideoRetakePrototype, onGetCanvasImageChoices: getCanvasImageChoices, onGetCanvasMediaChoices: getCanvasMediaChoices, onImageAction: handleImageAction, onImageActionEditingChange, allowedModels: runtimeSettings.allowedModels } };
         }
 
         if (n.type === 'videoInput') {
@@ -11067,7 +11221,11 @@ const ALIGN_SNAP_THRESHOLD = 5;
         }
 
         if (n.type === 'videoEditor') {
-          return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), videoEditorTimeline: n.data?.videoEditorTimeline || createEmptyVideoEditorTimeline(), onOpenVideoEditor, onDownloadVideo: downloadNodeVideos, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+          return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), videoEditorTimeline: n.data?.videoEditorTimeline || createEmptyVideoEditorTimeline(), onOpenVideoEditor, onDownloadVideo: downloadNodeVideos, onDownloadAudio: downloadNodeAudios, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+        }
+
+        if (n.type === 'imageEditor') {
+          return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), onImageEditorStateChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onImageAction: handleImageAction } };
         }
 
         if (n.type === 'character') {
@@ -11158,7 +11316,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         return { ...n, data: { ...n.data, onStoryboardCardUpdate, onCardPlaceholderClick, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
       }
       if (n.type === 'result') {
-        return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), apiConfigs, apiProviders, onDeleteNode: deleteCanvasNode, onResultCardUpdate, onResultDataChange, onResultImageUpload, onResultVideoUpload, onDownloadVideo: downloadNodeVideos, onResultExpandStateChange, onResultTextChange, onTextEditingChange: onResultTextEditingChange, onStoryboardCardClickPlaceholder, onStoryboardCoverBatchGenerate: runStoryboardCoverBatchGeneration, onOpenVideoWorkbench: openVideoWorkbench, onCreateVideoEnhancementPrototype: createVideoEnhancementPrototype, onCreateVideoSubjectReplacementPrototype: createVideoSubjectReplacementPrototype, onCreateVideoSubjectRemovalPrototype: createVideoSubjectRemovalPrototype, onCreateVideoExtensionPrototype: createVideoExtensionPrototype, onCreateVideoRetakePrototype: createVideoRetakePrototype, onGetCanvasImageChoices: getCanvasImageChoices, onGetCanvasMediaChoices: getCanvasMediaChoices, onInteractiveDragCreate, onNodeResize, onResultMediaAspectChange, onImageAction: handleImageAction, onImageActionEditingChange, allowedModels: runtimeSettings.allowedModels } };
+        return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), apiConfigs, apiProviders, onDeleteNode: deleteCanvasNode, onResultCardUpdate, onResultDataChange, onResultImageUpload, onResultVideoUpload, onDownloadVideo: downloadNodeVideos, onDownloadAudio: downloadNodeAudios, onResultExpandStateChange, onResultTextChange, onTextEditingChange: onResultTextEditingChange, onStoryboardCardClickPlaceholder, onStoryboardCoverBatchGenerate: runStoryboardCoverBatchGeneration, onOpenVideoWorkbench: openVideoWorkbench, onCreateVideoEnhancementPrototype: createVideoEnhancementPrototype, onCreateVideoSubjectReplacementPrototype: createVideoSubjectReplacementPrototype, onCreateVideoSubjectRemovalPrototype: createVideoSubjectRemovalPrototype, onCreateVideoExtensionPrototype: createVideoExtensionPrototype, onCreateVideoRetakePrototype: createVideoRetakePrototype, onGetCanvasImageChoices: getCanvasImageChoices, onGetCanvasMediaChoices: getCanvasMediaChoices, onInteractiveDragCreate, onNodeResize, onResultMediaAspectChange, onImageAction: handleImageAction, onImageActionEditingChange, allowedModels: runtimeSettings.allowedModels } };
       }
       if (n.type === 'smartSplitter') {
         return { ...n, data: createSmartSplitterRuntimeData(n.data) };
@@ -11173,7 +11331,10 @@ const ALIGN_SNAP_THRESHOLD = 5;
         return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), onVideosChange: onVideoInputChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onNodeResize, onVideoAspectChange, onDownloadVideo: downloadNodeVideos } };
       }
       if (n.type === 'videoEditor') {
-        return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), videoEditorTimeline: n.data?.videoEditorTimeline || createEmptyVideoEditorTimeline(), onOpenVideoEditor, onDownloadVideo: downloadNodeVideos, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+        return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), videoEditorTimeline: n.data?.videoEditorTimeline || createEmptyVideoEditorTimeline(), onOpenVideoEditor, onDownloadVideo: downloadNodeVideos, onDownloadAudio: downloadNodeAudios, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+      }
+      if (n.type === 'imageEditor') {
+        return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), onImageEditorStateChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onImageAction: handleImageAction } };
       }
       if (n.type === 'character') {
         const characterPayload = buildCharacterPayloadFromData(n.data || {});
@@ -11270,7 +11431,10 @@ const ALIGN_SNAP_THRESHOLD = 5;
       return { ...node, data: { ...node.data, label: node.data?.label || getDefaultNodeLabel(node), videoUrls, onVideosChange: onVideoInputChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onNodeResize, onVideoAspectChange, onDownloadVideo: downloadNodeVideos } };
     }
     if (node.type === 'videoEditor') {
-      return { ...node, data: { ...node.data, label: node.data?.label || getDefaultNodeLabel(node), videoEditorTimeline: node.data?.videoEditorTimeline || createEmptyVideoEditorTimeline(), onOpenVideoEditor, onDownloadVideo: downloadNodeVideos, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+      return { ...node, data: { ...node.data, label: node.data?.label || getDefaultNodeLabel(node), videoEditorTimeline: node.data?.videoEditorTimeline || createEmptyVideoEditorTimeline(), onOpenVideoEditor, onDownloadVideo: downloadNodeVideos, onDownloadAudio: downloadNodeAudios, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+    }
+    if (node.type === 'imageEditor') {
+      return { ...node, data: { ...node.data, label: node.data?.label || getDefaultNodeLabel(node), onImageEditorStateChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onImageAction: handleImageAction } };
     }
     if (node.type === 'character') {
       const characterPayload = buildCharacterPayloadFromData(node.data || {});
@@ -13301,7 +13465,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
               downloadItems.push(...nodeItems);
             }
             if (downloadItems.length === 0) {
-              window.alert('所选节点没有可下载的图片或视频');
+              window.alert('所选节点没有可下载的图片、视频或音频');
               return;
             }
             try {
@@ -14663,10 +14827,31 @@ function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, 
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [canvasSwitcherOpen, setCanvasSwitcherOpen] = useState(false);
   const [canvasSwitcherQuery, setCanvasSwitcherQuery] = useState('');
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [shareTab, setShareTab] = useState('link');
+  const [sharePermission, setSharePermission] = useState('invite');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [shareStatus, setShareStatus] = useState('');
+  const [shareCopied, setShareCopied] = useState(false);
+  const [communityCoverName, setCommunityCoverName] = useState('');
+  const [communityWorkName, setCommunityWorkName] = useState('');
+  const [communityTitle, setCommunityTitle] = useState(project.name || '');
+  const [communityDescription, setCommunityDescription] = useState('');
+  const [communityPublicCanvas, setCommunityPublicCanvas] = useState(true);
   const accountMenuRef = useRef(null);
   const canvasSwitcherRef = useRef(null);
+  const shareMenuRef = useRef(null);
+  const shareCopiedTimerRef = useRef(null);
   const accountText = getCanvasLanguageText(currentLanguage);
   const activeLanguage = CANVAS_LANGUAGES.find(language => language.id === currentLanguage) || CANVAS_LANGUAGES[1];
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const resetShareCopied = useCallback(() => {
+    if (shareCopiedTimerRef.current) {
+      window.clearTimeout(shareCopiedTimerRef.current);
+      shareCopiedTimerRef.current = null;
+    }
+    setShareCopied(false);
+  }, []);
   const canvasSwitcherProjects = useMemo(() => {
     const source = Array.isArray(projects) && projects.length > 0 ? projects : [project];
     const query = canvasSwitcherQuery.trim().toLowerCase();
@@ -14679,6 +14864,10 @@ function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, 
   }, [onCanvasChange, project.id]);
 
   useEffect(() => {
+    setCommunityTitle(project.name || '');
+  }, [project.id, project.name]);
+
+  useEffect(() => {
     if (!accountMenuOpen) return undefined;
     const closeAccountMenu = (event) => {
       if (accountMenuRef.current?.contains(event.target)) return;
@@ -14688,6 +14877,27 @@ function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, 
     document.addEventListener('pointerdown', closeAccountMenu, true);
     return () => document.removeEventListener('pointerdown', closeAccountMenu, true);
   }, [accountMenuOpen]);
+
+  useEffect(() => {
+    if (!shareMenuOpen) return undefined;
+    const closeShareMenu = (event) => {
+      if (event.type === 'keydown' && event.key !== 'Escape') return;
+      if (event.type === 'pointerdown' && shareMenuRef.current?.contains(event.target)) return;
+      setShareMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeShareMenu, true);
+    document.addEventListener('keydown', closeShareMenu);
+    return () => {
+      document.removeEventListener('pointerdown', closeShareMenu, true);
+      document.removeEventListener('keydown', closeShareMenu);
+    };
+  }, [shareMenuOpen]);
+
+  useEffect(() => () => {
+    if (shareCopiedTimerRef.current) {
+      window.clearTimeout(shareCopiedTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (!canvasSwitcherOpen) return undefined;
@@ -14776,25 +14986,144 @@ function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, 
           )}
         </div>
       </div>
+      <div className="canvas-share-control" ref={shareMenuRef}>
+          <button
+            type="button"
+            className={`canvas-share-button ${shareMenuOpen ? 'active' : ''}`}
+            aria-label="分享画布"
+            aria-expanded={shareMenuOpen}
+            onClick={() => {
+              setShareMenuOpen(open => !open);
+              setAccountMenuOpen(false);
+              setLanguageMenuOpen(false);
+            }}
+          >
+            <Icon name="connector" size={16} />
+            <span>分享</span>
+          </button>
+          {shareMenuOpen && (
+            <div className="canvas-share-popover" role="dialog" aria-label="分享画布">
+              <div className="canvas-share-tabs" role="tablist" aria-label="分享方式">
+                <button type="button" className={shareTab === 'link' ? 'active' : ''} onClick={() => { setShareTab('link'); setShareStatus(''); resetShareCopied(); }}>
+                  分享链接
+                </button>
+                <button type="button" className={shareTab === 'community' ? 'active' : ''} onClick={() => { setShareTab('community'); setShareStatus(''); resetShareCopied(); }}>
+                  发布到社区
+                </button>
+              </div>
+              {shareTab === 'link' ? (
+                <div className="canvas-share-panel">
+                  <div className="canvas-share-permission" role="radiogroup" aria-label="链接权限">
+                    <button
+                      type="button"
+                      className={sharePermission === 'invite' ? 'active' : ''}
+                      onClick={() => { setSharePermission('invite'); setShareStatus(''); resetShareCopied(); }}
+                    >
+                      <strong>仅邀请的用户可以查看</strong>
+                      <span>需要通过邮箱邀请后访问</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={sharePermission === 'public' ? 'active' : ''}
+                      onClick={() => { setSharePermission('public'); setShareStatus(''); resetShareCopied(); }}
+                    >
+                      <strong>所有得到链接的人可查看</strong>
+                      <span>复制链接后即可分享给其他人</span>
+                    </button>
+                  </div>
+                  {sharePermission === 'invite' ? (
+                    <label className="canvas-share-field">
+                      <span>邀请人邮箱</span>
+                      <input value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} placeholder="name@example.com" />
+                    </label>
+                  ) : (
+                    <label className="canvas-share-field">
+                      <span>分享链接</span>
+                      <input value={shareUrl} readOnly />
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    className="canvas-share-primary"
+                    onClick={() => {
+                      if (sharePermission === 'public') {
+                        setShareStatus('');
+                        setShareCopied(true);
+                        if (shareCopiedTimerRef.current) {
+                          window.clearTimeout(shareCopiedTimerRef.current);
+                        }
+                        shareCopiedTimerRef.current = window.setTimeout(() => {
+                          setShareCopied(false);
+                          shareCopiedTimerRef.current = null;
+                        }, 5000);
+                        void navigator?.clipboard?.writeText?.(shareUrl).catch(() => {});
+                        return;
+                      }
+                      resetShareCopied();
+                      setShareStatus('邀请已发送');
+                    }}
+                  >
+                    {sharePermission === 'invite' ? '发送邀请' : shareCopied ? '已复制' : '复制链接'}
+                  </button>
+                </div>
+              ) : (
+                <div className="canvas-share-panel">
+                  <div className="canvas-share-upload-row">
+                    <label>
+                      <span>上传作品封面</span>
+                      <input type="file" accept="image/*" onChange={event => setCommunityCoverName(event.target.files?.[0]?.name || '')} />
+                      <em>{communityCoverName || '选择封面图片'}</em>
+                    </label>
+                    <label>
+                      <span>上传作品</span>
+                      <input type="file" accept="image/*,video/*" onChange={event => setCommunityWorkName(event.target.files?.[0]?.name || '')} />
+                      <em>{communityWorkName || '选择作品文件'}</em>
+                    </label>
+                  </div>
+                  <label className="canvas-share-field">
+                    <span>作品名称</span>
+                    <input value={communityTitle} onChange={event => setCommunityTitle(event.target.value)} placeholder="输入作品名称" />
+                  </label>
+                  <label className="canvas-share-field">
+                    <span>作品描述</span>
+                    <textarea value={communityDescription} onChange={event => setCommunityDescription(event.target.value)} placeholder="简单介绍这个作品" rows={3} />
+                  </label>
+                  <label className="canvas-share-toggle">
+                    <span>
+                      <strong>公开画布</strong>
+                      <small>发布后其他用户可以查看画布内容</small>
+                    </span>
+                    <input type="checkbox" checked={communityPublicCanvas} onChange={event => setCommunityPublicCanvas(event.target.checked)} />
+                  </label>
+                  <button type="button" className="canvas-share-primary" onClick={() => setShareStatus('已提交发布')}>
+                    发布到社区
+                  </button>
+                </div>
+              )}
+              {shareStatus ? <div className="canvas-share-status">{shareStatus}</div> : null}
+            </div>
+          )}
+      </div>
       <div className="canvas-account-pill" ref={accountMenuRef} aria-label={accountText.accountAria}>
-        {/* 仅作为当前原型的顶部账号信息展示，不接入真实积分或用户系统。 */}
-        <div className="canvas-account-credits" aria-label={accountText.currentCredits}>
-          <span className="canvas-account-credit-icon" aria-hidden="true">↯</span>
-          <span className="canvas-account-credit-value">1000</span>
-        </div>
-        <button
-          type="button"
-          className={`canvas-account-profile ${accountMenuOpen ? 'active' : ''}`}
-          aria-label={accountText.openAccountMenu}
-          aria-expanded={accountMenuOpen}
-          onClick={() => {
-            setAccountMenuOpen(open => !open);
-            setLanguageMenuOpen(false);
-          }}
-        >
-          <img src={publicAsset('canvas-agent-mascot.png')} alt="" aria-hidden="true" />
-          <Icon name="chevronDown" size={16} />
-        </button>
+          {/* 仅作为当前原型的顶部账号信息展示，不接入真实积分或用户系统。 */}
+          <div className="canvas-account-credits" aria-label={accountText.currentCredits}>
+            <span className="canvas-account-credit-icon" aria-hidden="true">↯</span>
+            <span className="canvas-account-credit-value">1000</span>
+          </div>
+          <button
+            type="button"
+            className={`canvas-account-profile ${accountMenuOpen ? 'active' : ''}`}
+            aria-label={accountText.openAccountMenu}
+            aria-expanded={accountMenuOpen}
+            onClick={() => {
+              setAccountMenuOpen(open => !open);
+              setShareMenuOpen(false);
+              setLanguageMenuOpen(false);
+            }}
+          >
+            <img src={publicAsset('canvas-agent-mascot.png')} alt="" aria-hidden="true" />
+            <Icon name="chevronDown" size={16} />
+          </button>
         {accountMenuOpen && (
           <div className="canvas-account-menu" role="menu" aria-label={accountText.accountMenu}>
             <div className="canvas-account-menu-user">
@@ -14815,12 +15144,12 @@ function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, 
             </section>
             <div className="canvas-account-menu-list">
               <button type="button" role="menuitem">
-                <span><Icon name="folder" size={16} />{accountText.storage}</span>
-                <em>500 MB <Icon name="chevronRight" size={16} /></em>
+                <span><Icon name="lightning" size={16} />充值积分</span>
+                <em>去充值 <Icon name="chevronRight" size={16} /></em>
               </button>
               <button type="button" role="menuitem">
-                <span><Icon name="trash" size={16} />{accountText.recycleBin}</span>
-                <em>200 MB <Icon name="chevronRight" size={16} /></em>
+                <span><Icon name="user" size={16} />个人主页</span>
+                <em>查看 <Icon name="chevronRight" size={16} /></em>
               </button>
               <button type="button" role="menuitem">
                 <span><Icon name="settings" size={16} />{accountText.accountManage}</span>
@@ -14858,6 +15187,10 @@ function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, 
                   </div>
                 )}
               </div>
+              <button type="button" role="menuitem">
+                <span><Icon name="help" size={16} />帮助中心</span>
+                <em>查看 <Icon name="chevronRight" size={16} /></em>
+              </button>
             </div>
             <button type="button" className="canvas-account-logout" role="menuitem">
               <Icon name="arrowRightUp" size={16} />

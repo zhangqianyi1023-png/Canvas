@@ -14,6 +14,7 @@ export const CANVAS_ASSISTANT_TOOL_MENU = [
   { label: '智能拆分器', icon: 'smartSplitter', nodeType: 'smartSplitter' },
   { label: '分镜工作台', icon: 'storyboardWorkbench', nodeType: 'generateStoryboardScript' },
   { label: '视频编辑器', icon: 'movieAi', nodeType: 'videoEditor' },
+  { label: '图片编辑器', icon: 'imageGenFill', nodeType: 'imageEditor' },
 ];
 
 export const CANVAS_ADD_MENU_UPLOAD = {

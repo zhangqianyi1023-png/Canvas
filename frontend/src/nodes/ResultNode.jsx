@@ -1023,6 +1023,7 @@ function ResultNode({ id, selected, data }) {
   const seedanceComplianceStatus = isImageResult ? data?.seedanceComplianceStatus || '' : '';
   const isEmptyVideoResult = isVideoResult && !videoUrl;
   const isAudioResult = data?.resultType === 'generateAudio';
+  const isUploadedAudioResult = isAudioResult && Boolean(audioUrl) && data?.audioSource === 'upload';
   const isScriptResult = data?.resultType === 'generateScript';
   const isStoryboardResult = data?.resultType === 'generateStoryboard';
   const storyboardCards = Array.isArray(data?.storyboardCards) ? data.storyboardCards : [];
@@ -1209,6 +1210,8 @@ function ResultNode({ id, selected, data }) {
   const [hoveredImageIndex, setHoveredImageIndex] = useState(-1);
   const resultNodeRef = useRef(null);
   const resultVideoRef = useRef(null);
+  const resultAudioRef = useRef(null);
+  const audioTimelineRef = useRef(null);
   const activeVideoTrim = useMemo(
     () => normalizeQuickTrimContract(data?.videoQuickTrims?.[videoUrl], videoUrl),
     [data?.videoQuickTrims, videoUrl],
@@ -1238,6 +1241,10 @@ function ResultNode({ id, selected, data }) {
   const [audioUploadProgress, setAudioUploadProgress] = useState(0);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [audioUploadError, setAudioUploadError] = useState('');
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [isAudioScrubbing, setIsAudioScrubbing] = useState(false);
   const [isTextToolbarOpen, setIsTextToolbarOpen] = useState(false);
   const [textSelection, setTextSelection] = useState({ start: 0, end: 0 });
   const [currentTextFormatState, setCurrentTextFormatState] = useState(DEFAULT_TEXT_FORMAT_STATE);
@@ -2129,6 +2136,69 @@ function ResultNode({ id, selected, data }) {
     setAudioUploadError('');
     audioUploadInputRef.current?.click();
   }, [contentLocked, isAudioResult, isUploadingAudio]);
+
+  const audioProgress = audioDuration > 0
+    ? Math.min(1, Math.max(0, audioCurrentTime / audioDuration))
+    : 0;
+  const audioWaveBars = useMemo(() => (
+    [10, 16, 23, 34, 48, 66, 38, 28, 21, 17, 14, 12, 10, 9, 8, 9, 11, 13, 12, 10, 9, 8]
+  ), []);
+
+  const seekAudioToRatio = useCallback((ratio) => {
+    const audio = resultAudioRef.current;
+    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+    const nextTime = Math.min(audio.duration, Math.max(0, ratio * audio.duration));
+    audio.currentTime = nextTime;
+    setAudioCurrentTime(nextTime);
+  }, []);
+
+  const updateAudioSeekFromPointer = useCallback((event) => {
+    const rect = audioTimelineRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
+    seekAudioToRatio((event.clientX - rect.left) / rect.width);
+  }, [seekAudioToRatio]);
+
+  const handleAudioTimelinePointerDown = useCallback((event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setIsAudioScrubbing(true);
+    updateAudioSeekFromPointer(event);
+
+    const handlePointerMove = (moveEvent) => updateAudioSeekFromPointer(moveEvent);
+    const handlePointerUp = () => {
+      setIsAudioScrubbing(false);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  }, [updateAudioSeekFromPointer]);
+
+  const toggleAudioPlayback = useCallback((event) => {
+    event?.stopPropagation?.();
+    const audio = resultAudioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      void audio.play().catch(() => setAudioPlaying(false));
+      return;
+    }
+    audio.pause();
+  }, []);
+
+  const nudgeAudioTime = useCallback((deltaSeconds) => {
+    const audio = resultAudioRef.current;
+    if (!audio || !Number.isFinite(audio.duration)) return;
+    const nextTime = Math.min(audio.duration, Math.max(0, audio.currentTime + deltaSeconds));
+    audio.currentTime = nextTime;
+    setAudioCurrentTime(nextTime);
+  }, []);
+
+  useEffect(() => {
+    setAudioPlaying(false);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+  }, [audioUrl]);
 
   const handleAudioUploadInputChange = useCallback(async (event) => {
     event.stopPropagation();
@@ -3250,6 +3320,20 @@ function ResultNode({ id, selected, data }) {
     );
   };
 
+  const renderMediaReplaceButton = (onClick, disabled = false) => (
+    <button
+      type="button"
+      className="result-media-replace-btn nodrag nopan"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label="替换素材"
+      title="替换"
+    >
+      <Icon name="upload" size={13} />
+      <span>替换</span>
+    </button>
+  );
+
   // 图片结果区域：单图 / 多图堆叠 / 多图展开
   const renderImageResult = () => {
     const aspectStyle = getAspectStyle();
@@ -3365,6 +3449,7 @@ function ResultNode({ id, selected, data }) {
           onPointerDown={beginImageStackDrag}
           title="双击查看大图，点击右上角「N张」展开"
         >
+          {renderMediaReplaceButton(openUploadPicker, isUploadingImage || contentLocked)}
           <img
             className="result-image-stack-card is-cover"
             src={displayedCoverUrl}
@@ -3429,6 +3514,7 @@ function ResultNode({ id, selected, data }) {
             openPreview(displayedCoverUrl, event, displayedBrowserImageUrls, coverIndex);
           }}
         >
+          {renderMediaReplaceButton(openUploadPicker, isUploadingImage || contentLocked)}
           <img
             src={displayedCoverUrl}
             alt="生成图片结果"
@@ -3509,6 +3595,7 @@ function ResultNode({ id, selected, data }) {
     if (videoUrl) {
       return (
         <div className="result-video-wrap">
+          {renderMediaReplaceButton(openVideoUploadPicker, isUploadingVideo || contentLocked)}
           <video ref={resultVideoRef} src={videoUrl} controls onLoadedMetadata={handleVideoLoadedMetadata} />
           {isSubjectMaskSelecting && (
             <div
@@ -3598,17 +3685,76 @@ function ResultNode({ id, selected, data }) {
     if (audioUrl) {
       return (
         <div className="result-audio-wrap">
-          <div className="result-audio-card">
-            <Icon name="audioGenFill" size={24} />
-            <div>
-              <strong>{data?.audioName || '音频'}</strong>
-              <span>{data?.audioSource === 'upload' ? '上传音频素材' : '生成音频'}</span>
-            </div>
+          <button
+            type="button"
+            className="result-audio-replace-btn nodrag nopan"
+            onClick={openAudioUploadPicker}
+            disabled={isUploadingAudio || contentLocked}
+          >
+            <Icon name="upload" size={13} />
+            <span>替换</span>
+          </button>
+          <div
+            ref={audioTimelineRef}
+            className={`result-audio-waveform nodrag nopan ${isAudioScrubbing ? 'is-scrubbing' : ''}`}
+            onPointerDown={handleAudioTimelinePointerDown}
+            role="slider"
+            aria-label="音频播放进度"
+            aria-valuemin={0}
+            aria-valuemax={Math.round(audioDuration || 0)}
+            aria-valuenow={Math.round(audioCurrentTime || 0)}
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                nudgeAudioTime(-5);
+              }
+              if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                nudgeAudioTime(5);
+              }
+            }}
+          >
+            <span className="result-audio-baseline" aria-hidden="true" />
+            <span className="result-audio-progress-line" style={{ left: `${audioProgress * 100}%` }} aria-hidden="true" />
+            <span className="result-audio-playhead" style={{ left: `${audioProgress * 100}%` }} aria-hidden="true" />
+            <span className="result-audio-wave-bars" aria-hidden="true">
+              {audioWaveBars.map((height, index) => (
+                <span
+                  key={`${height}-${index}`}
+                  style={{
+                    height: `${height}%`,
+                    opacity: index / Math.max(1, audioWaveBars.length - 1) <= audioProgress ? 0.96 : 0.34,
+                  }}
+                />
+              ))}
+            </span>
+          </div>
+          <div className="result-audio-controls nodrag nopan">
+            <button type="button" className="result-audio-skip-btn" onClick={(event) => { event.stopPropagation(); nudgeAudioTime(-5); }} aria-label="后退 5 秒">
+              ‹
+            </button>
+            <button type="button" className="result-audio-play-btn" onClick={toggleAudioPlayback} aria-label={audioPlaying ? '暂停音频' : '播放音频'}>
+              <Icon name={audioPlaying ? 'pause' : 'play'} size={18} />
+            </button>
+            <button type="button" className="result-audio-skip-btn" onClick={(event) => { event.stopPropagation(); nudgeAudioTime(5); }} aria-label="前进 5 秒">
+              ›
+            </button>
           </div>
           <audio
+            ref={resultAudioRef}
             className="result-audio-player nodrag"
             src={audioUrl}
-            controls
+            preload="metadata"
+            onLoadedMetadata={(event) => {
+              const duration = event.currentTarget.duration;
+              setAudioDuration(Number.isFinite(duration) ? duration : 0);
+              setAudioCurrentTime(event.currentTarget.currentTime || 0);
+            }}
+            onTimeUpdate={(event) => setAudioCurrentTime(event.currentTarget.currentTime || 0)}
+            onPlay={() => setAudioPlaying(true)}
+            onPause={() => setAudioPlaying(false)}
+            onEnded={() => setAudioPlaying(false)}
             onClick={(event) => event.stopPropagation()}
             onPointerDown={(event) => event.stopPropagation()}
           />
@@ -4031,7 +4177,7 @@ function ResultNode({ id, selected, data }) {
         onToolbarPointerLeave={scheduleCloseTextToolbar}
         tagColors={data?.tagColors}
         onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
-        tagInsertAfterId={isVideoResult ? 'video-more-tools' : ''}
+        tagInsertAfterId={isVideoResult ? 'video-more-tools' : isUploadedAudioResult ? 'audio-seedance-check' : ''}
         actions={[
           ...(isTextResult ? [{
             id: 'edit-text',
@@ -4190,7 +4336,35 @@ function ResultNode({ id, selected, data }) {
             icon: 'upload',
             onClick: openVideoUploadPicker,
           }]) : []),
-          ...(isAudioResult ? [{
+          ...(isUploadedAudioResult ? [
+            {
+              id: 'audio-seedance-check',
+              label: 'seedance 2.0 检测',
+              title: 'seedance 2.0 检测',
+              icon: 'certificate',
+              onClick: () => window.alert('原型功能：正在进行 seedance 2.0 检测。'),
+            },
+            {
+              id: 'save-audio-material',
+              label: '保存到素材库',
+              title: '保存到素材库',
+              icon: 'folder',
+              separatorBefore: true,
+              onClick: () => data?.onImageAction?.('favorite', {
+                imageUrl: audioUrl,
+                nodeId: id,
+                sourceType: 'audio',
+                mediaType: 'audio',
+              }),
+            },
+            {
+              id: 'download-audio',
+              label: '下载',
+              title: '下载',
+              icon: 'download',
+              onClick: () => data?.onDownloadAudio?.(id),
+            },
+          ] : isAudioResult ? [{
             id: 'upload-audio',
             label: audioUrl ? '替换音频' : '上传音频',
             title: audioUrl ? '替换音频' : '上传音频',
