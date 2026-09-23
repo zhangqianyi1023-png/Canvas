@@ -23,22 +23,49 @@ import {
   resizeCrop,
   resolveCropRatio,
 } from '../imageCrop';
+import {
+  GRID_SPLIT_PRESETS,
+  buildSelectedGridCells,
+  clampGridCut,
+  createGridSplitState,
+  getGridCellCrop,
+  getGridCellKey,
+} from '../imageGridSplit';
 import { listCanvasToolbarActions } from '../canvasToolbarActions.js';
 
 const actionItems = [
-  { action: 'inpaint', label: '局部修改', icon: 'edit', toolbarIcon: toolbarInpaintIcon, sourceTypes: ['result'] },
+  { action: 'crop', label: '裁剪', icon: 'crop', toolbarIcon: toolbarCropIcon },
   { action: 'perspective', label: '角度控制', icon: 'angleControl', sourceTypes: ['result'] },
+  { action: 'inpaint', label: '局部修改', icon: 'edit', toolbarIcon: toolbarInpaintIcon, sourceTypes: ['result'] },
   { action: 'lighting', label: '打光', icon: 'sun', sourceTypes: ['result'] },
   { action: 'outpaint', label: '扩图', icon: 'image' },
-  { action: 'crop', label: '裁剪', icon: 'crop', toolbarIcon: toolbarCropIcon, separatorBefore: true },
   { action: 'resize', label: '调整像素', icon: 'expandDiagonal' },
   { action: 'enhance', label: '增强', icon: 'spark' },
   { action: 'rotate', label: '旋转', icon: 'rotateImage', sourceTypes: ['result'] },
   { action: 'erase', label: '擦除', icon: 'erase' },
   { action: 'cutout', label: '抠图', icon: 'scissors' },
+  { action: 'gridSplit', label: '宫格拆分', icon: 'grid', sourceTypes: ['result'] },
+  { action: 'seedanceCompliance', label: 'Seedance2.0 合规认证', icon: 'certificate', sourceTypes: ['result'] },
   { action: 'split', label: 'Quick Split', icon: 'grid' },
   { action: 'favorite', label: '收藏', icon: 'layers', toolbarIcon: toolbarFavoriteIcon, iconOnly: true },
   { action: 'download', label: '下载', icon: 'save', toolbarIcon: toolbarDownloadIcon, iconOnly: true },
+];
+
+const IMAGE_EDIT_ACTION_ORDER = [
+  'crop',
+  'perspective',
+  'inpaint',
+  'lighting',
+  'outpaint',
+];
+
+const IMAGE_MORE_ACTION_ORDER = [
+  'enhance',
+  'resize',
+  'cutout',
+  'gridSplit',
+  'seedanceCompliance',
+  'rotate',
 ];
 
 const IMPLEMENTED_CANVAS_ACTIONS = new Set(
@@ -907,13 +934,23 @@ function ImageActionOverlay({
   const [cropRatioOpen, setCropRatioOpen] = useState(false);
   const [isCropSaving, setIsCropSaving] = useState(false);
   const [cropError, setCropError] = useState('');
+  const [gridOpen, setGridOpen] = useState(false);
+  const [gridPresetOpen, setGridPresetOpen] = useState(false);
+  const [gridCustomPanelOpen, setGridCustomPanelOpen] = useState(false);
+  const [gridCustomPreview, setGridCustomPreview] = useState({ rows: 3, cols: 3 });
+  const [gridDraft, setGridDraft] = useState(() => createGridSplitState(3, 3));
+  const [gridSelectedKeys, setGridSelectedKeys] = useState(() => new Set());
+  const [isGridSaving, setIsGridSaving] = useState(false);
+  const [gridError, setGridError] = useState('');
   const [openMenuAction, setOpenMenuAction] = useState('');
   const openedRotationTokenRef = useRef('');
   const layerRef = useRef(null);
   const toolbarRef = useRef(null);
   const normalizedTagColors = normalizeNodeTagColors(tagColors);
   const [portalPosition, setPortalPosition] = useState(null);
+  const [prototypePortalPosition, setPrototypePortalPosition] = useState(null);
   const cropPointerCleanupRef = useRef(null);
+  const gridPointerCleanupRef = useRef(null);
   const imageActions = imageUrl ? actionItems.filter(item => (
     isRegisteredImplementedAction(item.action)
     && (!item.sourceTypes || item.sourceTypes.includes(sourceType))
@@ -927,21 +964,36 @@ function ImageActionOverlay({
         iconOnly: Boolean(imageUrl),
       }
     : null;
-  const editToolbarActions = imageActions.filter(item => (
-    item.action === 'inpaint'
-    || item.action === 'perspective'
-    || item.action === 'lighting'
-    || item.action === 'crop'
-    || item.action === 'resize'
-    || item.action === 'enhance'
-    || item.action === 'rotate'
-    || item.action === 'outpaint'
-  ));
+  const editToolbarActions = IMAGE_EDIT_ACTION_ORDER
+    .map(action => imageActions.find(item => item.action === action))
+    .filter(Boolean)
+    .map(item => ({ ...item, iconOnly: true }));
+  const moreMenuItems = IMAGE_MORE_ACTION_ORDER
+    .map(action => imageActions.find(item => item.action === action))
+    .filter(Boolean)
+    .map(item => ({
+      id: item.action,
+      label: item.label,
+      icon: item.icon,
+      toolbarIcon: item.toolbarIcon,
+      action: item.action === 'cutout' ? null : item.action,
+    }));
+  const moreToolbarActions = moreMenuItems.length > 0
+    ? [{
+        action: 'more',
+        label: '更多',
+        icon: 'more',
+        iconOnly: true,
+        menuLabel: '更多工具',
+        menuItems: moreMenuItems,
+      }]
+    : [];
   const markerToolbarActions = sourceType === 'result' && typeof onTagToggle === 'function'
     ? [{
         action: 'nodeTags',
         label: '添加标记',
         icon: 'tag',
+        iconOnly: true,
         active: normalizedTagColors.length > 0,
         menuLabel: '节点标记颜色',
         menuItems: NODE_TAG_COLORS.map(color => ({
@@ -963,7 +1015,7 @@ function ImageActionOverlay({
     : null;
   const toolbarGroups = [
     ...(editToolbarActions.length > 0
-      ? [{ key: 'edit', actions: editToolbarActions }]
+      ? [{ key: 'edit', actions: [...editToolbarActions, ...moreToolbarActions] }]
       : []),
     ...(markerToolbarActions.length > 0
       ? [{ key: 'marker', actions: markerToolbarActions, separatorBefore: editToolbarActions.length > 0 }]
@@ -1045,6 +1097,51 @@ function ImageActionOverlay({
     };
   }, [forceVisible, portalToolbar]);
 
+  useLayoutEffect(() => {
+    if (prototypeOperation !== 'resize' || typeof window === 'undefined') {
+      setPrototypePortalPosition(null);
+      return undefined;
+    }
+
+    let frameId = 0;
+    const updatePosition = () => {
+      const expandedCard = layerRef.current?.closest?.('.result-image-expanded-card');
+      const anchor = expandedCard
+        || layerRef.current?.closest?.('.result-image-toolbar-anchor')
+        || layerRef.current?.closest?.('.result-image-wrap')
+        || layerRef.current?.parentElement;
+      if (!anchor) {
+        frameId = window.requestAnimationFrame(updatePosition);
+        return;
+      }
+      const rect = anchor.getBoundingClientRect();
+      const viewportWidth = window.innerWidth || 1280;
+      const panelWidth = 360;
+      const margin = 12;
+      const top = rect.bottom + margin;
+      const left = Math.min(
+        Math.max(rect.left + rect.width / 2, panelWidth / 2 + margin),
+        viewportWidth - panelWidth / 2 - margin,
+      );
+      const nextPosition = {
+        left: Math.round(left * 10) / 10,
+        top: Math.round(top * 10) / 10,
+      };
+      setPrototypePortalPosition((current) => {
+        if (current?.left === nextPosition.left && current?.top === nextPosition.top) {
+          return current;
+        }
+        return nextPosition;
+      });
+      frameId = window.requestAnimationFrame(updatePosition);
+    };
+
+    updatePosition();
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [prototypeOperation]);
+
   useEffect(() => {
     if (!rotationAutoOpenToken || !imageUrl) return;
     if (openedRotationTokenRef.current === rotationAutoOpenToken) return;
@@ -1068,7 +1165,7 @@ function ImageActionOverlay({
   }, [rotationOpen]);
 
   useEffect(() => {
-    if (!annotationOpen && !inpaintOpen && !perspectiveOpen && !lightingOpen && !cropOpen && !prototypeOperation) return undefined;
+    if (!annotationOpen && !inpaintOpen && !perspectiveOpen && !lightingOpen && !cropOpen && !gridOpen && !prototypeOperation) return undefined;
     const anchor = resolveRotationAnchor(layerRef.current);
     if (!anchor) return undefined;
     anchor.classList.add('is-image-action-editing');
@@ -1076,6 +1173,7 @@ function ImageActionOverlay({
     if (inpaintOpen) anchor.classList.add('is-inpaint-editing');
     if (perspectiveOpen) anchor.classList.add('is-perspective-editing');
     if (lightingOpen) anchor.classList.add('is-lighting-editing');
+    if (gridOpen) anchor.classList.add('is-grid-splitting');
     if (prototypeOperation) anchor.classList.add('is-prototype-editing');
     return () => {
       anchor.classList.remove('is-image-action-editing');
@@ -1083,16 +1181,18 @@ function ImageActionOverlay({
       anchor.classList.remove('is-inpaint-editing');
       anchor.classList.remove('is-perspective-editing');
       anchor.classList.remove('is-lighting-editing');
+      anchor.classList.remove('is-grid-splitting');
       anchor.classList.remove('is-prototype-editing');
     };
-  }, [annotationOpen, cropOpen, inpaintOpen, lightingOpen, perspectiveOpen, prototypeOperation]);
+  }, [annotationOpen, cropOpen, gridOpen, inpaintOpen, lightingOpen, perspectiveOpen, prototypeOperation]);
 
   useEffect(() => {
-    onEditingChange?.(annotationOpen || inpaintOpen || perspectiveOpen || lightingOpen || rotationOpen || cropOpen || Boolean(prototypeOperation));
-  }, [annotationOpen, cropOpen, inpaintOpen, lightingOpen, onEditingChange, perspectiveOpen, prototypeOperation, rotationOpen]);
+    onEditingChange?.(annotationOpen || inpaintOpen || perspectiveOpen || lightingOpen || rotationOpen || cropOpen || gridOpen || Boolean(prototypeOperation));
+  }, [annotationOpen, cropOpen, gridOpen, inpaintOpen, lightingOpen, onEditingChange, perspectiveOpen, prototypeOperation, rotationOpen]);
 
   useEffect(() => () => {
     cropPointerCleanupRef.current?.();
+    gridPointerCleanupRef.current?.();
   }, []);
 
   useEffect(() => {
@@ -1110,6 +1210,22 @@ function ImageActionOverlay({
     };
   }, [openMenuAction]);
 
+  useEffect(() => {
+    if (!gridPresetOpen) return undefined;
+    const closeMenu = (event) => {
+      if (event.type === 'keydown' && event.key !== 'Escape') return;
+      if (event.type === 'pointerdown' && toolbarRef.current?.contains(event.target)) return;
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
+    };
+    document.addEventListener('pointerdown', closeMenu);
+    document.addEventListener('keydown', closeMenu);
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu);
+      document.removeEventListener('keydown', closeMenu);
+    };
+  }, [gridPresetOpen]);
+
   const emitAction = useCallback((action, extra = {}) => {
     if (action === 'download') {
       downloadImage(imageUrl, `image-${nodeId}`);
@@ -1120,6 +1236,9 @@ function ImageActionOverlay({
       setAnnotationOpen(false);
       setPerspectiveOpen(false);
       setLightingOpen(false);
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
       setInpaintOpen(true);
       return;
     }
@@ -1131,7 +1250,23 @@ function ImageActionOverlay({
       setLightingOpen(false);
       setRotationOpen(false);
       setCropOpen(false);
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
       setPrototypeOperation(action);
+      return;
+    }
+
+    if (action === 'gridSplit') {
+      setAnnotationOpen(false);
+      setInpaintOpen(false);
+      setPerspectiveOpen(false);
+      setLightingOpen(false);
+      setRotationOpen(false);
+      setCropOpen(false);
+      setPrototypeOperation(null);
+      setGridPresetOpen(current => !current);
+      setGridCustomPanelOpen(false);
       return;
     }
 
@@ -1140,6 +1275,9 @@ function ImageActionOverlay({
       setInpaintOpen(false);
       setLightingOpen(false);
       setRotationOpen(false);
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
       setPerspectiveOpen(true);
       return;
     }
@@ -1150,6 +1288,9 @@ function ImageActionOverlay({
       setPerspectiveOpen(false);
       setRotationOpen(false);
       setCropOpen(false);
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
       setPrototypeOperation(null);
       setLightingOpen(true);
       return;
@@ -1162,6 +1303,9 @@ function ImageActionOverlay({
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setRotationOpen(false);
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
       setCropImageSize({
         width: image?.naturalWidth || image?.clientWidth || 1,
         height: image?.naturalHeight || image?.clientHeight || 1,
@@ -1180,6 +1324,9 @@ function ImageActionOverlay({
       setLightingOpen(false);
       setRotationOpen(false);
       setCropOpen(false);
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
       setAnnotationOpen(true);
       return;
     }
@@ -1190,6 +1337,9 @@ function ImageActionOverlay({
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setCropOpen(false);
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
       onAction?.('rotateCreate', {
         imageUrl,
         nodeId,
@@ -1207,6 +1357,9 @@ function ImageActionOverlay({
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setCropOpen(false);
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
       onUpload?.();
       return;
     }
@@ -1242,6 +1395,32 @@ function ImageActionOverlay({
     setCropOpen(false);
   }, [isCropSaving]);
 
+  const openGridSplit = useCallback((rows, cols) => {
+    setAnnotationOpen(false);
+    setInpaintOpen(false);
+    setPerspectiveOpen(false);
+    setLightingOpen(false);
+    setRotationOpen(false);
+    setCropOpen(false);
+    setPrototypeOperation(null);
+    setGridDraft(createGridSplitState(rows, cols));
+    setGridSelectedKeys(new Set());
+    setGridError('');
+    setGridPresetOpen(false);
+    setGridCustomPanelOpen(false);
+    setOpenMenuAction('');
+    setGridOpen(true);
+  }, []);
+
+  const cancelGridSplit = useCallback(() => {
+    if (isGridSaving) return;
+    gridPointerCleanupRef.current?.();
+    setGridError('');
+    setGridPresetOpen(false);
+    setGridCustomPanelOpen(false);
+    setGridOpen(false);
+  }, [isGridSaving]);
+
   useEffect(() => {
     if (!cropOpen) return undefined;
     const handleKeyDown = event => {
@@ -1254,10 +1433,27 @@ function ImageActionOverlay({
   }, [cancelCrop, cropOpen]);
 
   useEffect(() => {
+    if (!gridOpen) return undefined;
+    const handleKeyDown = event => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      cancelGridSplit();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cancelGridSplit, gridOpen]);
+
+  useEffect(() => {
     if (!cropOpen || forceVisible || isCropSaving) return undefined;
     const timeoutId = window.setTimeout(cancelCrop, 0);
     return () => window.clearTimeout(timeoutId);
   }, [cancelCrop, cropOpen, forceVisible, isCropSaving]);
+
+  useEffect(() => {
+    if (!gridOpen || forceVisible || isGridSaving) return undefined;
+    const timeoutId = window.setTimeout(cancelGridSplit, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [cancelGridSplit, forceVisible, gridOpen, isGridSaving]);
 
   const applyCropPreset = useCallback((preset) => {
     const pixelRatio = resolveCropRatio(preset, cropImageSize.width, cropImageSize.height, 0);
@@ -1337,6 +1533,88 @@ function ImageActionOverlay({
     }
   }, [cropDraft, imageIndex, imageUrl, isCropSaving, nodeId, onAction, sourceHandle, sourceType]);
 
+  const beginGridLineDrag = useCallback((event, axis, index) => {
+    if (event.button !== 0 || isGridSaving) return;
+    const bounds = layerRef.current?.getBoundingClientRect();
+    if (!bounds?.width || !bounds?.height) return;
+    event.preventDefault();
+    event.stopPropagation();
+    gridPointerCleanupRef.current?.();
+
+    const handlePointerMove = moveEvent => {
+      moveEvent.preventDefault();
+      const nextValue = axis === 'x'
+        ? (moveEvent.clientX - bounds.left) / bounds.width
+        : (moveEvent.clientY - bounds.top) / bounds.height;
+      setGridDraft(current => ({
+        ...current,
+        [axis === 'x' ? 'xCuts' : 'yCuts']: clampGridCut(
+          axis === 'x' ? current.xCuts : current.yCuts,
+          index,
+          nextValue,
+        ),
+      }));
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', cleanup);
+      window.removeEventListener('pointercancel', cleanup);
+      gridPointerCleanupRef.current = null;
+    };
+    gridPointerCleanupRef.current = cleanup;
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', cleanup);
+    window.addEventListener('pointercancel', cleanup);
+  }, [isGridSaving]);
+
+  const toggleGridCell = useCallback((row, col) => {
+    if (isGridSaving) return;
+    const key = getGridCellKey(row, col);
+    setGridSelectedKeys(current => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    setGridError('');
+  }, [isGridSaving]);
+
+  const resetGridSplit = useCallback(() => {
+    setGridDraft(createGridSplitState(gridDraft.rows, gridDraft.cols));
+    setGridSelectedKeys(new Set());
+    setGridError('');
+  }, [gridDraft.cols, gridDraft.rows]);
+
+  const saveGridSplit = useCallback(async () => {
+    if (isGridSaving) return;
+    const cells = buildSelectedGridCells(gridDraft, gridSelectedKeys);
+    if (cells.length === 0) {
+      setGridError('请选择要拆分的宫格');
+      return;
+    }
+    setGridError('');
+    setIsGridSaving(true);
+    try {
+      await onAction?.('gridSplitSave', {
+        imageUrl,
+        nodeId,
+        sourceType,
+        imageIndex,
+        sourceHandle,
+        grid: gridDraft,
+        cells,
+      });
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
+    } catch (error) {
+      setGridError(error?.message || '宫格拆分失败，请重试');
+    } finally {
+      setIsGridSaving(false);
+    }
+  }, [gridDraft, gridSelectedKeys, imageIndex, imageUrl, isGridSaving, nodeId, onAction, sourceHandle, sourceType]);
+
   const saveRotation = useCallback((transform) => (
     onAction?.('rotateCommit', {
       imageUrl,
@@ -1394,6 +1672,64 @@ function ImageActionOverlay({
     });
     setAnnotationOpen(false);
   }, [imageIndex, imageUrl, nodeId, onAction, sourceHandle, sourceType]);
+
+  const gridPresetMenu = (
+    <div className="image-grid-preset-menu nodrag nopan" role="menu" aria-label="选择宫格拆分方式">
+      {GRID_SPLIT_PRESETS.map(option => (
+        <button
+          key={option.id}
+          type="button"
+          role="menuitem"
+          onClick={() => openGridSplit(option.rows, option.cols)}
+        >
+          {option.label}
+        </button>
+      ))}
+      <div className="image-grid-custom-menu-item">
+        <button
+          type="button"
+          role="menuitem"
+          aria-expanded={gridCustomPanelOpen}
+          onMouseEnter={() => setGridCustomPanelOpen(true)}
+          onFocus={() => setGridCustomPanelOpen(true)}
+          onClick={() => setGridCustomPanelOpen(true)}
+        >
+          <span>自定义</span>
+          <span aria-hidden="true">›</span>
+        </button>
+        {gridCustomPanelOpen ? (
+          <div className="image-grid-custom-panel" role="group" aria-label="自定义宫格">
+            <div className="image-grid-custom-panel-header">
+              <span>自定义宫格</span>
+              <strong>{gridCustomPreview.rows} x {gridCustomPreview.cols}</strong>
+            </div>
+            <div className="image-grid-custom-picker">
+              {Array.from({ length: 5 }).map((_, rowIndex) => (
+                Array.from({ length: 5 }).map((__, colIndex) => {
+                  const rows = rowIndex + 1;
+                  const cols = colIndex + 1;
+                  const enabled = rows <= gridCustomPreview.rows && cols <= gridCustomPreview.cols;
+                  const selectable = rows >= 2 && cols >= 2;
+                  return (
+                    <button
+                      key={`${rows}-${cols}`}
+                      type="button"
+                      className={enabled ? 'selected' : ''}
+                      aria-label={`${rows} x ${cols}`}
+                      disabled={!selectable}
+                      onMouseEnter={() => setGridCustomPreview({ rows, cols })}
+                      onFocus={() => setGridCustomPreview({ rows, cols })}
+                      onClick={() => openGridSplit(rows, cols)}
+                    />
+                  );
+                })
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 
   const toolbar = (
     <div
@@ -1464,25 +1800,58 @@ function ImageActionOverlay({
                 </button>
                 {hasMenu && menuOpen ? (
                   <div className="image-action-toolbar-menu" role="menu" aria-label={item.menuLabel || item.label}>
-                    {item.menuItems.map(menuItem => (
-                      <button
-                        key={menuItem.id}
-                        type="button"
-                        role="menuitemcheckbox"
-                        aria-checked={menuItem.active}
-                        className={menuItem.active ? 'is-active' : ''}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          menuItem.onClick?.(event);
-                          setOpenMenuAction('');
-                        }}
-                      >
-                        <span className="image-action-toolbar-menu-color" style={{ '--node-tag-color': menuItem.color }}>
-                          {menuItem.active ? <Icon name="check" size={13} /> : null}
+                    {item.menuItems.map(menuItem => {
+                      const hasSubmenu = menuItem.action === 'gridSplit';
+                      const submenuOpen = hasSubmenu && gridPresetOpen;
+                      return (
+                        <span
+                          key={menuItem.id}
+                          className={`image-action-toolbar-menu-row${hasSubmenu ? ' has-submenu' : ''}${submenuOpen ? ' is-submenu-open' : ''}`}
+                        >
+                          <button
+                            type="button"
+                            role={menuItem.color ? 'menuitemcheckbox' : 'menuitem'}
+                            aria-checked={menuItem.color ? Boolean(menuItem.active) : undefined}
+                            aria-haspopup={hasSubmenu ? 'menu' : undefined}
+                            aria-expanded={hasSubmenu ? submenuOpen : undefined}
+                            className={menuItem.active || submenuOpen ? 'is-active' : ''}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (hasSubmenu) {
+                                setGridPresetOpen(current => !current);
+                                setGridCustomPanelOpen(false);
+                                return;
+                              }
+                              if (menuItem.action) {
+                                emitAction(menuItem.action);
+                              } else {
+                                menuItem.onClick?.(event);
+                              }
+                              setOpenMenuAction('');
+                            }}
+                          >
+                            {menuItem.color ? (
+                              <span className="image-action-toolbar-menu-color" style={{ '--node-tag-color': menuItem.color }}>
+                                {menuItem.active ? <Icon name="check" size={13} /> : null}
+                              </span>
+                            ) : (
+                              <span className="image-action-toolbar-menu-icon" aria-hidden="true">
+                                {menuItem.toolbarIcon
+                                  ? <img src={menuItem.toolbarIcon} alt="" />
+                                  : <Icon name={menuItem.icon} size={15} />}
+                              </span>
+                            )}
+                            <span>{menuItem.label}</span>
+                            {hasSubmenu ? (
+                              <span className="image-action-toolbar-menu-chevron" aria-hidden="true">
+                                <Icon name="chevronRight" size={14} />
+                              </span>
+                            ) : null}
+                          </button>
+                          {submenuOpen ? gridPresetMenu : null}
                         </span>
-                        <span>{menuItem.label}</span>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : null}
               </span>
@@ -1552,12 +1921,47 @@ function ImageActionOverlay({
     </div>
   );
 
+  const gridSelectedCount = gridSelectedKeys.size;
+  const gridToolbar = (
+    <div
+      ref={toolbarRef}
+      className="image-crop-toolbar image-grid-toolbar nodrag nopan"
+      style={portalPosition ? { left: portalPosition.left, top: portalPosition.top } : undefined}
+      onPointerEnter={onToolbarPointerEnter}
+      onPointerLeave={onToolbarPointerLeave}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className="image-crop-toolbar-group">
+        <button type="button" onClick={cancelGridSplit} disabled={isGridSaving}>
+          <Icon name="x" size={16} />
+          <span>取消</span>
+        </button>
+      </div>
+      <div className="image-crop-toolbar-group image-crop-toolbar-controls">
+        <span className="image-grid-count">已选 {gridSelectedCount} 个</span>
+        <button type="button" onClick={resetGridSplit} disabled={isGridSaving}>
+          <Icon name="refresh" size={16} />
+          <span>重置切分</span>
+        </button>
+      </div>
+      <div className="image-crop-toolbar-group">
+        <button type="button" onClick={saveGridSplit} disabled={isGridSaving || gridSelectedCount === 0}>
+          <Icon name={isGridSaving ? 'loader' : 'check'} size={16} />
+          <span>{isGridSaving ? '拆分中' : '确认拆分'}</span>
+        </button>
+      </div>
+      {gridError ? <span className="image-crop-toolbar-error">{gridError}</span> : null}
+    </div>
+  );
+
   const wheelHandoffEnabled = visibleActions.length > 0
     && !rotationOpen
     && !annotationOpen
     && !inpaintOpen
     && !perspectiveOpen
     && !lightingOpen
+    && !gridOpen
     && !prototypeOperation
     && !suppressToolbar
     && (!portalToolbar || (forceVisible && Boolean(portalPosition)));
@@ -1567,13 +1971,16 @@ function ImageActionOverlay({
   });
 
   return (
-    <div ref={layerRef} className={`image-action-layer ${forceVisible ? 'is-open' : ''} ${annotationOpen ? 'is-annotating' : ''} ${inpaintOpen ? 'is-inpainting' : ''} ${perspectiveOpen ? 'is-perspective' : ''} ${lightingOpen ? 'is-lighting' : ''} ${cropOpen ? 'is-cropping' : ''}`}>
-      {!suppressToolbar && !annotationOpen && !inpaintOpen && !perspectiveOpen && !lightingOpen && !rotationOpen && !cropOpen && !prototypeOperation && !portalToolbar ? toolbar : null}
-      {!suppressToolbar && !annotationOpen && !inpaintOpen && !perspectiveOpen && !lightingOpen && !rotationOpen && !cropOpen && portalToolbar && forceVisible && portalPosition && typeof document !== 'undefined'
+    <div ref={layerRef} className={`image-action-layer ${forceVisible ? 'is-open' : ''} ${annotationOpen ? 'is-annotating' : ''} ${inpaintOpen ? 'is-inpainting' : ''} ${perspectiveOpen ? 'is-perspective' : ''} ${lightingOpen ? 'is-lighting' : ''} ${cropOpen ? 'is-cropping' : ''} ${gridOpen ? 'is-grid-splitting' : ''}`}>
+      {!suppressToolbar && !annotationOpen && !inpaintOpen && !perspectiveOpen && !lightingOpen && !rotationOpen && !cropOpen && !gridOpen && !prototypeOperation && !portalToolbar ? toolbar : null}
+      {!suppressToolbar && !annotationOpen && !inpaintOpen && !perspectiveOpen && !lightingOpen && !rotationOpen && !cropOpen && !gridOpen && portalToolbar && forceVisible && portalPosition && typeof document !== 'undefined'
         ? createPortal(toolbar, document.body)
         : null}
       {cropOpen && portalToolbar && forceVisible && portalPosition && typeof document !== 'undefined'
         ? createPortal(cropToolbar, document.body)
+        : null}
+      {gridOpen && portalToolbar && forceVisible && portalPosition && typeof document !== 'undefined'
+        ? createPortal(gridToolbar, document.body)
         : null}
 
       {annotationOpen && imageUrl ? (
@@ -1638,6 +2045,57 @@ function ImageActionOverlay({
           ))}
         </div>
       ) : null}
+      {gridOpen && imageUrl ? (
+        <div className="image-grid-split-surface nodrag nopan">
+          {Array.from({ length: gridDraft.rows }).map((_, row) => (
+            Array.from({ length: gridDraft.cols }).map((__, col) => {
+              const crop = getGridCellCrop(gridDraft, row, col);
+              const key = getGridCellKey(row, col);
+              const selected = gridSelectedKeys.has(key);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`image-grid-cell ${selected ? 'selected' : ''}`}
+                  style={{
+                    left: `${crop.x * 100}%`,
+                    top: `${crop.y * 100}%`,
+                    width: `${crop.width * 100}%`,
+                    height: `${crop.height * 100}%`,
+                  }}
+                  onClick={() => toggleGridCell(row, col)}
+                  disabled={isGridSaving}
+                  aria-pressed={selected}
+                >
+                  <span>{row + 1}-{col + 1}</span>
+                </button>
+              );
+            })
+          ))}
+          {gridDraft.xCuts.map((cut, index) => (
+            <button
+              key={`x-${index}`}
+              type="button"
+              className="image-grid-line image-grid-line-v"
+              style={{ left: `${cut * 100}%` }}
+              onPointerDown={event => beginGridLineDrag(event, 'x', index)}
+              disabled={isGridSaving}
+              aria-label={`拖动第 ${index + 1} 条竖线`}
+            />
+          ))}
+          {gridDraft.yCuts.map((cut, index) => (
+            <button
+              key={`y-${index}`}
+              type="button"
+              className="image-grid-line image-grid-line-h"
+              style={{ top: `${cut * 100}%` }}
+              onPointerDown={event => beginGridLineDrag(event, 'y', index)}
+              disabled={isGridSaving}
+              aria-label={`拖动第 ${index + 1} 条横线`}
+            />
+          ))}
+        </div>
+      ) : null}
       {rotationOpen && imageUrl ? (
         <ImageRotationEditor
           imageUrl={imageUrl}
@@ -1646,7 +2104,22 @@ function ImageActionOverlay({
           onSave={saveRotation}
         />
       ) : null}
-      {prototypeOperation && imageUrl ? (
+      {prototypeOperation === 'resize' && imageUrl && prototypePortalPosition && typeof document !== 'undefined' ? (
+        createPortal((
+          <CanvasImagePrototype
+            operation={prototypeOperation}
+            imageUrl={imageUrl}
+            onCancel={closePrototype}
+            onConfirm={confirmPrototype}
+            floating
+            style={{
+              left: prototypePortalPosition.left,
+              top: prototypePortalPosition.top,
+            }}
+          />
+        ), document.body)
+      ) : null}
+      {prototypeOperation && prototypeOperation !== 'resize' && imageUrl ? (
         <CanvasImagePrototype operation={prototypeOperation} imageUrl={imageUrl} onCancel={closePrototype} onConfirm={confirmPrototype} />
       ) : null}
     </div>

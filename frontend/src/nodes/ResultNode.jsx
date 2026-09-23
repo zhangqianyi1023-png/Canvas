@@ -1034,6 +1034,7 @@ function ResultNode({ id, selected, data }) {
   );
   const isImageResult = data?.resultType === 'generateImage';
   const isVideoResult = data?.resultType === 'generateVideo';
+  const seedanceComplianceStatus = isImageResult ? data?.seedanceComplianceStatus || '' : '';
   const isEmptyVideoResult = isVideoResult && !videoUrl;
   const isAudioResult = data?.resultType === 'generateAudio';
   const isScriptResult = data?.resultType === 'generateScript';
@@ -3921,6 +3922,14 @@ function ResultNode({ id, selected, data }) {
             onChange={(nextLabel) => data?.onResultDataChange?.(id, { label: nextLabel })}
             onEditingChange={setIsTitleEditing}
           />
+          {seedanceComplianceStatus === 'checking' && (
+            <span className="seedance-compliance-badge is-checking">正在验证，请稍等...</span>
+          )}
+          {seedanceComplianceStatus === 'passed' && (
+            <span className="seedance-compliance-badge is-passed" title="Seedance2.0 已合规" aria-label="Seedance2.0 已合规">
+              <Icon name="certificate" size={13} />
+            </span>
+          )}
           {(isImageResult || isVideoResult) && mediaResolutionLabel && (
             <span className="result-image-dimensions">{mediaResolutionLabel}</span>
           )}

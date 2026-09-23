@@ -255,7 +255,7 @@ function PrototypeMaskCanvas({ imageUrl, operation, onChange }) {
   );
 }
 
-function CanvasImagePrototype({ operation, imageUrl, onCancel, onConfirm }) {
+function CanvasImagePrototype({ operation, imageUrl, onCancel, onConfirm, floating = false, style }) {
   const [outpaintRatio, setOutpaintRatio] = useState('16:9');
   const [outpaintResolution, setOutpaintResolution] = useState('1K');
   const [outpaintQuality, setOutpaintQuality] = useState('auto');
@@ -650,18 +650,22 @@ function CanvasImagePrototype({ operation, imageUrl, onCancel, onConfirm }) {
   if (operation === 'resize') {
     return (
       <div
-        className="canvas-image-prototype canvas-resize-prototype nodrag nopan"
+        className={`canvas-image-prototype canvas-resize-prototype nodrag nopan ${floating ? 'is-floating' : ''}`}
+        style={style}
         role="dialog"
         aria-label="调整像素"
         onPointerDown={event => event.stopPropagation()}
         onClick={event => event.stopPropagation()}
       >
-        <div className="canvas-image-prototype-header">
-          <strong>调整像素</strong>
-          <button type="button" className="icon-button" onClick={onCancel} disabled={busy} aria-label="关闭调整像素">
-            <Icon name="x" size={16} />
+        <header className="inline-perspective-header canvas-resize-header">
+          <div className="inline-perspective-title">
+            <Icon name="expandDiagonal" size={18} />
+            <span>调整像素</span>
+          </div>
+          <button type="button" className="inline-perspective-close canvas-flow-hover-target" onClick={onCancel} disabled={busy} data-tooltip="关闭" aria-label="关闭调整像素">
+            <Icon name="x" size={20} />
           </button>
-        </div>
+        </header>
 
         <div className="canvas-resize-fields">
           <label>
@@ -698,12 +702,15 @@ function CanvasImagePrototype({ operation, imageUrl, onCancel, onConfirm }) {
 
         {prototypeError ? <div className="canvas-image-prototype-error" role="alert">{prototypeError}</div> : null}
 
-        <div className="canvas-resize-footer">
-          <button type="button" className="canvas-resize-generate" onClick={confirm} disabled={busy}>
-            <Icon name={busy ? 'loader' : 'arrowUp'} size={16} />
-            <span>{busy ? '生成中' : '生成'}</span>
-          </button>
-        </div>
+        <footer className="inline-perspective-footer canvas-resize-footer">
+          <span />
+          <div className="inline-perspective-generation-controls">
+            <button type="button" className="canvas-resize-generate" onClick={confirm} disabled={busy}>
+              <Icon name={busy ? 'loader' : 'arrowUp'} size={16} />
+              <span>{busy ? '生成中' : '生成'}</span>
+            </button>
+          </div>
+        </footer>
       </div>
     );
   }

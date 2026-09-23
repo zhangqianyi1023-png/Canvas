@@ -2537,6 +2537,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
   // videoId → video urls
   const videoInputs = useRef({});
   const storyboardImageTasksRef = useRef({});
+  const seedanceComplianceTimersRef = useRef(new Map());
 // 剪贴板：存储复制的节点数据
   const clipboardRef = useRef(null);
   const paneUploadInputRef = useRef(null);
@@ -2654,6 +2655,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
     });
     nodeFailureFlashTimersRef.current.forEach(timer => window.clearTimeout(timer));
     nodeFailureFlashTimersRef.current.clear();
+    seedanceComplianceTimersRef.current.forEach(timer => window.clearTimeout(timer));
+    seedanceComplianceTimersRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -8659,9 +8662,161 @@ const ALIGN_SNAP_THRESHOLD = 5;
       return { ok: true, resultId };
     }
 
+    if (action === 'gridSplitSave') {
+      if ((sourceType || 'result') !== 'result') {
+        throw new Error('当前图片节点不支持宫格拆分');
+      }
+      const sourceNode = nodesRef.current.find(node => node.id === nodeId);
+      if (!sourceNode || sourceNode.type !== 'result' || sourceNode.data?.resultType !== 'generateImage') {
+        throw new Error('当前图片节点不支持宫格拆分');
+      }
+      if (isRunningGenerationNode(sourceNode)) {
+        throw new Error('图片生成中，暂时无法保存拆分结果');
+      }
+
+      const selectedCells = Array.isArray(payload?.cells)
+        ? payload.cells.filter(cell => cell?.crop)
+        : [];
+      if (selectedCells.length === 0) {
+        throw new Error('请选择要拆分的宫格');
+      }
+
+      const sourcePosition = getAbsoluteNodePosition(sourceNode, nodesRef.current);
+      const sourceWidth = getNodeWidth(sourceNode);
+      const basePosition = {
+        x: sourcePosition.x + sourceWidth + 90,
+        y: sourcePosition.y,
+      };
+      const gapX = 28;
+      const gapY = 28;
+      const columns = selectedCells.length >= 4 ? 2 : 1;
+      const createdIds = [];
+
+      const resource = await loadCropImage(imageUrl);
+      try {
+        for (let index = 0; index < selectedCells.length; index += 1) {
+          const cell = selectedCells[index];
+          const output = await renderImageCrop({
+            image: resource.image,
+            crop: cell.crop,
+            rotation: 0,
+          });
+          const file = new File(
+            [output.blob],
+            `grid-split-${Date.now()}-${index + 1}.png`,
+            { type: 'image/png' },
+          );
+          const asset = await uploadImageFile(file);
+          if (!asset?.url) throw new Error('宫格拆分图片上传成功但未返回地址');
+          const style = getCroppedNodeStyle(output.width, output.height);
+          const col = index % columns;
+          const row = Math.floor(index / columns);
+          const resultId = createGeneratePair(
+            'generateImage',
+            {
+              x: basePosition.x + col * ((style.width || 280) + gapX),
+              y: basePosition.y + row * ((style.height || 195) + gapY),
+            },
+            nodeId,
+            {
+              imageUrl: asset.url,
+              imageUrls: [asset.url],
+              materialId: asset.id,
+              imageSize: output.ratioLabel,
+              imageDimensions: { width: output.width, height: output.height },
+              imageDimensionsByUrl: { [asset.url]: { width: output.width, height: output.height } },
+              sourceHandle: sourceHandle || null,
+              connectedImages: [],
+              connectedTextReferences: [],
+              style,
+              label: `宫格切片 ${cell.label || index + 1}`,
+              imageSource: 'grid-split',
+              suppressImagePrompt: true,
+              activate: false,
+              selected: true,
+            },
+          );
+          createdIds.push(resultId);
+        }
+      } finally {
+        resource.release();
+      }
+      refreshLocalAssets();
+
+      setNodes(current => current.map(node => (
+        createdIds.includes(node.id)
+          ? {
+              ...node,
+              selected: true,
+              data: {
+                ...node.data,
+                onImageAction: handleImageAction,
+                onImageActionEditingChange,
+              },
+            }
+          : { ...node, selected: false }
+      )));
+      window.setTimeout(() => {
+        fitView({
+          nodes: [{ id: nodeId }, ...createdIds.map(id => ({ id }))],
+          duration: 520,
+          padding: 0.2,
+          minZoom: 0.3,
+          maxZoom: 1.1,
+        });
+      });
+      return { ok: true, resultIds: createdIds };
+    }
+
     if (action === 'favorite') {
       openSaveMaterialModal({ type: payload?.mediaType === 'video' ? 'video' : 'image', url: imageUrl, sourceId: nodeId });
       return;
+    }
+
+    if (action === 'seedanceCompliance') {
+      if ((sourceType || 'result') !== 'result') {
+        throw new Error('当前图片不支持 Seedance2.0 合规认证');
+      }
+      const sourceNode = nodesRef.current.find(node => node.id === nodeId);
+      if (!sourceNode || sourceNode.type !== 'result' || sourceNode.data?.resultType !== 'generateImage') {
+        throw new Error('来源图片已不存在');
+      }
+
+      const currentTimer = seedanceComplianceTimersRef.current.get(nodeId);
+      if (currentTimer) {
+        window.clearTimeout(currentTimer);
+        seedanceComplianceTimersRef.current.delete(nodeId);
+      }
+
+      setNodes(current => current.map(node => (
+        node.id === nodeId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                seedanceComplianceStatus: 'checking',
+              },
+            }
+          : node
+      )));
+
+      const timer = window.setTimeout(() => {
+        seedanceComplianceTimersRef.current.delete(nodeId);
+        setNodes(current => current.map(node => (
+          node.id === nodeId
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  seedanceComplianceStatus: 'passed',
+                  seedanceComplianceUpdatedAt: Date.now(),
+                },
+              }
+            : node
+        )));
+      }, 3000);
+      seedanceComplianceTimersRef.current.set(nodeId, timer);
+      return { ok: true };
     }
 
     if (action === 'inpaintGenerate') {
