@@ -69,6 +69,19 @@ const MATERIAL_FILTERS = [
   { id: '3d', label: '3D' },
 ];
 
+const MATERIAL_SCOPES = [
+  { id: 'personal', label: '个人' },
+  { id: 'team', label: '团队' },
+];
+
+const isTeamMaterial = material => (
+  material?.scope === 'team'
+  || material?.visibility === 'team'
+  || material?.ownerType === 'team'
+  || material?.source === 'team'
+  || Boolean(material?.teamId || material?.workspaceId)
+);
+
 export default function CanvasMaterialDrawer({
   open,
   mode = 'materials',
@@ -86,6 +99,7 @@ export default function CanvasMaterialDrawer({
     ? TABS.filter(tab => tab.id === 'characters')
     : TABS.filter(tab => tab.id !== 'characters');
   const [activeTab, setActiveTab] = useState(isCharacterMode ? 'characters' : 'images');
+  const [activeMaterialScope, setActiveMaterialScope] = useState('personal');
   const [activeMaterialType, setActiveMaterialType] = useState('all');
   const [searchQueries, setSearchQueries] = useState({ images: '', characters: '', templates: '' });
   const [detailMaterial, setDetailMaterial] = useState(null);
@@ -106,8 +120,14 @@ export default function CanvasMaterialDrawer({
     () => materials.filter(material => !isVerifiedCharacterMaterial(material)),
     [materials],
   );
+  const scopedImageMaterials = useMemo(
+    () => imageMaterials.filter(material => (
+      activeMaterialScope === 'team' ? isTeamMaterial(material) : !isTeamMaterial(material)
+    )),
+    [activeMaterialScope, imageMaterials],
+  );
   const filteredMaterials = useMemo(() => {
-    let result = imageMaterials;
+    let result = scopedImageMaterials;
     if (activeMaterialType !== 'all') {
       result = result.filter(material => (
         activeMaterialType === '3d'
@@ -123,7 +143,7 @@ export default function CanvasMaterialDrawer({
       ));
     }
     return [...result].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [activeMaterialType, imageMaterials, searchQueries.images]);
+  }, [activeMaterialType, scopedImageMaterials, searchQueries.images]);
   const filteredCharacterMaterials = useMemo(() => {
     const query = searchQueries.characters.trim().toLowerCase();
     const result = query
@@ -150,14 +170,14 @@ export default function CanvasMaterialDrawer({
 
   const materialFilterCounts = useMemo(() => MATERIAL_FILTERS.reduce((counts, filter) => {
     counts[filter.id] = filter.id === 'all'
-      ? imageMaterials.length
-      : imageMaterials.filter(material => (
+      ? scopedImageMaterials.length
+      : scopedImageMaterials.filter(material => (
         filter.id === '3d'
           ? material.type === '3d' || material.kind === '3d'
           : material.type === filter.id
       )).length;
     return counts;
-  }, {}), [imageMaterials]);
+  }, {}), [scopedImageMaterials]);
 
   if (!open) return null;
 
@@ -169,12 +189,12 @@ export default function CanvasMaterialDrawer({
     if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
     event.preventDefault();
     const direction = event.key === 'ArrowRight' ? 1 : -1;
-    const nextIndex = (index + direction + tabs.length) % tabs.length;
-    setActiveTab(tabs[nextIndex].id);
+    const nextIndex = (index + direction + MATERIAL_SCOPES.length) % MATERIAL_SCOPES.length;
+    setActiveMaterialScope(MATERIAL_SCOPES[nextIndex].id);
     tabRefs.current[nextIndex]?.focus();
   };
   const currentCount = activeTab === 'images'
-    ? imageMaterials.length
+    ? scopedImageMaterials.length
     : activeTab === 'characters'
       ? characterMaterials.length
       : workflowTemplates.length;
@@ -223,16 +243,19 @@ export default function CanvasMaterialDrawer({
 
         {!isCharacterMode && (
           <div className="canvas-material-tabs" role="tablist" aria-label="素材归属">
-            {[{ id: 'personal', label: '个人' }, { id: 'team', label: '团队' }].map((tab, index) => (
+            {MATERIAL_SCOPES.map((tab, index) => (
               <button
                 key={tab.id}
                 ref={element => { tabRefs.current[index] = element; }}
                 type="button"
                 role="tab"
-                aria-selected={index === 0}
-                tabIndex={index === 0 ? 0 : -1}
-                className={index === 0 ? 'active' : ''}
-                onClick={() => setDetailMaterial(null)}
+                aria-selected={activeMaterialScope === tab.id}
+                tabIndex={activeMaterialScope === tab.id ? 0 : -1}
+                className={activeMaterialScope === tab.id ? 'active' : ''}
+                onClick={() => {
+                  setActiveMaterialScope(tab.id);
+                  setDetailMaterial(null);
+                }}
                 onKeyDown={event => handleTabKeyDown(event, index)}
               >
                 {tab.label}
@@ -290,7 +313,7 @@ export default function CanvasMaterialDrawer({
             visibleMaterials.length === 0 ? (
               <div className="canvas-material-empty">
                 <Icon name={activeTab === 'characters' ? 'user' : 'image'} size={34} />
-                <p>{activeTab === 'characters' ? '还没有已认证角色' : '没有匹配的生成历史'}</p>
+                <p>{activeTab === 'characters' ? '还没有已认证角色' : activeMaterialScope === 'team' ? '暂无团队素材' : '没有匹配的生成历史'}</p>
               </div>
             ) : visibleMaterials.map(material => (
               <article key={material.id} className={`canvas-material-card ${isCharacterMode ? 'canvas-role-card' : ''}`} draggable onDragStart={event => startMaterialDrag(event, material)}>

@@ -48,6 +48,7 @@ import {
   getTextFormatState,
 } from '../textFormatting';
 import { formatImageDimensions, normalizeImageDimensions } from '../imageDimensions';
+import { NODE_TAG_COLORS, normalizeNodeTagColors } from '../nodeTagColors';
 
 const IMAGE_POINTER_INTENT_THRESHOLD = 6;
 const STORYBOARD_FRAME_POINTER_INTENT_THRESHOLD = 8;
@@ -100,6 +101,23 @@ const VIDEO_RETAKE_MIN_SEGMENT_DURATION = 1;
 const REFERENCE_IMAGE_PREVIEW_MAX_SIZE = 220;
 const REFERENCE_IMAGE_PREVIEW_MARGIN = 12;
 const REFERENCE_IMAGE_PREVIEW_GAP = 10;
+const TEXT_BACKGROUND_COLORS = [
+  { id: 'none', label: '默认颜色', swatch: '#f4f4f4', background: '' },
+  { id: 'red', label: '红色', swatch: '#a94b4d', background: 'rgba(169, 75, 77, 0.22)' },
+  { id: 'orange', label: '橙色', swatch: '#9b5c18', background: 'rgba(155, 92, 24, 0.22)' },
+  { id: 'yellow', label: '黄色', swatch: '#a89a36', background: 'rgba(168, 154, 54, 0.2)' },
+  { id: 'green', label: '绿色', swatch: '#40824f', background: 'rgba(64, 130, 79, 0.2)' },
+  { id: 'cyan', label: '青色', swatch: '#3d8394', background: 'rgba(61, 131, 148, 0.2)' },
+  { id: 'blue', label: '蓝色', swatch: '#34639c', background: 'rgba(52, 99, 156, 0.22)' },
+  { id: 'purple', label: '紫色', swatch: '#81409a', background: 'rgba(129, 64, 154, 0.22)' },
+];
+const TEXT_BACKGROUND_COLOR_MAP = new Map(
+  TEXT_BACKGROUND_COLORS.map(color => [color.id, color])
+);
+
+const resolveTextBackgroundColor = (colorId) => (
+  TEXT_BACKGROUND_COLOR_MAP.get(colorId) || TEXT_BACKGROUND_COLORS[0]
+);
 
 const getViewportSize = () => ({
   width: typeof window !== 'undefined' ? window.innerWidth : 1280,
@@ -203,11 +221,25 @@ function TextFormatToolbarPortal({
   selection,
   formatState,
   expanded,
+  tagColors,
+  backgroundColor,
   onApply,
   onCommand,
+  onTagToggle,
+  onBackgroundColorChange,
 }) {
   const toolbarRef = useRef(null);
+  const backgroundButtonRef = useRef(null);
+  const backgroundMenuRef = useRef(null);
+  const tagButtonRef = useRef(null);
+  const tagMenuRef = useRef(null);
   const [position, setPosition] = useState(null);
+  const [backgroundMenuOpen, setBackgroundMenuOpen] = useState(false);
+  const [backgroundMenuPosition, setBackgroundMenuPosition] = useState(null);
+  const [tagMenuOpen, setTagMenuOpen] = useState(false);
+  const [tagMenuPosition, setTagMenuPosition] = useState(null);
+  const normalizedTagColors = normalizeNodeTagColors(tagColors);
+  const selectedBackgroundColor = resolveTextBackgroundColor(backgroundColor);
 
   useLayoutEffect(() => {
     if (!open) {
@@ -244,6 +276,97 @@ function TextFormatToolbarPortal({
     enabled: open && Boolean(position),
   });
 
+  useEffect(() => {
+    if (!open) {
+      setBackgroundMenuOpen(false);
+      setTagMenuOpen(false);
+    }
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!backgroundMenuOpen) {
+      setBackgroundMenuPosition(null);
+      return undefined;
+    }
+
+    let frameId = 0;
+    const updateMenuPosition = () => {
+      const rect = backgroundButtonRef.current?.getBoundingClientRect();
+      if (rect) {
+        const nextPosition = {
+          left: Math.round((rect.left + rect.width / 2) * 10) / 10,
+          top: Math.round((rect.bottom + 8) * 10) / 10,
+        };
+        setBackgroundMenuPosition(current => (
+          current?.left === nextPosition.left && current?.top === nextPosition.top
+            ? current
+            : nextPosition
+        ));
+      }
+      frameId = window.requestAnimationFrame(updateMenuPosition);
+    };
+    updateMenuPosition();
+    return () => window.cancelAnimationFrame(frameId);
+  }, [backgroundMenuOpen]);
+
+  useLayoutEffect(() => {
+    if (!tagMenuOpen) {
+      setTagMenuPosition(null);
+      return undefined;
+    }
+
+    let frameId = 0;
+    const updateMenuPosition = () => {
+      const rect = tagButtonRef.current?.getBoundingClientRect();
+      if (rect) {
+        const nextPosition = {
+          left: Math.round((rect.left + rect.width / 2) * 10) / 10,
+          top: Math.round((rect.bottom + 8) * 10) / 10,
+        };
+        setTagMenuPosition(current => (
+          current?.left === nextPosition.left && current?.top === nextPosition.top
+            ? current
+            : nextPosition
+        ));
+      }
+      frameId = window.requestAnimationFrame(updateMenuPosition);
+    };
+    updateMenuPosition();
+    return () => window.cancelAnimationFrame(frameId);
+  }, [tagMenuOpen]);
+
+  useEffect(() => {
+    if (!backgroundMenuOpen) return undefined;
+    const closeMenu = (event) => {
+      if (event.type === 'keydown' && event.key !== 'Escape') return;
+      if (event.type === 'pointerdown' && toolbarRef.current?.contains(event.target)) return;
+      if (event.type === 'pointerdown' && backgroundMenuRef.current?.contains(event.target)) return;
+      setBackgroundMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeMenu);
+    document.addEventListener('keydown', closeMenu);
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu);
+      document.removeEventListener('keydown', closeMenu);
+    };
+  }, [backgroundMenuOpen]);
+
+  useEffect(() => {
+    if (!tagMenuOpen) return undefined;
+    const closeMenu = (event) => {
+      if (event.type === 'keydown' && event.key !== 'Escape') return;
+      if (event.type === 'pointerdown' && toolbarRef.current?.contains(event.target)) return;
+      if (event.type === 'pointerdown' && tagMenuRef.current?.contains(event.target)) return;
+      setTagMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeMenu);
+    document.addEventListener('keydown', closeMenu);
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu);
+      document.removeEventListener('keydown', closeMenu);
+    };
+  }, [tagMenuOpen]);
+
   const state = formatState || getTextFormatState(value, selection.start, selection.end);
 
   const handlePointerDown = (event) => {
@@ -268,6 +391,35 @@ function TextFormatToolbarPortal({
       onMouseDown={handlePointerDown}
       onClick={(event) => event.stopPropagation()}
     >
+      {typeof onBackgroundColorChange === 'function' ? (
+        <>
+          <button
+            ref={backgroundButtonRef}
+            type="button"
+            className="text-format-icon-btn text-format-background-btn"
+            aria-label="背景颜色"
+            aria-haspopup="menu"
+            aria-expanded={backgroundMenuOpen}
+            aria-pressed={selectedBackgroundColor.id !== 'none'}
+            onClick={(event) => {
+              event.stopPropagation();
+              setTagMenuOpen(false);
+              setBackgroundMenuOpen(current => !current);
+            }}
+          >
+            <Icon name="palette" size={15} />
+            {selectedBackgroundColor.id !== 'none' ? (
+              <span
+                className="text-format-background-indicator"
+                style={{ '--text-background-swatch': selectedBackgroundColor.swatch }}
+                aria-hidden="true"
+              />
+            ) : null}
+            <span className="text-format-toolbar-tooltip" role="tooltip" aria-hidden="true">背景颜色</span>
+          </button>
+          <span className="text-format-divider" />
+        </>
+      ) : null}
       {[
         ['h1', 'H1', '标题 1'],
         ['h2', 'H2', '标题 2'],
@@ -339,6 +491,35 @@ function TextFormatToolbarPortal({
         <Icon name="subtract" size={16} />
         <span className="text-format-toolbar-tooltip" role="tooltip" aria-hidden="true">插入分割线</span>
       </button>
+      {typeof onTagToggle === 'function' ? (
+        <span className="text-format-tag-menu-wrap">
+          <button
+            ref={tagButtonRef}
+            type="button"
+            className="text-format-icon-btn text-format-tag-btn"
+            aria-label="添加标记"
+            aria-haspopup="menu"
+            aria-expanded={tagMenuOpen}
+            aria-pressed={normalizedTagColors.length > 0}
+            onClick={(event) => {
+              event.stopPropagation();
+              setBackgroundMenuOpen(false);
+              setTagMenuOpen(current => !current);
+            }}
+          >
+            <Icon name="tag" size={15} />
+            {normalizedTagColors.length > 0 ? (
+              <span className="text-format-tag-dots" aria-hidden="true">
+                {normalizedTagColors.slice(0, 3).map(colorId => {
+                  const color = NODE_TAG_COLORS.find(option => option.id === colorId);
+                  return color ? <span key={colorId} style={{ '--node-tag-color': color.value }} /> : null;
+                })}
+              </span>
+            ) : null}
+            <span className="text-format-toolbar-tooltip" role="tooltip" aria-hidden="true">添加标记</span>
+          </button>
+        </span>
+      ) : null}
       <button
         type="button"
         className="text-format-icon-btn"
@@ -361,7 +542,82 @@ function TextFormatToolbarPortal({
     </div>
   );
 
-  return createPortal(toolbar, document.body);
+  const backgroundMenu = backgroundMenuOpen && backgroundMenuPosition ? (
+    <div
+      ref={backgroundMenuRef}
+      className="text-format-background-menu nodrag nopan"
+      style={{ left: backgroundMenuPosition.left, top: backgroundMenuPosition.top }}
+      role="menu"
+      aria-label="文本节点背景颜色"
+      onPointerDown={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {TEXT_BACKGROUND_COLORS.map(color => (
+        <button
+          key={color.id}
+          type="button"
+          role="menuitemradio"
+          aria-label={color.label}
+          aria-checked={selectedBackgroundColor.id === color.id}
+          className={selectedBackgroundColor.id === color.id ? 'is-active' : ''}
+          onClick={(event) => {
+            event.stopPropagation();
+            onBackgroundColorChange(color.id);
+            setBackgroundMenuOpen(false);
+          }}
+        >
+          <span
+            className={`text-format-background-swatch ${color.id === 'none' ? 'is-none' : ''}`}
+            style={{ '--text-background-swatch': color.swatch }}
+            aria-hidden="true"
+          />
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  const tagMenu = tagMenuOpen && tagMenuPosition ? (
+    <div
+      ref={tagMenuRef}
+      className="text-format-tag-menu nodrag nopan"
+      style={{ left: tagMenuPosition.left, top: tagMenuPosition.top }}
+      role="menu"
+      aria-label="节点标记颜色"
+      onPointerDown={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {NODE_TAG_COLORS.map(color => (
+        <button
+          key={color.id}
+          type="button"
+          role="menuitemcheckbox"
+          aria-checked={normalizedTagColors.includes(color.id)}
+          className={normalizedTagColors.includes(color.id) ? 'is-active' : ''}
+          onClick={(event) => {
+            event.stopPropagation();
+            onTagToggle(color.id);
+            setTagMenuOpen(false);
+          }}
+        >
+          <span className="text-format-tag-menu-color" style={{ '--node-tag-color': color.value }}>
+            {normalizedTagColors.includes(color.id) ? <Icon name="check" size={13} /> : null}
+          </span>
+          <span>{color.label}</span>
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  return createPortal(
+    <>
+      {toolbar}
+      {backgroundMenu}
+      {tagMenu}
+    </>,
+    document.body,
+  );
 }
 
 const isSafeColor = (value) => /^#[0-9a-fA-F]{3,8}$/.test(value || '');
@@ -672,6 +928,7 @@ function RichTextEditor({
   editorRef,
   value,
   className,
+  style,
   placeholder,
   onInput,
   onSelectionChange,
@@ -709,6 +966,7 @@ function RichTextEditor({
     <div
       ref={editorRef}
       className={className}
+      style={style}
       contentEditable
       suppressContentEditableWarning
       data-placeholder={placeholder}
@@ -943,8 +1201,16 @@ function ResultNode({ id, selected, data }) {
   const videoExtensionObjectUrlsRef = useRef(new Set());
   const videoRetakePlayheadDraggingRef = useRef(false);
   const isTextFormatEditing = isTextEditing || isTextExpandedEditing;
+  const textBackgroundColor = resolveTextBackgroundColor(data?.textBackgroundColor);
+  const textBackgroundStyle = textBackgroundColor.background
+    ? {
+        '--result-text-bg-color': textBackgroundColor.background,
+        background: 'linear-gradient(var(--result-text-bg-color), var(--result-text-bg-color)), var(--canvas-inner-bg, var(--glass-bg))',
+      }
+    : undefined;
   const shouldShowTextFormatToolbar = isTextResult
     && !isMultiSelected
+    && !data?.isProcessorExpanded
     && !contentLocked
     && !isTitleEditing
     && (
@@ -3067,6 +3333,8 @@ function ResultNode({ id, selected, data }) {
                     onToolbarPointerEnter={() => openExpandedImageToolbar(index)}
                     onToolbarPointerLeave={() => scheduleCloseExpandedImageToolbar(index)}
                     portalToolbar
+                    tagColors={data?.tagColors}
+                    onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
                     apiConfigs={data?.apiConfigs}
                     apiProviders={data?.apiProviders}
                     rotationAutoOpenToken={data?.imageRotationAutoOpenToken}
@@ -3140,6 +3408,8 @@ function ResultNode({ id, selected, data }) {
             onDelete={() => data?.onDeleteNode?.(id)}
             forceVisible={!isMultiSelected && selected}
             portalToolbar
+            tagColors={data?.tagColors}
+            onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
             apiConfigs={data?.apiConfigs}
             apiProviders={data?.apiProviders}
             rotationAutoOpenToken={data?.imageRotationAutoOpenToken}
@@ -3189,6 +3459,8 @@ function ResultNode({ id, selected, data }) {
             onDelete={() => data?.onDeleteNode?.(id)}
             forceVisible={!isMultiSelected && selected}
             portalToolbar
+            tagColors={data?.tagColors}
+            onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
             apiConfigs={data?.apiConfigs}
             apiProviders={data?.apiProviders}
             rotationAutoOpenToken={data?.imageRotationAutoOpenToken}
@@ -3559,8 +3831,12 @@ function ResultNode({ id, selected, data }) {
           selection={textSelection}
           formatState={currentTextFormatState}
           expanded={isTextExpandedEditing}
+          tagColors={data?.tagColors}
+          backgroundColor={data?.textBackgroundColor}
           onApply={applyTextEditorFormat}
           onCommand={handleTextFormatCommand}
+          onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
+          onBackgroundColorChange={(colorId) => data?.onResultTextBackgroundChange?.(id, colorId)}
         />
       )}
       {isResizableResult && (
@@ -3691,7 +3967,7 @@ function ResultNode({ id, selected, data }) {
         ) : isImageResult ? (
           renderImageResult()
         ) : generating ? (
-          <div className="result-skeleton result-text-skeleton shimmer" aria-label="正在生成文本">
+          <div className="result-skeleton result-text-skeleton shimmer" style={textBackgroundStyle} aria-label="正在生成文本">
             <span className="text-skeleton-line text-skeleton-line-wide" />
             <span className="text-skeleton-line" />
             <span className="text-skeleton-line text-skeleton-line-short" />
@@ -3701,6 +3977,7 @@ function ResultNode({ id, selected, data }) {
           <RichTextEditor
             editorRef={textEditorRef}
             className="node-output result-text-output result-text-editor rich-text-editor nodrag nopan nowheel"
+            style={textBackgroundStyle}
             value={result}
             placeholder="输入文本内容..."
             onInput={(event) => commitRichTextEditorValue(event.currentTarget)}
@@ -3711,6 +3988,7 @@ function ResultNode({ id, selected, data }) {
         ) : isTextResult && result ? (
           <div
             className="node-output result-text-output result-text-display result-node-toolbar-anchor nowheel"
+            style={textBackgroundStyle}
             onDoubleClick={enterTextEditing}
             role="button"
             tabIndex={0}
@@ -3726,6 +4004,7 @@ function ResultNode({ id, selected, data }) {
         ) : isTextResult ? (
           <div
             className="result-empty result-text-edit-prompt result-node-toolbar-anchor"
+            style={textBackgroundStyle}
             role="button"
             tabIndex={0}
             onDoubleClick={enterTextEditing}

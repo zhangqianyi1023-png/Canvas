@@ -5261,6 +5261,14 @@ const ALIGN_SNAP_THRESHOLD = 5;
     )));
   }, [setNodes]);
 
+  const onResultTextBackgroundChange = useCallback((resultId, colorId) => {
+    setNodes(nds => nds.map(node => (
+      node.id === resultId
+        ? { ...node, data: { ...node.data, textBackgroundColor: colorId === 'none' ? '' : colorId } }
+        : node
+    )));
+  }, [setNodes]);
+
   const onNodeTitleChange = useCallback((nodeId, label) => {
     const nextLabel = String(label || '').trim();
     if (!nextLabel) return;
@@ -8834,6 +8842,42 @@ const ALIGN_SNAP_THRESHOLD = 5;
       return { ok: true, resultId };
     }
 
+    if (action === 'lightingGenerate') {
+      if ((sourceType || 'result') !== 'result') {
+        throw new Error('当前图片不支持打光');
+      }
+      const sourceNode = nodesRef.current.find(node => node.id === nodeId);
+      if (!sourceNode || sourceNode.type !== 'result' || sourceNode.data?.resultType !== 'generateImage') {
+        throw new Error('来源图片已不存在');
+      }
+      const resultId = createGeneratePair('generateImage', getNodeDownstreamPosition(nodeId), nodeId, {
+        sourceHandle: sourceHandle || null,
+        label: '打光结果',
+        imageUrl,
+        imageUrls: [imageUrl],
+        imageSource: 'canvas-prototype',
+        imageSize: sourceNode.data?.imageSize,
+        imageDimensions: sourceNode.data?.imageDimensions,
+        connectedImages: [imageUrl],
+        suppressImagePrompt: true,
+        activate: false,
+        selected: true,
+        operation: 'lighting',
+        prototype: true,
+        prototypeSettings: {
+          brightness: payload?.brightness,
+          temperature: payload?.temperature,
+          mainLightPosition: payload?.mainLightPosition,
+          mainLight: payload?.mainLight,
+          rimEnabled: payload?.rimEnabled,
+          rimLight: payload?.rimLight,
+          previewOnly: true,
+        },
+        style: sourceNode.style,
+      });
+      return { ok: true, resultId };
+    }
+
     if (action === 'prototypeCreate') {
       if ((sourceType || 'result') !== 'result') {
         throw new Error('当前图片不支持该原型操作');
@@ -8847,7 +8891,13 @@ const ALIGN_SNAP_THRESHOLD = 5;
         || sourceNode.data?.imageSize
         || { width: 1024, height: 1024 };
       const sourcePosition = getNodeDownstreamPosition(nodeId);
-      const createPrototypeResult = (label, extra = {}, position = sourcePosition) => createGeneratePair(
+      const createPrototypeResult = (
+        label,
+        extra = {},
+        position = sourcePosition,
+        styleOverride = sourceNode.style,
+        outputOverride = {},
+      ) => createGeneratePair(
         'generateImage',
         position,
         nodeId,
@@ -8856,8 +8906,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
           imageUrl,
           imageUrls: [imageUrl],
           imageSource: 'canvas-prototype',
-          imageSize: sourceNode.data?.imageSize,
-          imageDimensions: sourceNode.data?.imageDimensions,
+          imageSize: outputOverride.imageSize ?? sourceNode.data?.imageSize,
+          imageDimensions: outputOverride.imageDimensions ?? sourceNode.data?.imageDimensions,
           connectedImages: [imageUrl],
           suppressImagePrompt: true,
           activate: false,
@@ -8865,7 +8915,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
           operation,
           prototype: true,
           prototypeSettings: extra,
-          style: sourceNode.style,
+          style: styleOverride,
+          ...outputOverride,
         },
       );
 
@@ -8891,10 +8942,73 @@ const ALIGN_SNAP_THRESHOLD = 5;
       }
 
       const labels = { outpaint: '扩图结果', erase: '擦除结果', cutout: '抠图结果', enhance: '增强结果' };
+      if (operation === 'outpaint') {
+        const [ratioWidth, ratioHeight] = String(payload.outpaintRatio || '16:9').split(':').map(Number);
+        const canvasRatio = Number(payload?.outpaintCanvas?.ratio);
+        const targetRatio = payload.outpaintRatio === 'free' && Number.isFinite(canvasRatio) && canvasRatio > 0
+          ? canvasRatio
+          : ratioWidth > 0 && ratioHeight > 0
+            ? ratioWidth / ratioHeight
+            : 16 / 9;
+        const sourceStyleWidth = Number(sourceNode.style?.width) || 280;
+        const resultWidth = Math.max(280, sourceStyleWidth);
+        const resultStyle = {
+          ...sourceNode.style,
+          width: resultWidth,
+          height: Math.max(160, Math.round(resultWidth / targetRatio)),
+        };
+        const resultId = createPrototypeResult(labels.outpaint, {
+          ratio: payload.outpaintRatio,
+          resolution: payload.outpaintResolution,
+          quality: payload.outpaintQuality,
+          count: payload.outpaintCount,
+          model: payload.outpaintModel,
+          margins: payload.outpaintMargins,
+          canvas: payload.outpaintCanvas,
+          credits: payload.outpaintCredits,
+          previewOnly: true,
+        }, sourcePosition, resultStyle);
+        return { ok: true, resultId };
+      }
+
+      if (operation === 'resize') {
+        const width = Math.max(1, Math.round(Number(payload?.pixelWidth) || 1024));
+        const height = Math.max(1, Math.round(Number(payload?.pixelHeight) || 1024));
+        const resultStyle = getCroppedNodeStyle(width, height);
+        const resultId = createPrototypeResult(
+          '调整像素结果',
+          {
+            width,
+            height,
+            previewOnly: true,
+          },
+          sourcePosition,
+          resultStyle,
+          {
+            imageSize: `${width}x${height}`,
+            imageDimensions: { width, height },
+          },
+        );
+        return { ok: true, resultId };
+      }
+
       const resultId = createPrototypeResult(labels[operation] || '画布原型结果', {
         ratio: payload.outpaintRatio,
         brushSize: payload.brushSize,
+        maskDataUrl: payload.maskDataUrl,
+        maskHasMarks: payload.maskHasMarks,
         enhanceLevel: payload.enhanceLevel,
+        resolution: payload.resolution,
+        quality: payload.quality,
+        count: payload.count,
+        model: payload.model,
+        enhanceTab: payload.enhanceTab,
+        enhanceModel: payload.enhanceModel,
+        enhanceStyle: payload.enhanceStyle,
+        enhanceScale: payload.enhanceScale,
+        skinMode: payload.skinMode,
+        credits: payload.enhanceCredits,
+        selectedCells: payload.selectedCells,
         previewOnly: true,
       });
       return { ok: true, resultId };
@@ -11757,14 +11871,18 @@ const ALIGN_SNAP_THRESHOLD = 5;
       }
       if (node.type === 'result' && node.data?.resultType === 'generateText') {
         const composerOpen = isResultComposerOpen(node);
+        const isProcessorExpanded = expandedProcessorOverlay?.type === 'composer'
+          && expandedProcessorOverlay.id === node.id;
         const label = resolveResultNodeLabel('generateText', node.data?.label);
         const isMultiSelected = shouldHideNodeResize(node);
         return getCachedRenderNode(node, [
           label,
           composerOpen,
+          isProcessorExpanded,
           isMultiSelected,
           canGroupSelection,
           onResultTextChange,
+          onResultTextBackgroundChange,
           onResultTextEditingChange,
           duplicateNodeFromToolbar,
           groupSelectionFromToolbar,
@@ -11772,10 +11890,12 @@ const ALIGN_SNAP_THRESHOLD = 5;
         ], () => (
           node.data?.label === label
             && node.data?.onResultTextChange === onResultTextChange
+            && node.data?.onResultTextBackgroundChange === onResultTextBackgroundChange
             && node.data?.onDuplicateNode === duplicateNodeFromToolbar
             && node.data?.onGroupSelection === groupSelectionFromToolbar
             && Boolean(node.data?.canGroupSelection) === canGroupSelection
             && Boolean(node.data?.isComposerOpen) === composerOpen
+            && Boolean(node.data?.isProcessorExpanded) === isProcessorExpanded
             && Boolean(node.data?.isMultiSelected) === isMultiSelected
             && (node.zIndex || 0) >= 2
             ? node
@@ -11786,11 +11906,13 @@ const ALIGN_SNAP_THRESHOLD = 5;
                   ...node.data,
                   label,
                   onResultTextChange,
+                  onResultTextBackgroundChange,
                   onTextEditingChange: onResultTextEditingChange,
                   onDuplicateNode: duplicateNodeFromToolbar,
                   onGroupSelection: groupSelectionFromToolbar,
                   canGroupSelection,
                   isComposerOpen: composerOpen,
+                  isProcessorExpanded,
                   isMultiSelected,
                 },
               }
@@ -11844,7 +11966,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         },
       };
     });
-  }, [activeResultId, activeTagColorId, createVideoEditorFromResult, deleteCanvasNode, duplicateNodeFromToolbar, edges, getGroupMinimumSize, groupSelectionFromToolbar, handleRunGroup, isSelectionBoxActive, nodes, onCaptureVideoFrame, onGroupNameChange, onGroupResize, onNodeTagToggle, onResultImageDimensionsChange, onResultImageUpload, onResultNodeDragByScreenDelta, onResultTextChange, onResultTextEditingChange, onResultVideoDimensionsChange, onResultVideoUpload, onVideoQuickTrimChange, openSaveTemplateDialog, ungroupNodes]);
+  }, [activeResultId, activeTagColorId, createVideoEditorFromResult, deleteCanvasNode, duplicateNodeFromToolbar, edges, expandedProcessorOverlay, getGroupMinimumSize, groupSelectionFromToolbar, handleRunGroup, isSelectionBoxActive, nodes, onCaptureVideoFrame, onGroupNameChange, onGroupResize, onNodeTagToggle, onResultImageDimensionsChange, onResultImageUpload, onResultNodeDragByScreenDelta, onResultTextBackgroundChange, onResultTextChange, onResultTextEditingChange, onResultVideoDimensionsChange, onResultVideoUpload, onVideoQuickTrimChange, openSaveTemplateDialog, ungroupNodes]);
 
   // 组合背景、连线、内容节点依次位于 0/1/2 层。连线不会再被组合色块遮挡，
   // 同时实际节点和节点里的交互圆点仍稳定显示在线条之上。
