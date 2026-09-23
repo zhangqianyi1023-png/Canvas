@@ -19,6 +19,7 @@ const ACTIONS = [
   { id: 'capture-frame', operation: 'capture-frame', label: '截取画面', nodeTypes: ['video'], implemented: true },
   { id: 'playlist', operation: 'playlist', label: '创建播放列表', nodeTypes: ['video'], implemented: false },
   { id: 'download', operation: 'create', label: '下载', nodeTypes: ['image', 'video', 'audio'], implemented: true },
+  { id: 'fullscreen', operation: 'create', label: '全屏查看', nodeTypes: ['image'], implemented: true },
   { id: 'save-to-library', operation: 'create', label: '保存到素材库', nodeTypes: ['image', 'video', 'audio', 'text'], implemented: true },
 ];
 

@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { createPortal } from 'react-dom';
 import { useStore } from 'reactflow';
 import Icon from './Icon';
+import GenerateCreditButton from './GenerateCreditButton';
 import { IMAGE_RATIO_PRESETS, getDefaultImageRatioPresetId, getImageRatioSummary } from '../imageRatioPresets';
 import {
   IMAGE_PERSPECTIVE_PRESETS,
@@ -394,9 +395,14 @@ function InlineImagePerspectiveEditor({
                 </div>
               </div>
             </InpaintPopoverControl>
-            <button type="button" className="inline-perspective-run canvas-flow-hover-target" onClick={submit} disabled={isGenerating || !selectedProvider || !activeModel} data-tooltip="生成新角度" aria-label="生成新角度图片">
-              <Icon name={isGenerating ? 'loader' : 'play'} size={19} />
-            </button>
+            <GenerateCreditButton
+              cost={8}
+              loading={isGenerating}
+              disabled={isGenerating || !selectedProvider || !activeModel}
+              onClick={submit}
+              runLabel="生成新角度图片"
+              className="inline-perspective-run-credit canvas-flow-hover-target"
+            />
           </div>
         </footer>
       </section>

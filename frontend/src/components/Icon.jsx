@@ -104,6 +104,7 @@ const iconMap = {
   settings: RiSettingsLine,
   filter: RiFilter3Line,
   shoppingBag: RiShoppingBagLine,
+  comment: RiChatAi3Line,
   messageAi3: RiMessageAi3Fill,
   mic: RiMicLine,
   more: RiMoreLine,

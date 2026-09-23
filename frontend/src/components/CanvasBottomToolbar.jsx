@@ -19,6 +19,7 @@ function tooltipLabel(id, labels = {}) {
     'tool-image-editor': labels.toolImageEditor || '图片编辑器',
     'tool-materials': labels.toolMaterials || '素材库',
     'tool-characters': labels.toolCharacters || '角色',
+    'tool-comments': labels.toolComments || '评论',
     'tool-history': labels.toolHistory || '历史',
     'tool-apps': labels.toolTemplates || labels.toolApps || '模板库',
     'tool-shortcuts': labels.toolShortcuts || 'Keyboard shortcuts',
@@ -47,11 +48,13 @@ export default function CanvasBottomToolbar({
   onUploadFiles,
   materialOpen = false,
   characterOpen = false,
+  commentMode = false,
   historyOpen = false,
   appsOpen = false,
   shortcutsOpen = false,
   onToggleMaterials,
   onToggleCharacters,
+  onToggleComments,
   onToggleHistory,
   onToggleApps,
   onToggleShortcuts,
@@ -124,6 +127,11 @@ export default function CanvasBottomToolbar({
     onToggleHistory?.();
   }, [onToggleHistory]);
 
+  const handleToggleComments = useCallback((event) => {
+    event.stopPropagation();
+    onToggleComments?.();
+  }, [onToggleComments]);
+
   const handleToggleApps = useCallback((event) => {
     event.stopPropagation();
     onToggleApps?.();
@@ -171,6 +179,7 @@ export default function CanvasBottomToolbar({
         <RailButton id="tool-materials" icon="folder" labels={labels} active={materialOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleMaterials} />
         <RailButton id="tool-apps" icon="grid" labels={labels} active={appsOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleApps} />
         <RailButton id="tool-characters" icon="user" labels={labels} active={characterOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleCharacters} />
+        <RailButton id="tool-comments" icon="comment" labels={labels} active={commentMode} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleComments} />
         <RailButton id="tool-history" icon="history" labels={labels} active={historyOpen} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleToggleHistory} />
         <Divider />
         <RailButton id="tool-shortcuts" icon="keyboard" labels={labels} hovered={hovered} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} onClick={handleOpenShortcuts} />

@@ -4,17 +4,20 @@ import Icon from '../components/Icon';
 import { NodeTagColorMenuItems, NodeTagPickerButtonContent, getNodeTagPickerTitle } from '../components/NodeTagPicker';
 import { useCanvasWheelHandoff } from '../canvasWheelHandoff';
 
-function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, tagInsertAfterId = '', tagPlacement = 'end', tagLabel = '标记', hidden = false, portal = false, forceVisible = false, variant = '', onToolbarPointerEnter, onToolbarPointerLeave }) {
+function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, tagInsertAfterId = '', tagPlacement = 'end', tagLabel = '标记', tagSeparatorBefore = false, hidden = false, portal = false, forceVisible = false, variant = '', onToolbarPointerEnter, onToolbarPointerLeave }) {
   const layerRef = useRef(null);
   const toolbarRef = useRef(null);
   const [pos, setPos] = useState(null);
   const [openMenuId, setOpenMenuId] = useState('');
+  const tagTitle = getNodeTagPickerTitle(tagColors);
+  const tagStatusLabel = tagTitle === '添加标记' ? tagLabel : tagTitle;
   const tagItem = typeof onTagToggle === 'function' ? {
     id: 'node-tags',
-    label: tagLabel,
-    title: getNodeTagPickerTitle(tagColors),
+    label: tagStatusLabel,
+    title: tagStatusLabel,
     icon: 'tag',
     compact: true,
+    separatorBefore: tagSeparatorBefore,
     nodeTagPicker: true,
     menuLabel: '节点标记颜色',
   } : null;
@@ -130,6 +133,7 @@ function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, tagInsertAfter
                   iconSize={14}
                   labelClassName="node-hover-toolbar-label"
                   dotsClassName="node-hover-toolbar-tag-dots"
+                  tooltipTitle={item.title || item.label}
                 />
               ) : (
                 <>

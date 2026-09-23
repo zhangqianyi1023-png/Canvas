@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NODE_TAG_COLOR_MAP, normalizeNodeTagColors } from '../nodeTagColors';
 
-function EditableNodeTitle({ icon, value, fallback, tagColors, titleAfterText, onChange, onEditingChange }) {
+function EditableNodeTitle({ icon, value, fallback, tagColors, titleAfterText, iconOnly = false, tooltipTitle = '', onChange, onEditingChange }) {
   const resolvedFallback = fallback || '未命名节点';
   const currentValue = String(value || '').trim() || resolvedFallback;
   const normalizedTagColors = normalizeNodeTagColors(tagColors);
@@ -51,6 +51,8 @@ function EditableNodeTitle({ icon, value, fallback, tagColors, titleAfterText, o
   return (
     <span
       className={`node-title editable-node-title nodrag nopan ${editing ? 'editing' : ''}`}
+      title={iconOnly ? (tooltipTitle || currentValue) : undefined}
+      aria-label={iconOnly ? (tooltipTitle || currentValue) : undefined}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation();
@@ -89,7 +91,7 @@ function EditableNodeTitle({ icon, value, fallback, tagColors, titleAfterText, o
         />
       ) : (
         <>
-          <span className="node-title-text" title={currentValue}>{currentValue}</span>
+          {!iconOnly ? <span className="node-title-text" title={currentValue}>{currentValue}</span> : null}
           {titleAfterText ? (
             <span className="node-title-after-text">{titleAfterText}</span>
           ) : null}

@@ -126,14 +126,7 @@ function ImageEditorNode({ id, selected, data }) {
         />
       </div>
 
-      <button
-        type="button"
-        className="image-editor-node-body nodrag nopan"
-        onClick={(event) => {
-          event.stopPropagation();
-          openEditor();
-        }}
-      >
+      <div className="image-editor-node-body">
         <div className="image-editor-node-preview">
           {hasSavedContent ? (
             <ImageEditorNodePreview state={editorState} title={title} />
@@ -144,8 +137,19 @@ function ImageEditorNode({ id, selected, data }) {
             </>
           )}
         </div>
-        {!hasSavedContent ? <span className="image-editor-node-open">点击编辑</span> : null}
-      </button>
+        {!hasSavedContent ? (
+          <button
+            type="button"
+            className="image-editor-node-open nodrag nopan"
+            onClick={(event) => {
+              event.stopPropagation();
+              openEditor();
+            }}
+          >
+            点击编辑
+          </button>
+        ) : null}
+      </div>
 
       <Handle type="source" position={Position.Right} style={{ background: 'var(--success-alt)' }} />
       <InteractiveHandle side="right" nodeId={id} onDragCreate={data?.onInteractiveDragCreate} />
@@ -161,6 +165,15 @@ function ImageEditorNode({ id, selected, data }) {
         tagLabel="添加标记"
         actions={[
           {
+            id: 'edit-image-editor',
+            label: '编辑',
+            title: '编辑',
+            icon: 'edit',
+            compact: true,
+            separatorBefore: true,
+            onClick: openEditor,
+          },
+          {
             id: 'save-image-editor-material',
             label: '保存到素材库',
             title: '保存到素材库',
@@ -168,14 +181,6 @@ function ImageEditorNode({ id, selected, data }) {
             compact: true,
             separatorBefore: true,
             onClick: saveToMaterialLibrary,
-          },
-          {
-            id: 'edit-image-editor',
-            label: '编辑',
-            title: '编辑',
-            icon: 'edit',
-            compact: true,
-            onClick: openEditor,
           },
           {
             id: 'download-image-editor',

@@ -500,6 +500,7 @@ function TextFormatToolbarPortal({
             type="button"
             className="text-format-icon-btn text-format-tag-btn"
             aria-label={tagPickerTitle}
+            title={tagPickerTitle}
             aria-haspopup="menu"
             aria-expanded={tagMenuOpen}
             aria-pressed={normalizedTagColors.length > 0}
@@ -4053,6 +4054,8 @@ function ResultNode({ id, selected, data }) {
             value={displayLabel}
             fallback={isStoryboardScriptResult ? '分镜工作台' : '结果'}
             tagColors={data?.tagColors}
+            iconOnly={isAudioResult}
+            tooltipTitle={displayLabel || '音频'}
             titleAfterText={seedanceComplianceStatus === 'passed' ? (
               <span className="seedance-compliance-badge is-passed" title="Seedance2.0 已合规" aria-label="Seedance2.0 已合规">
                 <Icon name="certificate" size={13} />
@@ -4177,7 +4180,9 @@ function ResultNode({ id, selected, data }) {
         onToolbarPointerLeave={scheduleCloseTextToolbar}
         tagColors={data?.tagColors}
         onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
+        tagLabel="添加标记"
         tagInsertAfterId={isVideoResult ? 'video-more-tools' : isUploadedAudioResult ? 'audio-seedance-check' : ''}
+        tagSeparatorBefore={isUploadedAudioResult}
         actions={[
           ...(isTextResult ? [{
             id: 'edit-text',
@@ -4300,26 +4305,26 @@ function ResultNode({ id, selected, data }) {
               ],
             },
             {
-              id: 'download-video',
-              label: '下载视频',
-              title: '下载视频',
-              icon: 'download',
-              compact: true,
-              separatorBefore: true,
-              onClick: () => data?.onDownloadVideo?.(id),
-            },
-            {
               id: 'favorite-video',
               label: '保存到素材库',
               title: '保存到素材库',
               icon: 'folder',
               compact: true,
+              separatorBefore: true,
               onClick: () => data?.onImageAction?.('favorite', {
                 imageUrl: videoUrl,
                 nodeId: id,
                 sourceType: 'video',
                 mediaType: 'video',
               }),
+            },
+            {
+              id: 'download-video',
+              label: '下载视频',
+              title: '下载视频',
+              icon: 'download',
+              compact: true,
+              onClick: () => data?.onDownloadVideo?.(id),
             },
             {
               id: 'fullscreen-video',
@@ -4349,6 +4354,8 @@ function ResultNode({ id, selected, data }) {
               label: '保存到素材库',
               title: '保存到素材库',
               icon: 'folder',
+              compact: true,
+              iconOnly: true,
               separatorBefore: true,
               onClick: () => data?.onImageAction?.('favorite', {
                 imageUrl: audioUrl,
@@ -4362,6 +4369,8 @@ function ResultNode({ id, selected, data }) {
               label: '下载',
               title: '下载',
               icon: 'download',
+              compact: true,
+              iconOnly: true,
               onClick: () => data?.onDownloadAudio?.(id),
             },
           ] : isAudioResult ? [{

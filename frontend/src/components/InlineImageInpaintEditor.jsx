@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import { useStore } from 'reactflow';
 import Icon from './Icon';
+import GenerateCreditButton from './GenerateCreditButton';
 import { IMAGE_RATIO_PRESETS, getDefaultImageRatioPresetId, getImageRatioSummary } from '../imageRatioPresets';
 import {
   buildCapabilityOptions,
@@ -832,20 +833,14 @@ function InlineImageInpaintEditor({
               </div>
             </div>
           </InpaintPopoverControl>
-          <span className="inline-inpaint-credit-pill" aria-label={`需要 ${credits} 积分`}>
-            <Icon name="lightning" size={13} />
-            {credits}
-          </span>
-          <button
-            type="button"
-            className="inline-inpaint-run-btn"
-            onClick={submit}
+          <GenerateCreditButton
+            cost={credits}
+            loading={isGenerating}
             disabled={isGenerating || !hasMask || (!isEraseMode && !prompt.trim())}
-            title={!hasMask ? (isEraseMode ? '先在图片上画出擦除区域' : '先在图片上画出调整区域') : '生成'}
-            aria-label={isEraseMode ? '生成擦除图片' : '生成局部修改图片'}
-          >
-            <Icon name={isGenerating ? 'loader' : 'play'} size={17} />
-          </button>
+            onClick={submit}
+            runLabel={isEraseMode ? '生成擦除图片' : '生成局部修改图片'}
+            className="inline-inpaint-generate-credit canvas-flow-hover-target"
+          />
         </div>
       </div>
     ), document.body)

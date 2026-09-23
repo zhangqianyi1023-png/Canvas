@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from '../components/Icon';
+import GenerateCreditButton from '../components/GenerateCreditButton';
 import InlineImageAnnotationEditor from '../components/InlineImageAnnotationEditor';
 import InlineImageInpaintEditor from '../components/InlineImageInpaintEditor';
 import InlineImagePerspectiveEditor from '../components/InlineImagePerspectiveEditor';
@@ -51,6 +52,7 @@ const actionItems = [
   { action: 'split', label: 'Quick Split', icon: 'grid' },
   { action: 'favorite', label: '保存到素材库', icon: 'layers', toolbarIcon: toolbarFavoriteIcon, iconOnly: true },
   { action: 'download', label: '下载', icon: 'save', toolbarIcon: toolbarDownloadIcon, iconOnly: true },
+  { action: 'fullscreen', label: '全屏查看', icon: 'fullscreen', iconOnly: true },
 ];
 
 const IMAGE_EDIT_ACTION_ORDER = [
@@ -879,20 +881,14 @@ function InlineImageLightingEditor({
         </div>
 
         <div className="image-lighting-footer">
-          <div className="image-lighting-cost">
-            <Icon name="aed" size={16} />
-            <span>20</span>
-          </div>
-          <button
-            type="button"
-            className="image-lighting-generate"
-            onClick={handleGenerate}
+          <GenerateCreditButton
+            cost={20}
+            loading={isGenerating}
             disabled={isGenerating}
-            aria-label="生成打光图片"
-          >
-            <Icon name={isGenerating ? 'loader' : 'arrowUp'} size={18} />
-            <span>{isGenerating ? '生成中' : '生成'}</span>
-          </button>
+            onClick={handleGenerate}
+            runLabel="生成打光图片"
+            className="image-lighting-generate-credit"
+          />
         </div>
       </div>
     </div>
@@ -948,14 +944,17 @@ function ImageActionOverlay({
   const [isGridSaving, setIsGridSaving] = useState(false);
   const [gridError, setGridError] = useState('');
   const [openMenuAction, setOpenMenuAction] = useState('');
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const openedRotationTokenRef = useRef('');
   const layerRef = useRef(null);
   const toolbarRef = useRef(null);
   const normalizedTagColors = normalizeNodeTagColors(tagColors);
+  const tagPickerTitle = getNodeTagPickerTitle(tagColors);
   const [portalPosition, setPortalPosition] = useState(null);
   const [prototypePortalPosition, setPrototypePortalPosition] = useState(null);
   const cropPointerCleanupRef = useRef(null);
   const gridPointerCleanupRef = useRef(null);
+  const isResultImageToolbar = sourceType === 'result';
   const imageActions = imageUrl ? actionItems.filter(item => (
     isRegisteredImplementedAction(item.action)
     && (!item.sourceTypes || item.sourceTypes.includes(sourceType))
@@ -1012,8 +1011,8 @@ function ImageActionOverlay({
   const markerToolbarActions = sourceType === 'result' && typeof onTagToggle === 'function'
     ? [{
         action: 'nodeTags',
-        label: '添加标记',
-        title: getNodeTagPickerTitle(tagColors),
+        label: tagPickerTitle,
+        title: tagPickerTitle,
         icon: 'tag',
         iconOnly: true,
         active: normalizedTagColors.length > 0,
@@ -1021,26 +1020,32 @@ function ImageActionOverlay({
         menuLabel: '节点标记颜色',
       }]
     : [];
-  const afterUploadActions = imageActions.filter(item => item.action === 'favorite' || item.action === 'download');
+  const afterUploadActions = imageActions
+    .filter(item => ['favorite', 'download', 'fullscreen'].includes(item.action))
+    .map(item => (
+      item.action === 'favorite'
+        ? { ...item, label: '添加到资料库', title: '添加到资料库' }
+        : item
+    ));
   const secondaryToolbarActions = [
-    ...(uploadAction ? [uploadAction] : []),
+    ...(!isResultImageToolbar && uploadAction ? [uploadAction] : []),
     ...afterUploadActions,
   ];
   const pendingToolbarAction = hasPendingTasks
     ? { action: 'query', label: '查询', icon: 'refresh' }
     : null;
   const toolbarGroups = [
-    ...(editToolbarActions.length > 0
+    ...(!isResultImageToolbar && editToolbarActions.length > 0
       ? [{ key: 'edit', actions: [...editToolbarActions, ...moreToolbarActions] }]
       : []),
     ...(markerToolbarActions.length > 0
-      ? [{ key: 'marker', actions: markerToolbarActions, separatorBefore: editToolbarActions.length > 0 }]
+      ? [{ key: 'marker', actions: markerToolbarActions, separatorBefore: !isResultImageToolbar && editToolbarActions.length > 0 }]
       : []),
     ...(secondaryToolbarActions.length > 0
-      ? [{ key: 'secondary', actions: secondaryToolbarActions, separatorBefore: editToolbarActions.length > 0 || markerToolbarActions.length > 0 }]
+      ? [{ key: 'secondary', actions: secondaryToolbarActions, separatorBefore: (!isResultImageToolbar && editToolbarActions.length > 0) || markerToolbarActions.length > 0 }]
       : []),
     ...(pendingToolbarAction
-      ? [{ key: 'pending', actions: [pendingToolbarAction], separatorBefore: editToolbarActions.length > 0 || markerToolbarActions.length > 0 || secondaryToolbarActions.length > 0 }]
+      ? [{ key: 'pending', actions: [pendingToolbarAction], separatorBefore: (!isResultImageToolbar && editToolbarActions.length > 0) || markerToolbarActions.length > 0 || secondaryToolbarActions.length > 0 }]
       : []),
   ];
   const visibleActions = toolbarGroups.flatMap(group => group.actions);
@@ -1246,9 +1251,23 @@ function ImageActionOverlay({
     };
   }, [gridPresetOpen]);
 
+  useEffect(() => {
+    if (!fullscreenOpen) return undefined;
+    const closeFullscreen = (event) => {
+      if (event.key === 'Escape') setFullscreenOpen(false);
+    };
+    document.addEventListener('keydown', closeFullscreen);
+    return () => document.removeEventListener('keydown', closeFullscreen);
+  }, [fullscreenOpen]);
+
   const emitAction = useCallback((action, extra = {}) => {
     if (action === 'download') {
       downloadImage(imageUrl, `image-${nodeId}`);
+      return;
+    }
+
+    if (action === 'fullscreen') {
+      setFullscreenOpen(true);
       return;
     }
 
@@ -1849,6 +1868,7 @@ function ImageActionOverlay({
                       iconClassName="image-action-toolbar-icon"
                       labelClassName="image-action-toolbar-label"
                       dotsClassName="image-action-toolbar-tag-dots"
+                      tooltipTitle={item.title || item.label}
                     />
                   ) : (
                     <>
@@ -2208,6 +2228,34 @@ function ImageActionOverlay({
       ) : null}
       {prototypeOperation && prototypeOperation !== 'resize' && imageUrl ? (
         <CanvasImagePrototype operation={prototypeOperation} imageUrl={imageUrl} onCancel={closePrototype} onConfirm={confirmPrototype} />
+      ) : null}
+      {fullscreenOpen && imageUrl && typeof document !== 'undefined' ? createPortal(
+        <div
+          className="image-action-fullscreen-viewer nodrag nopan"
+          role="dialog"
+          aria-modal="true"
+          aria-label="全屏查看图片"
+          onClick={() => setFullscreenOpen(false)}
+        >
+          <button
+            type="button"
+            className="image-action-fullscreen-close"
+            onClick={(event) => {
+              event.stopPropagation();
+              setFullscreenOpen(false);
+            }}
+            aria-label="关闭全屏查看"
+          >
+            <Icon name="x" size={20} />
+          </button>
+          <img
+            src={imageUrl}
+            alt="全屏查看图片"
+            onClick={event => event.stopPropagation()}
+            draggable={false}
+          />
+        </div>,
+        document.body,
       ) : null}
     </div>
   );

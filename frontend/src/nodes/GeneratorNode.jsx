@@ -2,6 +2,7 @@ import { memo, useState, useCallback, useEffect, useMemo, useRef, useLayoutEffec
 import { createPortal } from 'react-dom';
 import { useReactFlow, useStore } from 'reactflow';
 import Icon from '../components/Icon';
+import GenerateCreditButton from '../components/GenerateCreditButton';
 import ImageMentionTextarea from '../components/ImageMentionTextarea';
 import QuickPromptControl from '../components/QuickPromptControl';
 import useQuickPrompts from '../useQuickPrompts';
@@ -2592,9 +2593,13 @@ function GeneratorNode({ id, data }) {
               labels={labels}
               onComplete={nextText => handleChange('storyboard_script_prompt', appendVoicePromptText(form.storyboard_script_prompt, nextText))}
             />
-            <button className="processor-run-btn" onClick={handleStoryboardScriptGenerate} disabled={status === 'running' || !hasStoryboardScriptInput}>
-              <Icon name={status === 'running' ? 'loader' : 'play'} size={15} />
-            </button>
+            <GenerateCreditButton
+              cost={1}
+              loading={status === 'running'}
+              disabled={status === 'running' || !hasStoryboardScriptInput}
+              onClick={handleStoryboardScriptGenerate}
+              runLabel="生成分镜脚本"
+            />
           </div>
         </div>
       </div>
@@ -2692,14 +2697,15 @@ function GeneratorNode({ id, data }) {
               labels={labels}
               onComplete={nextText => handleVideoChange('prompt', appendVoicePromptText(videoForm.prompt, nextText))}
             />
-            <button
-              className={`processor-run-btn ${isVideoGenerationRunning ? 'cancel' : ''}`}
-              onClick={handleVideoGenerate}
+            <GenerateCreditButton
+              cost={20}
+              running={isVideoGenerationRunning}
+              loading={isUploadingReferences}
               disabled={isUploadingReferences || (!isVideoGenerationRunning && !(combinedVideoPrompt.trim() || (isVideoFirstLastFrameMode && resolvedVideoFirstFrameUrl && resolvedVideoLastFrameUrl)))}
-              title={isVideoGenerationRunning ? labels.cancelGeneration : labels.runVideo}
-            >
-              <Icon name={isVideoGenerationRunning ? 'stop' : isUploadingReferences ? 'loader' : 'play'} size={15} />
-            </button>
+              onClick={handleVideoGenerate}
+              runLabel={labels.runVideo}
+              cancelLabel={labels.cancelGeneration}
+            />
           </div>
         </div>
       </div>
@@ -2820,14 +2826,15 @@ function GeneratorNode({ id, data }) {
               labels={labels}
               onComplete={nextText => handleChange('image_prompt', appendVoicePromptText(form.image_prompt, nextText))}
             />
-            <button
-              className={`processor-run-btn ${isImageGenerationRunning ? 'cancel' : ''}`}
-              onClick={handleImageGenerate}
+            <GenerateCreditButton
+              cost={8}
+              running={isImageGenerationRunning}
+              loading={isUploadingReferences}
               disabled={isUploadingReferences || (!isImageGenerationRunning && !combinedImagePrompt.trim())}
-              title={isImageGenerationRunning ? labels.cancelGeneration : labels.runImage}
-            >
-              <Icon name={isImageGenerationRunning ? 'stop' : isUploadingReferences ? 'loader' : 'play'} size={15} />
-            </button>
+              onClick={handleImageGenerate}
+              runLabel={labels.runImage}
+              cancelLabel={labels.cancelGeneration}
+            />
           </div>
         </div>
       </div>
@@ -2901,17 +2908,14 @@ function GeneratorNode({ id, data }) {
               labels={labels}
               onComplete={nextText => handleChange('audio_text', appendVoicePromptText(form.audio_text, nextText))}
             />
-            <span className="processor-credit-pill" aria-label={`需要消耗 ${audioGenerationCredits} 积分`}>
-              {audioGenerationCredits} 积分
-            </span>
-            <button
-              className={`processor-run-btn ${isAudioGenerationRunning ? 'cancel' : ''}`}
-              onClick={handleAudioGenerate}
+            <GenerateCreditButton
+              cost={audioGenerationCredits}
+              running={isAudioGenerationRunning}
               disabled={!isAudioGenerationRunning && !combinedAudioText.trim()}
-              title={isAudioGenerationRunning ? labels.cancelGeneration : labels.runAudio}
-            >
-              <Icon name={isAudioGenerationRunning ? 'stop' : 'play'} size={15} />
-            </button>
+              onClick={handleAudioGenerate}
+              runLabel={labels.runAudio}
+              cancelLabel={labels.cancelGeneration}
+            />
           </div>
         </div>
       </div>
@@ -2957,16 +2961,15 @@ function GeneratorNode({ id, data }) {
             labels={labels}
             onComplete={nextText => handleChange('user_prompt', appendVoicePromptText(form.user_prompt, nextText))}
           />
-          <span className="text-processor-footer-divider" aria-hidden="true" />
-          <span className="text-processor-multiplier" aria-label="生成倍率">1×</span>
-          <button
-            className={`processor-run-btn ${isTextGenerationRunning ? 'cancel' : ''}`}
-            onClick={handleTextGenerate}
+          <GenerateCreditButton
+            cost={1}
+            running={isTextGenerationRunning}
+            loading={isUploadingReferences}
             disabled={isUploadingReferences || (!isTextGenerationRunning && !(combinedTextPrompt.trim() || referenceImages.length > 0))}
-            title={isTextGenerationRunning ? labels.cancelGeneration : labels.runText}
-          >
-            <Icon name={isTextGenerationRunning ? 'stop' : isUploadingReferences ? 'loader' : 'play'} size={15} />
-          </button>
+            onClick={handleTextGenerate}
+            runLabel={labels.runText}
+            cancelLabel={labels.cancelGeneration}
+          />
         </div>
       </div>
     </div>

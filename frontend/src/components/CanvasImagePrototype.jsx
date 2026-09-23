@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
+import GenerateCreditButton from './GenerateCreditButton';
 
 const OPERATION_COPY = {
   outpaint: { title: '扩图', description: '扩展画布边界，保留主体并为新增区域预留生成空间。' },
@@ -550,13 +551,14 @@ function CanvasImagePrototype({ operation, imageUrl, onCancel, onConfirm, floati
               </select>
             </label>
             <div className="canvas-outpaint-actions">
-              <div className="canvas-outpaint-cost" aria-label={`需要消耗 ${outpaintCredits} 积分`}>
-                <Icon name="aed" size={15} />
-                <span>{outpaintCredits}</span>
-              </div>
-              <button type="button" className="canvas-outpaint-generate" onClick={confirm} disabled={busy} aria-label="生成扩图原型结果">
-                <Icon name={busy ? 'loader' : 'arrowUp'} size={17} />
-              </button>
+              <GenerateCreditButton
+                cost={outpaintCredits}
+                loading={busy}
+                disabled={busy}
+                onClick={confirm}
+                runLabel="生成扩图原型结果"
+                className="canvas-outpaint-generate-credit"
+              />
             </div>
           </div>
         </div>
@@ -633,14 +635,14 @@ function CanvasImagePrototype({ operation, imageUrl, onCancel, onConfirm, floati
         <footer className="inline-perspective-footer canvas-enhance-footer">
           <span />
           <div className="inline-perspective-generation-controls">
-            <div className="canvas-image-prototype-cost" aria-label={`需要消耗 ${enhanceCredits} 积分`}>
-              <Icon name="aed" size={14} />
-              <span>{enhanceCredits}</span>
-            </div>
-            <button type="button" className="canvas-enhance-generate" onClick={confirm} disabled={busy}>
-              <Icon name={busy ? 'loader' : 'arrowUp'} size={16} />
-              <span>{busy ? '生成中' : '生成'}</span>
-            </button>
+            <GenerateCreditButton
+              cost={enhanceCredits}
+              loading={busy}
+              disabled={busy}
+              onClick={confirm}
+              runLabel="生成增强原型结果"
+              className="canvas-enhance-generate-credit"
+            />
           </div>
         </footer>
       </div>
@@ -705,10 +707,14 @@ function CanvasImagePrototype({ operation, imageUrl, onCancel, onConfirm, floati
         <footer className="inline-perspective-footer canvas-resize-footer">
           <span />
           <div className="inline-perspective-generation-controls">
-            <button type="button" className="canvas-resize-generate" onClick={confirm} disabled={busy}>
-              <Icon name={busy ? 'loader' : 'arrowUp'} size={16} />
-              <span>{busy ? '生成中' : '生成'}</span>
-            </button>
+            <GenerateCreditButton
+              cost={prototypeCredits}
+              loading={busy}
+              disabled={busy}
+              onClick={confirm}
+              runLabel="生成调整像素原型结果"
+              className="canvas-resize-generate-credit"
+            />
           </div>
         </footer>
       </div>
@@ -835,12 +841,14 @@ function CanvasImagePrototype({ operation, imageUrl, onCancel, onConfirm, floati
       {prototypeError ? <div className="canvas-image-prototype-error" role="alert">{prototypeError}</div> : null}
       <div className="canvas-image-prototype-actions">
         <button type="button" className="canvas-image-prototype-secondary" onClick={onCancel} disabled={busy}>取消</button>
-        <button type="button" className="canvas-image-prototype-primary" onClick={confirm} disabled={busy}>
-          <Icon name={busy ? 'loader' : 'spark'} size={14} />{busy ? '处理中…' : operation === 'split' ? '切分到画布' : '生成原型结果'}
-        </button>
-        <span className="canvas-image-prototype-cost" aria-label={`需要消耗 ${prototypeCredits} 积分`}>
-          <Icon name="aed" size={13} />{prototypeCredits}
-        </span>
+        <GenerateCreditButton
+          cost={prototypeCredits}
+          loading={busy}
+          disabled={busy}
+          onClick={confirm}
+          runLabel={operation === 'split' ? '切分到画布' : '生成原型结果'}
+          className="canvas-image-prototype-generate-credit"
+        />
       </div>
     </div>
   );

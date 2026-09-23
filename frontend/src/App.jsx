@@ -2095,6 +2095,262 @@ function CanvasProcessorExpandedDialog({
   );
 }
 
+const COMMENT_AUTHOR = {
+  name: '我',
+  avatar: publicAsset('canvas-agent-mascot.png'),
+};
+
+const formatCommentTime = (timestamp) => {
+  if (!timestamp) return '刚刚';
+  const diff = Math.max(0, Date.now() - timestamp);
+  if (diff < 60_000) return '刚刚';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  return `${Math.floor(diff / 86_400_000)} 天前`;
+};
+
+function CanvasCommentLayer({
+  comments,
+  transform,
+  onChangeDraft,
+  onCancelDraft,
+  onConfirmDraft,
+  onEditComment,
+  onDeleteComment,
+  onRequestDeleteComment,
+  onCancelDeleteComment,
+  onToggleCommentMenu,
+  onChangeReplyDraft,
+  onFocusReply,
+  onBlurReply,
+  onAddReply,
+  onToggleReplyMenu,
+  onEditReply,
+  onChangeReplyEditDraft,
+  onSaveReplyEdit,
+  onCancelReplyEdit,
+  onRequestDeleteReply,
+  onCancelDeleteReply,
+  onDeleteReply,
+}) {
+  const [viewportX = 0, viewportY = 0, zoom = 1] = transform || [];
+  return (
+    <div className="canvas-comment-layer nodrag nopan" aria-label="画布评论">
+      {comments.map(comment => (
+        <CanvasCommentPin
+          key={comment.id}
+          comment={comment}
+          style={{
+            left: viewportX + comment.x * zoom,
+            top: viewportY + comment.y * zoom,
+          }}
+          onChangeDraft={onChangeDraft}
+          onCancelDraft={onCancelDraft}
+          onConfirmDraft={onConfirmDraft}
+          onEditComment={onEditComment}
+          onDeleteComment={onDeleteComment}
+          onRequestDeleteComment={onRequestDeleteComment}
+          onCancelDeleteComment={onCancelDeleteComment}
+          onToggleCommentMenu={onToggleCommentMenu}
+          onChangeReplyDraft={onChangeReplyDraft}
+          onFocusReply={onFocusReply}
+          onBlurReply={onBlurReply}
+          onAddReply={onAddReply}
+          onToggleReplyMenu={onToggleReplyMenu}
+          onEditReply={onEditReply}
+          onChangeReplyEditDraft={onChangeReplyEditDraft}
+          onSaveReplyEdit={onSaveReplyEdit}
+          onCancelReplyEdit={onCancelReplyEdit}
+          onRequestDeleteReply={onRequestDeleteReply}
+          onCancelDeleteReply={onCancelDeleteReply}
+          onDeleteReply={onDeleteReply}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CanvasCommentPin({
+  comment,
+  style,
+  onChangeDraft,
+  onCancelDraft,
+  onConfirmDraft,
+  onEditComment,
+  onDeleteComment,
+  onRequestDeleteComment,
+  onCancelDeleteComment,
+  onToggleCommentMenu,
+  onChangeReplyDraft,
+  onFocusReply,
+  onBlurReply,
+  onAddReply,
+  onToggleReplyMenu,
+  onEditReply,
+  onChangeReplyEditDraft,
+  onSaveReplyEdit,
+  onCancelReplyEdit,
+  onRequestDeleteReply,
+  onCancelDeleteReply,
+  onDeleteReply,
+}) {
+  const isEditing = comment.status === 'draft' || comment.status === 'editing';
+  const hasDraftText = Boolean((comment.draftText || '').trim());
+  const hasReplyText = Boolean((comment.replyDraft || '').trim());
+  const replies = Array.isArray(comment.replies) ? comment.replies : [];
+
+  return (
+    <div
+      className={`canvas-comment-pin ${isEditing ? 'is-editing' : ''} ${comment.status === 'saving' ? 'is-saving' : ''}`}
+      style={style}
+      onPointerDown={event => event.stopPropagation()}
+      onClick={event => event.stopPropagation()}
+    >
+      {isEditing ? (
+        <section className="canvas-comment-editor">
+          <textarea
+            value={comment.draftText || ''}
+            autoFocus
+            placeholder="写下评论"
+            onChange={event => onChangeDraft(comment.id, event.target.value)}
+          />
+          <div className="canvas-comment-editor-actions">
+            <button type="button" onClick={() => onCancelDraft(comment.id)}>取消</button>
+            <button type="button" className="primary" disabled={!hasDraftText} onClick={() => onConfirmDraft(comment.id)}>确定</button>
+          </div>
+        </section>
+      ) : comment.status === 'saving' ? (
+        <button type="button" className="canvas-comment-avatar is-loading" aria-label="评论保存中">
+          <Icon name="loader" size={18} />
+        </button>
+      ) : (
+        <>
+          <button type="button" className="canvas-comment-avatar" aria-label="查看评论">
+            <img src={COMMENT_AUTHOR.avatar} alt="" />
+          </button>
+          <section className="canvas-comment-bubble">
+            <header className="canvas-comment-bubble-header">
+              <img src={COMMENT_AUTHOR.avatar} alt="" />
+              <div>
+                <strong>{COMMENT_AUTHOR.name}</strong>
+                <span>{formatCommentTime(comment.createdAt)}</span>
+              </div>
+              <div className="canvas-comment-more-wrap">
+                <button type="button" className="canvas-comment-more" aria-label="评论更多操作" onClick={() => onToggleCommentMenu(comment.id)}>
+                  <Icon name="more" size={17} />
+                </button>
+                {comment.menuOpen ? (
+                  <div className="canvas-comment-menu">
+                    <button type="button" onClick={() => onEditComment(comment.id)}>编辑</button>
+                    <button type="button" className="danger" onClick={() => onRequestDeleteComment(comment.id)}>删除</button>
+                  </div>
+                ) : null}
+                {comment.confirmDelete ? (
+                  <div className="canvas-comment-confirm">
+                    <span>确定删除？</span>
+                    <button type="button" onClick={() => onCancelDeleteComment(comment.id)}>取消</button>
+                    <button type="button" className="danger" onClick={() => onDeleteComment(comment.id)}>确定</button>
+                  </div>
+                ) : null}
+              </div>
+            </header>
+            <div className="canvas-comment-content">{comment.text}</div>
+            {replies.length > 0 ? (
+              <div className="canvas-comment-replies">
+                {replies.map(reply => (
+                  <CanvasCommentReply
+                    key={reply.id}
+                    commentId={comment.id}
+                    reply={reply}
+                    onToggleReplyMenu={onToggleReplyMenu}
+                    onEditReply={onEditReply}
+                    onChangeReplyEditDraft={onChangeReplyEditDraft}
+                    onSaveReplyEdit={onSaveReplyEdit}
+                    onCancelReplyEdit={onCancelReplyEdit}
+                    onRequestDeleteReply={onRequestDeleteReply}
+                    onCancelDeleteReply={onCancelDeleteReply}
+                    onDeleteReply={onDeleteReply}
+                  />
+                ))}
+              </div>
+            ) : null}
+            <div className={`canvas-comment-reply-box ${comment.replyFocused ? 'is-focused' : ''}`}>
+              <textarea
+                value={comment.replyDraft || ''}
+                placeholder="回复"
+                onFocus={() => onFocusReply(comment.id)}
+                onBlur={() => onBlurReply(comment.id)}
+                onChange={event => onChangeReplyDraft(comment.id, event.target.value)}
+              />
+              {comment.replyFocused || hasReplyText ? (
+                <button type="button" disabled={!hasReplyText} onMouseDown={event => event.preventDefault()} onClick={() => onAddReply(comment.id)}>
+                  回复
+                </button>
+              ) : null}
+            </div>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+function CanvasCommentReply({
+  commentId,
+  reply,
+  onToggleReplyMenu,
+  onEditReply,
+  onChangeReplyEditDraft,
+  onSaveReplyEdit,
+  onCancelReplyEdit,
+  onRequestDeleteReply,
+  onCancelDeleteReply,
+  onDeleteReply,
+}) {
+  const isEditing = reply.editing;
+  const canSave = Boolean((reply.editDraft || '').trim());
+  return (
+    <article className="canvas-comment-reply">
+      <img src={COMMENT_AUTHOR.avatar} alt="" />
+      <div className="canvas-comment-reply-body">
+        <header>
+          <strong>{COMMENT_AUTHOR.name}</strong>
+          <span>{formatCommentTime(reply.createdAt)}</span>
+          <div className="canvas-comment-more-wrap">
+            <button type="button" className="canvas-comment-more" aria-label="回复更多操作" onClick={() => onToggleReplyMenu(commentId, reply.id)}>
+              <Icon name="more" size={15} />
+            </button>
+            {reply.menuOpen ? (
+              <div className="canvas-comment-menu">
+                <button type="button" onClick={() => onEditReply(commentId, reply.id)}>编辑</button>
+                <button type="button" className="danger" onClick={() => onRequestDeleteReply(commentId, reply.id)}>删除</button>
+              </div>
+            ) : null}
+            {reply.confirmDelete ? (
+              <div className="canvas-comment-confirm">
+                <span>确定删除？</span>
+                <button type="button" onClick={() => onCancelDeleteReply(commentId, reply.id)}>取消</button>
+                <button type="button" className="danger" onClick={() => onDeleteReply(commentId, reply.id)}>确定</button>
+              </div>
+            ) : null}
+          </div>
+        </header>
+        {isEditing ? (
+          <div className="canvas-comment-reply-edit">
+            <textarea value={reply.editDraft || ''} onChange={event => onChangeReplyEditDraft(commentId, reply.id, event.target.value)} autoFocus />
+            <div>
+              <button type="button" onClick={() => onCancelReplyEdit(commentId, reply.id)}>取消</button>
+              <button type="button" className="primary" disabled={!canSave} onClick={() => onSaveReplyEdit(commentId, reply.id)}>确定</button>
+            </div>
+          </div>
+        ) : (
+          <p>{reply.text}</p>
+        )}
+      </div>
+    </article>
+  );
+}
+
 const SNAP_ENABLED_STORAGE_KEY = 'ai-canvas.snap-enabled';
 let runtimeNodeSequence = 0;
 
@@ -2224,6 +2480,8 @@ export function CanvasFlow({
   const [nodeSearchOpen, setNodeSearchOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotPickingNode, setCopilotPickingNode] = useState(false);
+  const [commentMode, setCommentMode] = useState(false);
+  const [canvasComments, setCanvasComments] = useState([]);
   const [templateRunnerOpen, setTemplateRunnerOpen] = useState(false);
   const [expandedProcessorOverlay, setExpandedProcessorOverlay] = useState(null);
   const [isSpacePanning, setIsSpacePanning] = useState(false);
@@ -2253,6 +2511,7 @@ export function CanvasFlow({
   const stableNodeTypesRef = useRef(nodeTypes);
   const stableEdgeTypesRef = useRef(edgeTypes);
   const canvasChangeTimerRef = useRef(null);
+  const commentSavingTimersRef = useRef(new Map());
   const pendingCanvasSnapshotRef = useRef({ nodes: initialGraph.nodes, edges: initialGraph.edges });
   const { getViewport, screenToFlowPosition, setViewport, fitView } = useReactFlow();
   const viewportTransform = useStore(state => state.transform);
@@ -2294,6 +2553,227 @@ const ALIGN_SNAP_THRESHOLD = 5;
     }
     setMiniMapOpen(current => !current);
   }, [miniMapAvailable]);
+
+  useEffect(() => () => {
+    commentSavingTimersRef.current.forEach(timer => window.clearTimeout(timer));
+    commentSavingTimersRef.current.clear();
+  }, []);
+
+  const updateCanvasComment = useCallback((commentId, updater) => {
+    setCanvasComments(current => current.map(comment => (
+      comment.id === commentId ? updater(comment) : comment
+    )));
+  }, []);
+
+  const createCanvasCommentAtEvent = useCallback((event) => {
+    const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const id = `comment_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    setCanvasComments(current => [
+      ...current.filter(comment => comment.status !== 'draft'),
+      {
+        id,
+        x: position.x,
+        y: position.y,
+        text: '',
+        draftText: '',
+        originalText: '',
+        status: 'draft',
+        createdAt: Date.now(),
+        replies: [],
+        replyDraft: '',
+        replyFocused: false,
+        menuOpen: false,
+        confirmDelete: false,
+      },
+    ]);
+  }, [screenToFlowPosition]);
+
+  const changeCommentDraft = useCallback((commentId, value) => {
+    updateCanvasComment(commentId, comment => ({ ...comment, draftText: value }));
+  }, [updateCanvasComment]);
+
+  const cancelCommentDraft = useCallback((commentId) => {
+    setCanvasComments(current => current.flatMap(comment => {
+      if (comment.id !== commentId) return [comment];
+      if (comment.status === 'editing') {
+        return [{
+          ...comment,
+          status: 'saved',
+          draftText: comment.text,
+          originalText: '',
+        }];
+      }
+      return [];
+    }));
+  }, []);
+
+  const confirmCommentDraft = useCallback((commentId) => {
+    const now = Date.now();
+    let shouldSchedule = false;
+    setCanvasComments(current => current.map(comment => {
+      if (comment.id !== commentId) return comment;
+      const nextText = String(comment.draftText || '').trim();
+      if (!nextText) return comment;
+      if (comment.status === 'editing') {
+        return {
+          ...comment,
+          text: nextText,
+          draftText: nextText,
+          status: 'saved',
+          menuOpen: false,
+          confirmDelete: false,
+        };
+      }
+      shouldSchedule = true;
+      return {
+        ...comment,
+        text: nextText,
+        draftText: nextText,
+        status: 'saving',
+        createdAt: now,
+      };
+    }));
+    if (shouldSchedule) {
+      if (commentSavingTimersRef.current.has(commentId)) {
+        window.clearTimeout(commentSavingTimersRef.current.get(commentId));
+      }
+      const timer = window.setTimeout(() => {
+        updateCanvasComment(commentId, comment => ({ ...comment, status: 'saved' }));
+        commentSavingTimersRef.current.delete(commentId);
+      }, 2000);
+      commentSavingTimersRef.current.set(commentId, timer);
+    }
+  }, [updateCanvasComment]);
+
+  const editComment = useCallback((commentId) => {
+    updateCanvasComment(commentId, comment => ({
+      ...comment,
+      status: 'editing',
+      draftText: comment.text,
+      originalText: comment.text,
+      menuOpen: false,
+      confirmDelete: false,
+    }));
+  }, [updateCanvasComment]);
+
+  const toggleCommentMenu = useCallback((commentId) => {
+    setCanvasComments(current => current.map(comment => ({
+      ...comment,
+      menuOpen: comment.id === commentId ? !comment.menuOpen : false,
+      confirmDelete: comment.id === commentId ? comment.confirmDelete : false,
+      replies: (comment.replies || []).map(reply => ({ ...reply, menuOpen: false, confirmDelete: false })),
+    })));
+  }, []);
+
+  const requestDeleteComment = useCallback((commentId) => {
+    updateCanvasComment(commentId, comment => ({ ...comment, menuOpen: false, confirmDelete: true }));
+  }, [updateCanvasComment]);
+
+  const cancelDeleteComment = useCallback((commentId) => {
+    updateCanvasComment(commentId, comment => ({ ...comment, confirmDelete: false }));
+  }, [updateCanvasComment]);
+
+  const deleteComment = useCallback((commentId) => {
+    if (commentSavingTimersRef.current.has(commentId)) {
+      window.clearTimeout(commentSavingTimersRef.current.get(commentId));
+      commentSavingTimersRef.current.delete(commentId);
+    }
+    setCanvasComments(current => current.filter(comment => comment.id !== commentId));
+  }, []);
+
+  const changeCommentReplyDraft = useCallback((commentId, value) => {
+    updateCanvasComment(commentId, comment => ({ ...comment, replyDraft: value }));
+  }, [updateCanvasComment]);
+
+  const focusCommentReply = useCallback((commentId) => {
+    updateCanvasComment(commentId, comment => ({ ...comment, replyFocused: true }));
+  }, [updateCanvasComment]);
+
+  const blurCommentReply = useCallback((commentId) => {
+    updateCanvasComment(commentId, comment => ({
+      ...comment,
+      replyFocused: Boolean(String(comment.replyDraft || '').trim()),
+    }));
+  }, [updateCanvasComment]);
+
+  const addCommentReply = useCallback((commentId) => {
+    updateCanvasComment(commentId, comment => {
+      const text = String(comment.replyDraft || '').trim();
+      if (!text) return comment;
+      return {
+        ...comment,
+        replyDraft: '',
+        replyFocused: false,
+        replies: [
+          ...(comment.replies || []),
+          {
+            id: `reply_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+            text,
+            editDraft: text,
+            createdAt: Date.now(),
+            menuOpen: false,
+            confirmDelete: false,
+          },
+        ],
+      };
+    });
+  }, [updateCanvasComment]);
+
+  const updateCommentReply = useCallback((commentId, replyId, updater) => {
+    updateCanvasComment(commentId, comment => ({
+      ...comment,
+      replies: (comment.replies || []).map(reply => (
+        reply.id === replyId ? updater(reply) : reply
+      )),
+    }));
+  }, [updateCanvasComment]);
+
+  const toggleCommentReplyMenu = useCallback((commentId, replyId) => {
+    updateCanvasComment(commentId, comment => ({
+      ...comment,
+      menuOpen: false,
+      replies: (comment.replies || []).map(reply => ({
+        ...reply,
+        menuOpen: reply.id === replyId ? !reply.menuOpen : false,
+        confirmDelete: reply.id === replyId ? reply.confirmDelete : false,
+      })),
+    }));
+  }, [updateCanvasComment]);
+
+  const editCommentReply = useCallback((commentId, replyId) => {
+    updateCommentReply(commentId, replyId, reply => ({ ...reply, editing: true, editDraft: reply.text, menuOpen: false, confirmDelete: false }));
+  }, [updateCommentReply]);
+
+  const changeCommentReplyEditDraft = useCallback((commentId, replyId, value) => {
+    updateCommentReply(commentId, replyId, reply => ({ ...reply, editDraft: value }));
+  }, [updateCommentReply]);
+
+  const saveCommentReplyEdit = useCallback((commentId, replyId) => {
+    updateCommentReply(commentId, replyId, reply => {
+      const text = String(reply.editDraft || '').trim();
+      if (!text) return reply;
+      return { ...reply, text, editDraft: text, editing: false };
+    });
+  }, [updateCommentReply]);
+
+  const cancelCommentReplyEdit = useCallback((commentId, replyId) => {
+    updateCommentReply(commentId, replyId, reply => ({ ...reply, editDraft: reply.text, editing: false }));
+  }, [updateCommentReply]);
+
+  const requestDeleteCommentReply = useCallback((commentId, replyId) => {
+    updateCommentReply(commentId, replyId, reply => ({ ...reply, menuOpen: false, confirmDelete: true }));
+  }, [updateCommentReply]);
+
+  const cancelDeleteCommentReply = useCallback((commentId, replyId) => {
+    updateCommentReply(commentId, replyId, reply => ({ ...reply, confirmDelete: false }));
+  }, [updateCommentReply]);
+
+  const deleteCommentReply = useCallback((commentId, replyId) => {
+    updateCanvasComment(commentId, comment => ({
+      ...comment,
+      replies: (comment.replies || []).filter(reply => reply.id !== replyId),
+    }));
+  }, [updateCanvasComment]);
 
   useEffect(() => {
     if (!canvasStateRef) return undefined;
@@ -4256,6 +4736,12 @@ const ALIGN_SNAP_THRESHOLD = 5;
     if (nodeDragActiveRef.current) {
       return;
     }
+    if (commentMode) {
+      event.stopPropagation();
+      event.preventDefault();
+      createCanvasCommentAtEvent(event);
+      return;
+    }
     if (isSpacePanning) {
       event.stopPropagation();
       event.preventDefault();
@@ -4311,7 +4797,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
     setActiveSmartSplitterId(node.type === 'smartSplitter' ? node.id : null);
     highlightEdges(node.id);
     bringToFront(node.id);
-  }, [applySelectedNodeIds, bringToFront, copilotOpen, copilotPickingNode, highlightEdges, isSpacePanning, setNodes, updateGeneratorVisibility]);
+  }, [applySelectedNodeIds, bringToFront, commentMode, copilotOpen, copilotPickingNode, createCanvasCommentAtEvent, highlightEdges, isSpacePanning, setNodes, updateGeneratorVisibility]);
 
   /* ---- 对齐辅助线 ---- */
   const nodeEdges = useCallback((node) => {
@@ -11683,6 +12169,12 @@ const ALIGN_SNAP_THRESHOLD = 5;
 
   // 单击空白画布关闭菜单并隐藏处理器
   const onPaneClick = useCallback((event) => {
+    if (commentMode) {
+      event.stopPropagation();
+      event.preventDefault();
+      createCanvasCommentAtEvent(event);
+      return;
+    }
     if (isSpacePanning) {
       return;
     }
@@ -11706,7 +12198,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
     updateGeneratorVisibility(null);
     setActiveSmartSplitterId(null);
     resetEdgeStyles();
-  }, [isSpacePanning, updateGeneratorVisibility, resetEdgeStyles]);
+  }, [commentMode, createCanvasCommentAtEvent, isSpacePanning, updateGeneratorVisibility, resetEdgeStyles]);
 
   const onPaneContextMenu = useCallback((event) => {
     event.preventDefault();
@@ -12987,7 +13479,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
     <>
       <div
         ref={canvasContainerRef}
-        className={`canvas-flow-shell${isSpacePanning ? ' space-panning' : ''}${copilotPickingNode ? ' copilot-picking-node' : ''}${copilotOpen ? ' copilot-open' : ''}`}
+        className={`canvas-flow-shell${isSpacePanning ? ' space-panning' : ''}${copilotPickingNode ? ' copilot-picking-node' : ''}${copilotOpen ? ' copilot-open' : ''}${commentMode ? ' comment-mode' : ''}`}
         onPointerDownCapture={handleCanvasPointerDownCapture}
         onClickCapture={handleCanvasClickCapture}
       >
@@ -13023,16 +13515,16 @@ const ALIGN_SNAP_THRESHOLD = 5;
           onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
           zoomOnDoubleClick={false}
-          panOnDrag={isSpacePanning ? true : [1]}
+          panOnDrag={commentMode ? false : isSpacePanning ? true : [1]}
           panActivationKeyCode={null}
           panOnScroll
-          nodesDraggable={!isSpacePanning}
-          nodesConnectable={!isSpacePanning}
-          elementsSelectable={!isSpacePanning}
+          nodesDraggable={!isSpacePanning && !commentMode}
+          nodesConnectable={!isSpacePanning && !commentMode}
+          elementsSelectable={!isSpacePanning && !commentMode}
           minZoom={CANVAS_MIN_ZOOM}
           maxZoom={CANVAS_MAX_ZOOM}
-          selectionOnDrag={!isSpacePanning}
-          selectNodesOnDrag={!isSpacePanning}
+          selectionOnDrag={!isSpacePanning && !commentMode}
+          selectNodesOnDrag={!isSpacePanning && !commentMode}
           selectionMode={SelectionMode.Partial}
           zoomOnPinch
           zoomActivationKeyCode={['Control', 'Meta']}
@@ -13065,6 +13557,30 @@ const ALIGN_SNAP_THRESHOLD = 5;
             />
           )}
         </ReactFlow>
+        <CanvasCommentLayer
+          comments={canvasComments}
+          transform={viewportTransform}
+          onChangeDraft={changeCommentDraft}
+          onCancelDraft={cancelCommentDraft}
+          onConfirmDraft={confirmCommentDraft}
+          onEditComment={editComment}
+          onDeleteComment={deleteComment}
+          onRequestDeleteComment={requestDeleteComment}
+          onCancelDeleteComment={cancelDeleteComment}
+          onToggleCommentMenu={toggleCommentMenu}
+          onChangeReplyDraft={changeCommentReplyDraft}
+          onFocusReply={focusCommentReply}
+          onBlurReply={blurCommentReply}
+          onAddReply={addCommentReply}
+          onToggleReplyMenu={toggleCommentReplyMenu}
+          onEditReply={editCommentReply}
+          onChangeReplyEditDraft={changeCommentReplyEditDraft}
+          onSaveReplyEdit={saveCommentReplyEdit}
+          onCancelReplyEdit={cancelCommentReplyEdit}
+          onRequestDeleteReply={requestDeleteCommentReply}
+          onCancelDeleteReply={cancelDeleteCommentReply}
+          onDeleteReply={deleteCommentReply}
+        />
         {nodes.length === 0 && (
           <div className="canvas-empty-state" aria-label={canvasText.createFreely}>
             <div className="canvas-empty-state-heading">
@@ -13298,6 +13814,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         labels={canvasText}
         materialOpen={materialDrawerOpen}
         characterOpen={characterDrawerOpen}
+        commentMode={commentMode}
         historyOpen={historyDrawerOpen}
         appsOpen={templateRunnerOpen}
         shortcutsOpen={shortcutsOpen}
@@ -13311,6 +13828,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setTemplateRunnerOpen(false);
           setCopilotOpen(false);
           setCopilotPickingNode(false);
+          setCommentMode(false);
         }}
         onOpenNodeSearch={() => {
           setNodeSearchOpen(true);
@@ -13322,6 +13840,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setTemplateRunnerOpen(false);
           setCopilotOpen(false);
           setCopilotPickingNode(false);
+          setCommentMode(false);
         }}
         onToggleMaterials={() => {
           setMaterialDrawerOpen(open => !open);
@@ -13331,6 +13850,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setTemplateRunnerOpen(false);
           setCopilotOpen(false);
           setCopilotPickingNode(false);
+          setCommentMode(false);
         }}
         onToggleCharacters={() => {
           setCharacterDrawerOpen(open => !open);
@@ -13340,6 +13860,20 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setTemplateRunnerOpen(false);
           setCopilotOpen(false);
           setCopilotPickingNode(false);
+          setCommentMode(false);
+        }}
+        onToggleComments={() => {
+          setCommentMode(open => !open);
+          setMenu(null);
+          setMaterialDrawerOpen(false);
+          setCharacterDrawerOpen(false);
+          setHistoryDrawerOpen(false);
+          setTaskCenterOpen(false);
+          setTemplateRunnerOpen(false);
+          setCopilotOpen(false);
+          setCopilotPickingNode(false);
+          updateGeneratorVisibility(null);
+          setActiveSmartSplitterId(null);
         }}
         onToggleHistory={() => {
           setHistoryDrawerOpen(open => !open);
@@ -13349,6 +13883,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setTemplateRunnerOpen(false);
           setCopilotOpen(false);
           setCopilotPickingNode(false);
+          setCommentMode(false);
         }}
         onToggleApps={() => {
           setTemplateRunnerOpen(open => !open);
@@ -13358,6 +13893,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setTaskCenterOpen(false);
           setCopilotOpen(false);
           setCopilotPickingNode(false);
+          setCommentMode(false);
         }}
         onAddNode={(type) => addNode(type, screenToFlowPosition({
           x: (canvasContainerRef.current?.getBoundingClientRect()?.left || 0) + (canvasContainerRef.current?.getBoundingClientRect()?.width || window.innerWidth) / 2,

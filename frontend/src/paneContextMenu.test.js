@@ -37,6 +37,7 @@ test('double-click canvas add menu matches the grouped creation menu', () => {
       { kind: undefined, label: '智能拆分器', action: undefined, nodeType: 'smartSplitter' },
       { kind: undefined, label: '分镜工作台', action: undefined, nodeType: 'generateStoryboardScript' },
       { kind: undefined, label: '视频编辑器', action: undefined, nodeType: 'videoEditor' },
+      { kind: undefined, label: '图片编辑器', action: undefined, nodeType: 'imageEditor' },
     ],
   );
 });
@@ -61,6 +62,7 @@ test('assistant tool submenu contains the requested tools', () => {
       { label: '智能拆分器', nodeType: 'smartSplitter' },
       { label: '分镜工作台', nodeType: 'generateStoryboardScript' },
       { label: '视频编辑器', nodeType: 'videoEditor' },
+      { label: '图片编辑器', nodeType: 'imageEditor' },
     ],
   );
 });
