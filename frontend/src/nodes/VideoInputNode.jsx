@@ -26,6 +26,7 @@ function VideoInputNode({ id, data, selected }) {
   const onUpdateOutputs = data?.onUpdateOutputs;
   const title = data?.label || '视频';
   const isMultiSelected = Boolean(data?.isMultiSelected);
+  const isNodeDragging = Boolean(data?.isNodeDragging);
 
   useEffect(() => {
     if (onVideosChange) {
@@ -104,6 +105,7 @@ function VideoInputNode({ id, data, selected }) {
 
   const hasMedia = videos.length > 0 || uploads.length > 0;
   const showSelectedToolbar = !isMultiSelected
+    && !isNodeDragging
     && !isTitleEditing
     && selected;
 
@@ -115,7 +117,7 @@ function VideoInputNode({ id, data, selected }) {
     >
       {hasMedia && (
         <NodeResizer
-          isVisible={!isMultiSelected && (selected || isHovering)}
+          isVisible={!isNodeDragging && !isMultiSelected && (selected || isHovering)}
           minWidth={180}
           minHeight={130}
           keepAspectRatio

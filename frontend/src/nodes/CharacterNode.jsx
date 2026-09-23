@@ -1167,7 +1167,7 @@ function CharacterNode({ id, data, selected }) {
       <Handle type="source" position={Position.Right} style={{ background: 'var(--success-alt)' }} />
       <InteractiveHandle side="right" nodeId={id} onDragCreate={data?.onInteractiveDragCreate} />
       <NodeHoverToolbar
-        hidden={isMultiSelected || selected || isInlineEditing}
+        hidden={data?.isNodeDragging || isMultiSelected || selected || isInlineEditing}
         tagColors={data?.tagColors}
         onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
         onDelete={() => data?.onDeleteNode?.(id)}

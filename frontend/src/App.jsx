@@ -189,7 +189,7 @@ import {
   getResultCoverImageReference,
 } from './generatorConnectionInputs';
 import { resolveResultNodeLabel } from './resultNodeLabels';
-import { PANE_CONTEXT_MENU } from './paneContextMenu';
+import { CANVAS_ADD_MENU, CANVAS_NODE_CREATE_MENU, PANE_CONTEXT_MENU } from './paneContextMenu';
 import {
   getTaskMediaAddresses,
   getTaskRenderableUrls,
@@ -1550,15 +1550,7 @@ const getDefaultNodeLabel = (node) => {
   return node.data?.label || '节点';
 };
 
-const CONTEXT_MENU = [
-  {
-    label: '生成',
-    icon: 'spark',
-    children: PANE_CONTEXT_MENU,
-  },
-];
-
-const NODE_CREATE_MENU = PANE_CONTEXT_MENU.filter(item => item.action !== 'upload-media');
+const NODE_CREATE_MENU = CANVAS_NODE_CREATE_MENU;
 
 // 右侧把手拖拽到空白处的菜单
 const OUTPUT_DRAG_CREATE_MENU = NODE_CREATE_MENU;
@@ -2640,6 +2632,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
   ));
   const [expandedResultId, setExpandedResultId] = useState(null);
   const [isSelectionBoxActive, setIsSelectionBoxActive] = useState(false);
+  const [nodeDragActive, setNodeDragActive] = useState(false);
   const [activeSmartSplitterId, setActiveSmartSplitterId] = useState(() => (
     initialGraph.nodes.find(node => node.type === 'smartSplitter' && node.selected)?.id || null
   ));
@@ -2661,6 +2654,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
   const ignoreNextPasteRef = useRef(false); // 节点粘贴后跳过 paste 事件
   const optionDragCopyRef = useRef(null);
   const optionDragSelectionSnapshotRef = useRef(null);
+  const nodeDragActiveRef = useRef(false);
+  const nodeDragReleaseFrameRef = useRef(0);
   const pasteNodesRef = useRef(null);
   const copySelectedNodesRef = useRef(null);
   const runSmartSplitterRef = useRef(null);
@@ -2773,6 +2768,9 @@ const ALIGN_SNAP_THRESHOLD = 5;
     nodeFailureFlashTimersRef.current.clear();
     seedanceComplianceTimersRef.current.forEach(timer => window.clearTimeout(timer));
     seedanceComplianceTimersRef.current.clear();
+    if (nodeDragReleaseFrameRef.current) {
+      window.cancelAnimationFrame(nodeDragReleaseFrameRef.current);
+    }
   }, []);
 
   useEffect(() => {
@@ -3630,6 +3628,48 @@ const ALIGN_SNAP_THRESHOLD = 5;
     setActiveResultId(nextResultId);
   }, []);
 
+  const hasActiveMultiSelection = useMemo(() => (
+    getSelectableSelectedNodeIds(nodes).size > 1
+  ), [nodes]);
+
+  useEffect(() => {
+    if (nodeDragActive || isSelectionBoxActive || hasActiveMultiSelection) {
+      if (activeResultRef.current) {
+        updateGeneratorVisibility(null);
+      }
+      return;
+    }
+    const selectedComposerNodes = nodes.filter(node => (
+      node.selected
+      && shouldOpenResultComposer(node)
+    ));
+    const nextResultId = selectedComposerNodes.length === 1 ? selectedComposerNodes[0].id : null;
+    if (activeResultRef.current !== nextResultId) {
+      updateGeneratorVisibility(nextResultId);
+    }
+  }, [hasActiveMultiSelection, isSelectionBoxActive, nodeDragActive, nodes, updateGeneratorVisibility]);
+
+  const beginNodeDragInteraction = useCallback(() => {
+    if (nodeDragReleaseFrameRef.current) {
+      window.cancelAnimationFrame(nodeDragReleaseFrameRef.current);
+      nodeDragReleaseFrameRef.current = 0;
+    }
+    nodeDragActiveRef.current = true;
+    setNodeDragActive(true);
+    updateGeneratorVisibility(null);
+  }, [updateGeneratorVisibility]);
+
+  const endNodeDragInteraction = useCallback(() => {
+    if (nodeDragReleaseFrameRef.current) {
+      window.cancelAnimationFrame(nodeDragReleaseFrameRef.current);
+    }
+    nodeDragReleaseFrameRef.current = window.requestAnimationFrame(() => {
+      nodeDragReleaseFrameRef.current = 0;
+      nodeDragActiveRef.current = false;
+      setNodeDragActive(false);
+    });
+  }, []);
+
   const focusCopilotTargetNode = useCallback((nodeId) => {
     if (!nodesRef.current.some(node => node.id === nodeId && isSelectableCanvasNode(node))) return;
     setNodes(current => current.map(node => ({
@@ -3824,6 +3864,14 @@ const ALIGN_SNAP_THRESHOLD = 5;
   const onGroupNameChange = useCallback((groupId, label) => {
     setNodes(nds => nds.map(node => (
       node.id === groupId ? { ...node, data: { ...node.data, label } } : node
+    )));
+  }, [setNodes]);
+
+  const onGroupBackgroundChange = useCallback((groupId, colorId) => {
+    setNodes(nds => nds.map(node => (
+      node.id === groupId
+        ? { ...node, data: { ...node.data, groupBackgroundColor: colorId === 'none' ? '' : colorId } }
+        : node
     )));
   }, [setNodes]);
 
@@ -4155,6 +4203,9 @@ const ALIGN_SNAP_THRESHOLD = 5;
 
   // 点击 result 节点 → 显示对应 generator
   const onNodeClick = useCallback((event, node) => {
+    if (nodeDragActiveRef.current) {
+      return;
+    }
     if (isSpacePanning) {
       event.stopPropagation();
       event.preventDefault();
@@ -4304,6 +4355,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
   }, []);
 
   const onNodeDragStart = useCallback((event, draggedNode) => {
+    beginNodeDragInteraction();
     optionDragCopyRef.current = null;
     setOptionDragGhost(null);
     const selectionSnapshot = optionDragSelectionSnapshotRef.current;
@@ -4376,7 +4428,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
       count: sourceCount,
       items: ghostItems,
     });
-  }, [getDragClientPoint, screenToFlowPosition]);
+  }, [beginNodeDragInteraction, getDragClientPoint, screenToFlowPosition]);
 
   const onNodeDrag = useCallback((event, draggedNode) => {
     const optionCopy = optionDragCopyRef.current;
@@ -4429,6 +4481,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
 
   const onNodeDragStop = useCallback((event, draggedNode) => {
     setAlignmentGuides(null);
+    endNodeDragInteraction();
     const optionCopy = optionDragCopyRef.current;
     if (optionCopy?.sourceIds?.has(draggedNode?.id)) {
       optionDragCopyRef.current = null;
@@ -4572,7 +4625,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         return node;
       });
     });
-  }, [getDragClientPoint, screenToFlowPosition, setNodes]);
+  }, [endNodeDragInteraction, getDragClientPoint, screenToFlowPosition, setNodes]);
 
   // 同步上游节点 → 对应处理器
   const syncPromptToGenerators = useCallback(() => {
@@ -11465,13 +11518,23 @@ const ALIGN_SNAP_THRESHOLD = 5;
   }, [addMaterialToCanvas, addWorkflowTemplateToCanvas, createGeneratePair, pendingInjectRef]);
 
   // 单击空白画布关闭菜单并隐藏处理器
-  const onPaneClick = useCallback(() => {
+  const onPaneClick = useCallback((event) => {
     if (isSpacePanning) {
       return;
     }
     // 刚拖拽连线结束，不关闭菜单
     if (justConnectedRef.current) {
       justConnectedRef.current = false;
+      return;
+    }
+    if (event?.detail >= 2) {
+      setMenu({
+        x: event.clientX || event.pageX || window.innerWidth / 2,
+        y: event.clientY || event.pageY || window.innerHeight / 2,
+        items: CANVAS_ADD_MENU,
+        parentLabel: '添加',
+        submenu: null,
+      });
       return;
     }
     setMenu(null);
@@ -11512,6 +11575,18 @@ const ALIGN_SNAP_THRESHOLD = 5;
       pendingPaneUploadPositionRef.current = screenToFlowPosition({ x: menu.x, y: menu.y });
       setMenu(null);
       paneUploadInputRef.current?.click();
+    } else if (item.action === 'open-materials') {
+      setMenu(null);
+      setMaterialDrawerOpen(true);
+    } else if (item.action === 'undo-canvas') {
+      setMenu(null);
+      undoCanvas();
+    } else if (item.action === 'redo-canvas') {
+      setMenu(null);
+      redoCanvas();
+    } else if (item.action === 'paste-nodes') {
+      setMenu(null);
+      pasteNodesRef.current?.();
     } else if (item.nodeType) {
       const dropPosition = screenToFlowPosition({ x: menu.x, y: menu.y });
       const isInputDrag = menu?.dragSide === 'left';
@@ -11526,7 +11601,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         : {};
       addNode(item.nodeType, position, extra, options);
     }
-  }, [menu, screenToFlowPosition, addNode]);
+  }, [menu, redoCanvas, screenToFlowPosition, addNode, undoCanvas]);
 
   const handleQuickNodeClick = useCallback((item, e) => {
     e.stopPropagation();
@@ -12036,6 +12111,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         const isMultiSelected = shouldHideNodeResize(node);
         return getCachedRenderNode(node, [
           node.data?.label || '',
+          node.data?.groupBackgroundColor || '',
           minSize.width,
           minSize.height,
           isMultiSelected,
@@ -12045,6 +12121,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           openSaveTemplateDialog,
           onGroupResize,
           onGroupNameChange,
+          onGroupBackgroundChange,
         ], () => ({
           ...node,
           zIndex: 0,
@@ -12060,6 +12137,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
             onSaveTemplate: openSaveTemplateDialog,
             onGroupResize,
             onGroupNameChange,
+            onGroupBackgroundChange,
           },
         }));
       }
@@ -12263,11 +12341,12 @@ const ALIGN_SNAP_THRESHOLD = 5;
           : node.style,
         data: {
           ...node.data,
+          isNodeDragging: nodeDragActive || isSelectionBoxActive,
           onNodeTagToggle,
         },
       };
     });
-  }, [activeResultId, activeTagColorId, createVideoEditorFromResult, deleteCanvasNode, duplicateNodeFromToolbar, edges, expandedProcessorOverlay, getGroupMinimumSize, groupSelectionFromToolbar, handleRunGroup, isSelectionBoxActive, nodes, onCaptureVideoFrame, onGroupNameChange, onGroupResize, onNodeTagToggle, onResultImageDimensionsChange, onResultImageUpload, onResultNodeDragByScreenDelta, onResultTextBackgroundChange, onResultTextChange, onResultTextEditingChange, onResultVideoDimensionsChange, onResultVideoUpload, onVideoQuickTrimChange, openSaveTemplateDialog, ungroupNodes]);
+  }, [activeResultId, activeTagColorId, createVideoEditorFromResult, deleteCanvasNode, duplicateNodeFromToolbar, edges, expandedProcessorOverlay, getGroupMinimumSize, groupSelectionFromToolbar, handleRunGroup, isSelectionBoxActive, nodeDragActive, nodes, onCaptureVideoFrame, onGroupBackgroundChange, onGroupNameChange, onGroupResize, onNodeTagToggle, onResultImageDimensionsChange, onResultImageUpload, onResultNodeDragByScreenDelta, onResultTextBackgroundChange, onResultTextChange, onResultTextEditingChange, onResultVideoDimensionsChange, onResultVideoUpload, onVideoQuickTrimChange, openSaveTemplateDialog, ungroupNodes]);
 
   // 组合背景、连线、内容节点依次位于 0/1/2 层。连线不会再被组合色块遮挡，
   // 同时实际节点和节点里的交互圆点仍稳定显示在线条之上。
@@ -12577,12 +12656,15 @@ const ALIGN_SNAP_THRESHOLD = 5;
   const renderedMenuPosition = useMemo(() => {
     if (!menu) return null;
     const isPaneMenu = menu.items === PANE_CONTEXT_MENU;
-    const isDragCreateMenu = menu.items === NODE_CREATE_MENU;
+    const isDragCreateMenu = menu.items === NODE_CREATE_MENU || menu.items === CANVAS_ADD_MENU;
     const menuWidth = isPaneMenu || isDragCreateMenu ? 220 : 184;
     const menuColumns = menu.items.some(item => item.children) ? 2 : 1;
     const dividerHeight = menu.items.filter(item => item.dividerBefore).length * 9;
-    const titleHeight = isDragCreateMenu ? 40 : 0;
-    const menuHeight = 20 + titleHeight + menu.items.length * 40 + dividerHeight;
+    const sectionDividerHeight = menu.items.filter(item => item.kind === 'divider').length * 9;
+    const sectionTitleHeight = menu.items.filter(item => item.kind === 'section-title').length * 26;
+    const titleHeight = isDragCreateMenu && menu.items !== CANVAS_ADD_MENU ? 40 : 0;
+    const actionCount = menu.items.filter(item => !item.kind).length;
+    const menuHeight = 20 + titleHeight + actionCount * 40 + dividerHeight + sectionDividerHeight + sectionTitleHeight;
     return {
       x: Math.max(8, Math.min(menu.x, window.innerWidth - menuWidth * menuColumns - 8)),
       y: Math.max(8, Math.min(menu.y, window.innerHeight - menuHeight - 8)),
@@ -12914,7 +12996,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
             viewportRevision={viewportTransform}
             promptStyles={officialPromptStyles}
             currentLanguage={currentLanguage}
-            hidden={expandedProcessorOverlay?.type === 'composer'}
+            hidden={nodeDragActive || isSelectionBoxActive || hasActiveMultiSelection || expandedProcessorOverlay?.type === 'composer'}
             onExpand={() => setExpandedProcessorOverlay({ type: 'composer', id: activeComposer.resultId })}
           />
         )}
@@ -12929,7 +13011,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
             anchorSelector={activeCharacterImageComposer.anchorSelector}
             promptStyles={officialPromptStyles}
             currentLanguage={currentLanguage}
-            hidden={expandedProcessorOverlay?.type === 'characterImage'}
+            hidden={nodeDragActive || isSelectionBoxActive || hasActiveMultiSelection || expandedProcessorOverlay?.type === 'characterImage'}
             onExpand={() => setExpandedProcessorOverlay({ type: 'characterImage', id: activeCharacterImageComposer.resultId })}
           />
         )}
@@ -12944,7 +13026,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
             anchorSelector={activeCharacterProfileComposer.anchorSelector}
             promptStyles={officialPromptStyles}
             currentLanguage={currentLanguage}
-            hidden={expandedProcessorOverlay?.type === 'characterProfile'}
+            hidden={nodeDragActive || isSelectionBoxActive || hasActiveMultiSelection || expandedProcessorOverlay?.type === 'characterProfile'}
             onExpand={() => setExpandedProcessorOverlay({ type: 'characterProfile', id: activeCharacterProfileComposer.resultId })}
           />
         )}
@@ -12954,7 +13036,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
             containerRef={canvasContainerRef}
             overlayBoundaryRef={activeSmartSplitterOverlayRef}
             promptStyles={officialPromptStyles}
-            hidden={expandedProcessorOverlay?.type === 'smartSplitter'}
+            hidden={nodeDragActive || isSelectionBoxActive || hasActiveMultiSelection || expandedProcessorOverlay?.type === 'smartSplitter'}
             onExpand={() => setExpandedProcessorOverlay({ type: 'smartSplitter', id: activeSmartSplitter.id })}
           />
         )}
@@ -13193,53 +13275,55 @@ const ALIGN_SNAP_THRESHOLD = 5;
         </div>
       ) : null}
       <SelectionBoundsOverlay nodes={nodes} onDragCreate={onSelectionDragCreate} />
-      <SelectionToolbar
-        nodes={nodes}
-        onRunSelected={handleRunSelected}
-        onGroupSelected={() => {
-          const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
-          createGroupFromNodeIds(selectedIds);
-        }}
-        onStackSelected={() => {
-          const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
-          createStackFromNodeIds(selectedIds);
-        }}
-        onPlaylistSelected={() => {
-          const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
-          createPlaylistFromNodeIds(selectedIds);
-        }}
-        onDownloadSelected={async () => {
-          const selected = nodes.filter(n => n.selected);
-          const downloadItems = [];
-          let downloadableNodeCount = 0;
-          for (const node of selected) {
-            const nodeItems = getDownloadMediaItemsForNode(node);
-            if (nodeItems.length > 0) downloadableNodeCount += 1;
-            downloadItems.push(...nodeItems);
-          }
-          if (downloadItems.length === 0) {
-            window.alert('所选节点没有可下载的图片或视频');
-            return;
-          }
-          try {
-            const result = await downloadMedia(downloadItems, 'selected-media', {
-              zip: downloadableNodeCount > 1 || downloadItems.length > 1,
-              zipFilename: `selected-media-${new Date().toISOString().slice(0, 10)}`,
-            });
-            if (result.downloaded === 0) {
+      {!isSelectionBoxActive && (
+        <SelectionToolbar
+          nodes={nodes}
+          onRunSelected={handleRunSelected}
+          onGroupSelected={() => {
+            const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
+            createGroupFromNodeIds(selectedIds);
+          }}
+          onStackSelected={() => {
+            const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
+            createStackFromNodeIds(selectedIds);
+          }}
+          onPlaylistSelected={() => {
+            const selectedIds = nodes.filter(n => n.selected).map(n => n.id);
+            createPlaylistFromNodeIds(selectedIds);
+          }}
+          onDownloadSelected={async () => {
+            const selected = nodes.filter(n => n.selected);
+            const downloadItems = [];
+            let downloadableNodeCount = 0;
+            for (const node of selected) {
+              const nodeItems = getDownloadMediaItemsForNode(node);
+              if (nodeItems.length > 0) downloadableNodeCount += 1;
+              downloadItems.push(...nodeItems);
+            }
+            if (downloadItems.length === 0) {
+              window.alert('所选节点没有可下载的图片或视频');
+              return;
+            }
+            try {
+              const result = await downloadMedia(downloadItems, 'selected-media', {
+                zip: downloadableNodeCount > 1 || downloadItems.length > 1,
+                zipFilename: `selected-media-${new Date().toISOString().slice(0, 10)}`,
+              });
+              if (result.downloaded === 0) {
+                window.alert('媒体下载失败，请稍后重试');
+              }
+            } catch (error) {
+              console.warn('[downloadSelected] 下载失败', error);
               window.alert('媒体下载失败，请稍后重试');
             }
-          } catch (error) {
-            console.warn('[downloadSelected] 下载失败', error);
-            window.alert('媒体下载失败，请稍后重试');
-          }
-        }}
-        onDeleteSelected={() => {
-          const selected = nodes.filter(n => n.selected);
-          if (selected.length === 0) return;
-          handleNodesChange(selected.map(node => ({ id: node.id, type: 'remove' })));
-        }}
-      />
+          }}
+          onDeleteSelected={() => {
+            const selected = nodes.filter(n => n.selected);
+            if (selected.length === 0) return;
+            handleNodesChange(selected.map(node => ({ id: node.id, type: 'remove' })));
+          }}
+        />
+      )}
 
       {menu && (
         <>
@@ -13272,28 +13356,33 @@ const ALIGN_SNAP_THRESHOLD = 5;
             className={[
               'context-menu',
               menu.items === PANE_CONTEXT_MENU && 'pane-context-menu',
-              menu.items === NODE_CREATE_MENU && 'drag-create-menu',
+              (menu.items === NODE_CREATE_MENU || menu.items === CANVAS_ADD_MENU) && 'drag-create-menu',
             ].filter(Boolean).join(' ')}
             style={{ position: 'fixed', left: renderedMenuPosition.x, top: renderedMenuPosition.y, zIndex: 1000 }}
           >
-            {menu.items !== PANE_CONTEXT_MENU && (
+            {menu.items !== PANE_CONTEXT_MENU && menu.items !== CANVAS_ADD_MENU && (
               <div className="context-menu-title">{menu.parentLabel || '选择操作'}</div>
             )}
             {menu.items.map((item, i) => (
               <Fragment key={`${item.label}_${i}`}>
-                {item.dividerBefore && <div className="context-menu-divider" role="separator" />}
-                <div
-                  className={`context-menu-item ${menu.submenu?.label === item.label ? 'active' : ''}`}
-                  onMouseEnter={() => handleMenuHover(item)}
-                  onPointerEnter={() => handleMenuHover(item)}
-                  onClick={(e) => handleMenuClick(item, e)}
-                >
-                  <span className="menu-icon">
-                    <Icon name={item.icon} size={16} />
-                  </span>
-                  <span className="menu-label">{item.label}</span>
-                  {item.children && <span className="menu-arrow">›</span>}
-                </div>
+                {(item.dividerBefore || item.kind === 'divider') && <div className="context-menu-divider" role="separator" />}
+                {item.kind === 'section-title' ? (
+                  <div className="context-menu-section-title">{item.label}</div>
+                ) : item.kind ? null : (
+                  <div
+                    className={`context-menu-item ${menu.submenu?.label === item.label ? 'active' : ''}`}
+                    onMouseEnter={() => handleMenuHover(item)}
+                    onPointerEnter={() => handleMenuHover(item)}
+                    onClick={(e) => handleMenuClick(item, e)}
+                  >
+                    <span className="menu-icon">
+                      <Icon name={item.icon} size={16} />
+                    </span>
+                    <span className="menu-label">{item.label}</span>
+                    {item.shortcut && <span className="menu-shortcut">{item.shortcut}</span>}
+                    {item.children && <span className="menu-arrow">›</span>}
+                  </div>
+                )}
               </Fragment>
             ))}
           </div>
@@ -13303,7 +13392,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
               className="context-menu submenu pane-context-menu"
               style={{
                 position: 'fixed',
-                left: renderedMenuPosition.x + 184,
+                left: renderedMenuPosition.x + 224,
                 top: renderedMenuPosition.y,
                 zIndex: 1001,
               }}
@@ -13320,6 +13409,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
                       <Icon name={item.icon} size={16} />
                     </span>
                     <span className="menu-label">{item.label}</span>
+                    {item.shortcut && <span className="menu-shortcut">{item.shortcut}</span>}
                   </div>
                 </Fragment>
               ))}
@@ -13393,15 +13483,17 @@ const ALIGN_SNAP_THRESHOLD = 5;
                   </div>
                 )}
               </div>
+            </div>
+            <div className="material-save-actions">
               {selectedSaveMaterialFolder ? (
                 <div className="material-save-target">
                   保存到：<strong>{saveMaterialScope === 'team' ? '团队' : '个人'} / {selectedSaveMaterialFolder.name || '未命名文件夹'}</strong>
                 </div>
-              ) : null}
-            </div>
-            <div className="material-save-actions">
-              <button type="button" className="material-save-cancel" onClick={() => setSaveMaterialDraft(null)}>取消</button>
-              <button type="button" className="material-save-confirm" onClick={confirmSaveMaterial} disabled={!saveMaterialDraft.groupId}>保存</button>
+              ) : <span />}
+              <div className="material-save-action-buttons">
+                <button type="button" className="material-save-cancel" onClick={() => setSaveMaterialDraft(null)}>取消</button>
+                <button type="button" className="material-save-confirm" onClick={confirmSaveMaterial} disabled={!saveMaterialDraft.groupId}>保存</button>
+              </div>
             </div>
           </div>
         </div>

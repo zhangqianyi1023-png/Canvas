@@ -14,12 +14,13 @@ function SmartSplitterNode({ id, selected, data }) {
   const [toolbarOpen, setToolbarOpen] = useState(false);
   const toolbarTimerRef = useRef(null);
   const isMultiSelected = Boolean(data?.isMultiSelected);
+  const isNodeDragging = Boolean(data?.isNodeDragging);
 
   const openToolbar = useCallback(() => {
-    if (selected || isMultiSelected) return;
+    if (isNodeDragging || selected || isMultiSelected) return;
     window.clearTimeout(toolbarTimerRef.current);
     setToolbarOpen(true);
-  }, [isMultiSelected, selected]);
+  }, [isMultiSelected, isNodeDragging, selected]);
 
   const closeToolbar = useCallback(() => {
     window.clearTimeout(toolbarTimerRef.current);
@@ -73,9 +74,9 @@ function SmartSplitterNode({ id, selected, data }) {
       <Handle type="source" position={Position.Right} style={{ background: 'var(--success-alt)' }} />
       <InteractiveHandle side="right" nodeId={id} onDragCreate={data?.onInteractiveDragCreate} />
       <NodeHoverToolbar
-        hidden={isMultiSelected || selected || isTitleEditing}
+        hidden={isNodeDragging || isMultiSelected || selected || isTitleEditing}
         portal
-        forceVisible={!isMultiSelected && toolbarOpen}
+        forceVisible={!isNodeDragging && !isMultiSelected && toolbarOpen}
         onToolbarPointerEnter={openToolbar}
         onToolbarPointerLeave={closeToolbar}
         tagColors={data?.tagColors}

@@ -4,31 +4,34 @@ import Icon from '../components/Icon';
 import { NodeTagColorMenuItems, NodeTagPickerButtonContent, getNodeTagPickerTitle } from '../components/NodeTagPicker';
 import { useCanvasWheelHandoff } from '../canvasWheelHandoff';
 
-function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, onDelete, hidden = false, portal = false, forceVisible = false, variant = '', onToolbarPointerEnter, onToolbarPointerLeave }) {
+function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, tagInsertAfterId = '', hidden = false, portal = false, forceVisible = false, variant = '', onToolbarPointerEnter, onToolbarPointerLeave }) {
   const layerRef = useRef(null);
   const toolbarRef = useRef(null);
   const [pos, setPos] = useState(null);
   const [openMenuId, setOpenMenuId] = useState('');
-  const items = [
-    ...actions,
-    ...(typeof onTagToggle === 'function' ? [{
-      id: 'node-tags',
-      label: '标记',
-      title: getNodeTagPickerTitle(tagColors),
-      icon: 'tag',
-      compact: true,
-      nodeTagPicker: true,
-      menuLabel: '节点标记颜色',
-    }] : []),
-    ...(onDelete ? [{
-      id: 'delete',
-      label: '删除',
-      title: '删除节点',
-      icon: 'trash',
-      tone: 'danger',
-      onClick: onDelete,
-    }] : []),
-  ];
+  const tagItem = typeof onTagToggle === 'function' ? {
+    id: 'node-tags',
+    label: '标记',
+    title: getNodeTagPickerTitle(tagColors),
+    icon: 'tag',
+    compact: true,
+    nodeTagPicker: true,
+    menuLabel: '节点标记颜色',
+  } : null;
+  const items = tagItem
+    ? tagInsertAfterId
+      ? actions.reduce((nextItems, action) => {
+        nextItems.push(action);
+        if (tagInsertAfterId && action.id === tagInsertAfterId) {
+          nextItems.push(tagItem);
+        }
+        return nextItems;
+      }, [])
+      : [...actions, tagItem]
+    : actions;
+  if (tagItem && tagInsertAfterId && !items.some(item => item.id === tagItem.id)) {
+    items.push(tagItem);
+  }
 
   useEffect(() => {
     if (!openMenuId) return undefined;
@@ -137,7 +140,7 @@ function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, onDelete, hidd
               {iconOnly ? <span className="node-hover-toolbar-tooltip" role="tooltip" aria-hidden="true">{item.title || item.label}</span> : null}
             </button>
             {menuOpen && (
-              <div className="node-hover-toolbar-menu" role="menu" aria-label={item.menuLabel || item.label}>
+              <div className={`node-hover-toolbar-menu ${item.menuClassName || ''}`.trim()} role="menu" aria-label={item.menuLabel || item.label}>
                 {item.nodeTagPicker ? (
                   <NodeTagColorMenuItems
                     tagColors={tagColors}
@@ -150,6 +153,7 @@ function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, onDelete, hidd
                     type="button"
                     role="menuitem"
                     className={menuItem.active ? 'is-active' : ''}
+                    title={menuItem.title || menuItem.label}
                     disabled={Boolean(menuItem.disabled)}
                     onClick={(event) => {
                       event.stopPropagation();

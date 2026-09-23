@@ -4,6 +4,7 @@ import NodeHoverToolbar from './NodeHoverToolbar';
 function StackNode({ id, selected, data }) {
   const [toolbarOpen, setToolbarOpen] = useState(false);
   const timerRef = useRef(null);
+  const isNodeDragging = Boolean(data?.isNodeDragging);
   const openToolbar = useCallback(() => {
     window.clearTimeout(timerRef.current);
     setToolbarOpen(true);
@@ -27,9 +28,9 @@ function StackNode({ id, selected, data }) {
         <span className="canvas-stack-hint">点击工具栏展开内容</span>
       </div>
       <NodeHoverToolbar
-        hidden={false}
+        hidden={isNodeDragging}
         portal
-        forceVisible={selected || toolbarOpen}
+        forceVisible={!isNodeDragging && (selected || toolbarOpen)}
         onToolbarPointerEnter={openToolbar}
         onToolbarPointerLeave={closeToolbar}
         tagColors={data?.tagColors}

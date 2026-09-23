@@ -10,6 +10,7 @@ function ThreeDNode({ id, data, selected }) {
   const [camera, setCamera] = useState({ yaw: 0, pitch: 0, distance: 4 });
   const [isTitleEditing, setIsTitleEditing] = useState(false);
   const isMultiSelected = Boolean(data?.isMultiSelected);
+  const isNodeDragging = Boolean(data?.isNodeDragging);
   return (
     <div className={`custom-node three-d-node ${selected ? 'selected' : ''}`}>
       <Handle type="target" position={Position.Left} style={{ background: 'var(--accent)' }} />
@@ -25,7 +26,7 @@ function ThreeDNode({ id, data, selected }) {
       <button type="button" className="three-d-capture-button" onClick={() => data?.onCaptureViewfinder?.(id, camera)}><Icon name="camera" size={14} /> 截图到画布</button>
       <Handle type="source" position={Position.Right} style={{ background: 'var(--success-alt)' }} />
       <InteractiveHandle side="right" nodeId={id} onDragCreate={data?.onInteractiveDragCreate} />
-      <NodeHoverToolbar hidden={isMultiSelected || !selected || isTitleEditing} portal forceVisible={selected} tagColors={data?.tagColors} onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)} onDelete={() => data?.onDeleteNode?.(id)} />
+      <NodeHoverToolbar hidden={isNodeDragging || isMultiSelected || !selected || isTitleEditing} portal forceVisible={!isNodeDragging && selected} tagColors={data?.tagColors} onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)} onDelete={() => data?.onDeleteNode?.(id)} />
     </div>
   );
 }

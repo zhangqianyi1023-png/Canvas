@@ -24,6 +24,7 @@ export default function SelectionToolbar({
   onDeleteSelected,
 }) {
   const [pos, setPos] = useState(null);
+  const [arrangeMenuOpen, setArrangeMenuOpen] = useState(false);
   const toolbarRef = useRef(null);
 
   const selectedNodes = useMemo(
@@ -70,6 +71,21 @@ export default function SelectionToolbar({
 
   useCanvasWheelHandoff(toolbarRef, { enabled: isVisible && Boolean(pos) });
 
+  useEffect(() => {
+    if (!arrangeMenuOpen) return undefined;
+    const closeMenu = (event) => {
+      if (event.type === 'keydown' && event.key !== 'Escape') return;
+      if (event.type === 'pointerdown' && toolbarRef.current?.contains(event.target)) return;
+      setArrangeMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeMenu);
+    document.addEventListener('keydown', closeMenu);
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu);
+      document.removeEventListener('keydown', closeMenu);
+    };
+  }, [arrangeMenuOpen]);
+
   if (!isVisible || !pos) return null;
 
   return createPortal(
@@ -80,6 +96,34 @@ export default function SelectionToolbar({
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
+      <div className="selection-toolbar-menu-wrap">
+        <button
+          type="button"
+          className={`image-action-btn ${arrangeMenuOpen ? 'active' : ''}`}
+          title="整理"
+          aria-haspopup="menu"
+          aria-expanded={arrangeMenuOpen}
+          onClick={() => setArrangeMenuOpen(current => !current)}
+        >
+          <Icon name="grid" size={14} />
+          <span>整理</span>
+        </button>
+        {arrangeMenuOpen && (
+          <div className="selection-toolbar-menu" role="menu" aria-label="整理排列方式">
+            {['宫格排列', '水平排列', '垂直排列'].map(label => (
+              <button
+                type="button"
+                role="menuitem"
+                key={label}
+                onClick={() => setArrangeMenuOpen(false)}
+              >
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <span className="image-action-sep" aria-hidden="true" />
       <button type="button" className="image-action-btn" title="运行选中" onClick={onRunSelected}>
         <Icon name="play" size={14} />
         <span>运行</span>

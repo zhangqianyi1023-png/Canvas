@@ -12,6 +12,7 @@ function VideoEditorNode({ id, data, selected }) {
   const videoUrl = data?.videoUrl || '';
   const title = data?.label || '视频编辑器';
   const isMultiSelected = Boolean(data?.isMultiSelected);
+  const isNodeDragging = Boolean(data?.isNodeDragging);
 
   const handleBodyPointerDown = (event) => {
     pointerMovedRef.current = false;
@@ -81,9 +82,9 @@ function VideoEditorNode({ id, data, selected }) {
       <Handle type="source" position={Position.Right} style={{ background: 'var(--success-alt)' }} />
       <InteractiveHandle side="right" nodeId={id} onDragCreate={data?.onInteractiveDragCreate} />
       <NodeHoverToolbar
-        hidden={isMultiSelected || !selected || isTitleEditing}
+        hidden={isNodeDragging || isMultiSelected || !selected || isTitleEditing}
         portal
-        forceVisible={selected}
+        forceVisible={!isNodeDragging && selected}
         variant="video-editor"
         tagColors={data?.tagColors}
         onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}

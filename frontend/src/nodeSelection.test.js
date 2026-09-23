@@ -158,4 +158,16 @@ test('manual result nodes do not open their generator composer on selection', ()
     shouldOpenResultComposer({ id: 'generated-image', type: 'result', data: { resultType: 'generateImage' } }),
     true,
   );
+  assert.equal(
+    shouldOpenResultComposer({ id: 'uploaded-audio', type: 'result', data: { resultType: 'generateAudio', audioSource: 'upload', audioUrl: '/demo.mp3' } }),
+    false,
+  );
+  assert.equal(
+    shouldOpenResultComposer({ id: 'empty-audio', type: 'result', data: { resultType: 'generateAudio' } }),
+    true,
+  );
+  assert.equal(
+    shouldOpenResultComposer({ id: 'generated-audio', type: 'result', data: { resultType: 'generateAudio', audioSource: 'generate', audioUrl: '/demo.mp3' } }),
+    true,
+  );
 });

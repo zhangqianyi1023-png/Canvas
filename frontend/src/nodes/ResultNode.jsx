@@ -1035,6 +1035,7 @@ function ResultNode({ id, selected, data }) {
   const hasTextContent = isTextResult && typeof result === 'string' && Boolean(result.trim());
   const isComposerOpen = Boolean(data?.isComposerOpen);
   const isMultiSelected = Boolean(data?.isMultiSelected);
+  const isNodeDragging = Boolean(data?.isNodeDragging);
   const hasPendingTasks = Array.isArray(data?.taskIds) && data.taskIds.length > 0
     && !(Array.isArray(data?.imageUrls) && data.imageUrls.length > 0)
     && ['running', 'saving'].includes(data?.generationTask?.status);
@@ -1196,6 +1197,7 @@ function ResultNode({ id, selected, data }) {
       }
     : undefined;
   const shouldShowTextFormatToolbar = isTextResult
+    && !isNodeDragging
     && !isMultiSelected
     && !data?.isProcessorExpanded
     && !contentLocked
@@ -2015,10 +2017,10 @@ function ResultNode({ id, selected, data }) {
   }, [data, id]);
 
   const openTextToolbar = useCallback(() => {
-    if (isMultiSelected || hasTextContent || isVideoResult || (selected && !isStoryboardScriptResult)) return;
+    if (isNodeDragging || isMultiSelected || hasTextContent || isVideoResult || (selected && !isStoryboardScriptResult)) return;
     window.clearTimeout(textToolbarCloseTimerRef.current);
     setIsTextToolbarOpen(true);
-  }, [hasTextContent, isMultiSelected, isStoryboardScriptResult, isVideoResult, selected]);
+  }, [hasTextContent, isMultiSelected, isNodeDragging, isStoryboardScriptResult, isVideoResult, selected]);
 
   const scheduleCloseTextToolbar = useCallback(() => {
     window.clearTimeout(textToolbarCloseTimerRef.current);
@@ -3316,7 +3318,7 @@ function ResultNode({ id, selected, data }) {
                     onAction={data?.onImageAction}
                     onUpload={openUploadPicker}
                     onDelete={() => data?.onDeleteNode?.(id)}
-                    forceVisible={!isMultiSelected && isHover}
+                    forceVisible={!isNodeDragging && !isMultiSelected && isHover}
                     onToolbarPointerEnter={() => openExpandedImageToolbar(index)}
                     onToolbarPointerLeave={() => scheduleCloseExpandedImageToolbar(index)}
                     portalToolbar
@@ -3327,11 +3329,11 @@ function ResultNode({ id, selected, data }) {
                     rotationAutoOpenToken={data?.imageRotationAutoOpenToken}
                     onEditingChange={handleImageActionEditingChange}
                     enableCropEditor
-                    suppressToolbar={isMultiSelected}
+                    suppressToolbar={isNodeDragging || isMultiSelected}
                     hasPendingTasks={hasPendingTasks}
                   />{/* multi-card */}
                   {isCover && <span className="result-image-cover-badge">封面</span>}
-                  {isHover && (
+                  {isHover && !isNodeDragging && (
                     <button
                       type="button"
                       className="result-image-set-cover-btn nodrag"
@@ -3393,7 +3395,7 @@ function ResultNode({ id, selected, data }) {
             onAction={data?.onImageAction}
             onUpload={openUploadPicker}
             onDelete={() => data?.onDeleteNode?.(id)}
-            forceVisible={!isMultiSelected && selected}
+            forceVisible={!isNodeDragging && !isMultiSelected && selected}
             portalToolbar
             tagColors={data?.tagColors}
             onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
@@ -3402,7 +3404,7 @@ function ResultNode({ id, selected, data }) {
             rotationAutoOpenToken={data?.imageRotationAutoOpenToken}
             onEditingChange={handleImageActionEditingChange}
             enableCropEditor
-            suppressToolbar={isMultiSelected}
+            suppressToolbar={isNodeDragging || isMultiSelected}
             hasPendingTasks={hasPendingTasks}
           />{/* multi-collapsed */}
           {renderUploadFeedback()}
@@ -3444,7 +3446,7 @@ function ResultNode({ id, selected, data }) {
             onAction={data?.onImageAction}
             onUpload={openUploadPicker}
             onDelete={() => data?.onDeleteNode?.(id)}
-            forceVisible={!isMultiSelected && selected}
+            forceVisible={!isNodeDragging && !isMultiSelected && selected}
             portalToolbar
             tagColors={data?.tagColors}
             onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
@@ -3453,7 +3455,7 @@ function ResultNode({ id, selected, data }) {
             rotationAutoOpenToken={data?.imageRotationAutoOpenToken}
             onEditingChange={handleImageActionEditingChange}
             enableCropEditor
-            suppressToolbar={isMultiSelected}
+            suppressToolbar={isNodeDragging || isMultiSelected}
             hasPendingTasks={hasPendingTasks}
           />{/* single-image */}
           {renderUploadFeedback()}
@@ -3489,13 +3491,13 @@ function ResultNode({ id, selected, data }) {
           sourceType="result"
           onUpload={openUploadPicker}
           onDelete={() => data?.onDeleteNode?.(id)}
-          forceVisible={!isMultiSelected && selected}
+          forceVisible={!isNodeDragging && !isMultiSelected && selected}
           portalToolbar
           apiConfigs={data?.apiConfigs}
           apiProviders={data?.apiProviders}
           rotationAutoOpenToken={data?.imageRotationAutoOpenToken}
           onEditingChange={handleImageActionEditingChange}
-          suppressToolbar={isMultiSelected}
+          suppressToolbar={isNodeDragging || isMultiSelected}
           hasPendingTasks={hasPendingTasks}
         />
         {renderUploadFeedback()}
@@ -3828,7 +3830,7 @@ function ResultNode({ id, selected, data }) {
       )}
       {isResizableResult && (
         <NodeResizer
-          isVisible={!isMultiSelected && (selected || (!isComposerOpen && isHovering))}
+          isVisible={!isNodeDragging && !isMultiSelected && (selected || (!isComposerOpen && isHovering))}
           minWidth={resizeMinWidth}
           minHeight={resizeMinHeight}
           keepAspectRatio={keepResizeAspectRatio}
@@ -4021,14 +4023,15 @@ function ResultNode({ id, selected, data }) {
 
       <Handle type="source" position={Position.Right} style={{ background: 'var(--success-alt)' }} />
       <NodeHoverToolbar
-        hidden={isMultiSelected || isTextResult || isImageResult || isVideoTrimming || (isVideoResult && !selected) || (selected && !isStoryboardScriptResult && !isVideoResult) || isTitleEditing || isTextEditing || isTextExpanded}
+        hidden={isNodeDragging || isMultiSelected || isTextResult || isImageResult || isVideoTrimming || (isVideoResult && !selected) || (isAudioResult && !selected) || (selected && !isStoryboardScriptResult && !isVideoResult && !isAudioResult) || isTitleEditing || isTextEditing || isTextExpanded}
         portal
-        forceVisible={!isMultiSelected && !isTextExpanded && (isVideoResult ? selected : (isTextToolbarOpen || (isEmptyVideoResult && selected)))}
+        forceVisible={!isNodeDragging && !isMultiSelected && !isTextExpanded && (isVideoResult ? selected : isAudioResult ? selected : (isTextToolbarOpen || (isEmptyVideoResult && selected)))}
         variant={isVideoResult ? 'video' : ''}
         onToolbarPointerEnter={openTextToolbar}
         onToolbarPointerLeave={scheduleCloseTextToolbar}
         tagColors={data?.tagColors}
         onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
+        tagInsertAfterId={isVideoResult ? 'video-more-tools' : ''}
         actions={[
           ...(isTextResult ? [{
             id: 'edit-text',
@@ -4161,8 +4164,8 @@ function ResultNode({ id, selected, data }) {
             },
             {
               id: 'favorite-video',
-              label: '收藏',
-              title: '收藏视频',
+              label: '保存到素材库',
+              title: '保存到素材库',
               icon: 'folder',
               compact: true,
               onClick: () => data?.onImageAction?.('favorite', {

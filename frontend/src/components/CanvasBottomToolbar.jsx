@@ -1,6 +1,7 @@
 import { Fragment, useState, useRef, useCallback, useEffect } from 'react';
 import Icon from './Icon';
 import KeyboardShortcutsDialog from './KeyboardShortcutsDialog';
+import { CANVAS_ADD_MENU_SECTIONS, CANVAS_ADD_MENU_UPLOAD } from '../paneContextMenu';
 
 function tooltipLabel(id, labels = {}) {
   const map = {
@@ -25,23 +26,19 @@ function tooltipLabel(id, labels = {}) {
   return map[id] || '';
 }
 
-const ADD_NODE_OPTIONS = [
-  { id: 'tool-upload-file', icon: 'upload', action: 'upload-media' },
-  { id: 'tool-text-gen', icon: 'inputMethodFill', type: 'generateText' },
-  { id: 'tool-image-gen', icon: 'imageGenFill', type: 'generateImage' },
-  { id: 'tool-video-gen', icon: 'videoGenFill', type: 'generateVideo' },
-  { id: 'tool-audio-gen', icon: 'audioGenFill', type: 'generateAudio' },
-  { id: 'tool-character', icon: 'user', type: 'character' },
-  { id: 'tool-smart-splitter', icon: 'smartSplitter', type: 'smartSplitter' },
-  { id: 'tool-storyboard', icon: 'storyboardWorkbench', type: 'generateStoryboardScript' },
-  { id: 'tool-video-editor', icon: 'movieAi', type: 'videoEditor' },
-];
+const TOOLBAR_ID_BY_NODE_TYPE = {
+  generateText: 'tool-text-gen',
+  generateImage: 'tool-image-gen',
+  generateVideo: 'tool-video-gen',
+  generateAudio: 'tool-audio-gen',
+  smartSplitter: 'tool-smart-splitter',
+  generateStoryboardScript: 'tool-storyboard',
+  videoEditor: 'tool-video-editor',
+};
 
-const NODE_TOOL_GROUPS = [
-  ADD_NODE_OPTIONS.slice(0, 1),
-  ADD_NODE_OPTIONS.slice(1, 6),
-  ADD_NODE_OPTIONS.slice(6),
-];
+function getToolbarItemId(item) {
+  return item.toolbarId || TOOLBAR_ID_BY_NODE_TYPE[item.nodeType] || item.id || '';
+}
 
 export default function CanvasBottomToolbar({
   onAddNode,
@@ -107,7 +104,7 @@ export default function CanvasBottomToolbar({
       onUploadFiles?.();
       return;
     }
-    onAddNode(item.type);
+    onAddNode(item.nodeType);
   }, [onAddNode, onUploadFiles]);
 
   const handleToggleMaterials = useCallback((event) => {
@@ -179,27 +176,43 @@ export default function CanvasBottomToolbar({
       <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => onToggleShortcuts?.(false)} />
       {open && (
         <div className="canvas-toolbar-panel" role="toolbar" aria-label={labels.addNode || '添加节点'}>
-          {NODE_TOOL_GROUPS.map((group, groupIndex) => (
-            <Fragment key={group[0].id}>
-              {groupIndex > 0 && <Divider />}
-              <div className="canvas-toolbar-panel-group">
-                {group.map(item => (
-                  <button
-                    type="button"
-                    className="canvas-toolbar-panel-item"
-                    key={item.id}
-                    onClick={event => handleClick(item, event)}
-                  >
-                    <Icon name={item.icon} size={18} />
-                    <span>{tooltipLabel(item.id, labels)}</span>
-                  </button>
-                ))}
-              </div>
+          <div className="canvas-toolbar-panel-group">
+            <ToolbarPanelItem item={CANVAS_ADD_MENU_UPLOAD} labels={labels} onClick={handleClick} />
+          </div>
+          {CANVAS_ADD_MENU_SECTIONS.map((section) => (
+            <Fragment key={section.label}>
+              <Divider />
+              <section className="canvas-toolbar-panel-section" aria-label={section.label}>
+                <div className="canvas-toolbar-panel-section-title">{section.label}</div>
+                <div className="canvas-toolbar-panel-group">
+                  {section.items.map(item => (
+                    <ToolbarPanelItem
+                      item={item}
+                      labels={labels}
+                      onClick={handleClick}
+                      key={item.toolbarId || item.nodeType || item.action || item.label}
+                    />
+                  ))}
+                </div>
+              </section>
             </Fragment>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+function ToolbarPanelItem({ item, labels, onClick }) {
+  return (
+    <button
+      type="button"
+      className="canvas-toolbar-panel-item"
+      onClick={event => onClick(item, event)}
+    >
+      <Icon name={item.icon} size={18} />
+      <span>{tooltipLabel(getToolbarItemId(item), labels) || item.label}</span>
+    </button>
   );
 }
 

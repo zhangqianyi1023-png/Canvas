@@ -9,6 +9,7 @@ function PlaylistNode({ id, data, selected }) {
   const [clips, setClips] = useState(() => Array.isArray(data?.clips) ? data.clips : []);
   const [isTitleEditing, setIsTitleEditing] = useState(false);
   const isMultiSelected = Boolean(data?.isMultiSelected);
+  const isNodeDragging = Boolean(data?.isNodeDragging);
   const duration = useMemo(() => clips.reduce((sum, clip) => sum + (Number(clip.duration) || 0), 0), [clips]);
   const moveClip = (index, direction) => {
     const nextIndex = index + direction;
@@ -41,7 +42,7 @@ function PlaylistNode({ id, data, selected }) {
       <div className="playlist-node-footer"><span>总时长 {duration.toFixed(1)}s</span><span>可继续接入渲染器</span></div>
       <Handle type="source" position={Position.Right} style={{ background: 'var(--success-alt)' }} />
       <InteractiveHandle side="right" nodeId={id} onDragCreate={data?.onInteractiveDragCreate} />
-      <NodeHoverToolbar hidden={isMultiSelected || !selected || isTitleEditing} portal forceVisible={selected} tagColors={data?.tagColors} onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)} onDelete={() => data?.onDeleteNode?.(id)} />
+      <NodeHoverToolbar hidden={isNodeDragging || isMultiSelected || !selected || isTitleEditing} portal forceVisible={!isNodeDragging && selected} tagColors={data?.tagColors} onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)} onDelete={() => data?.onDeleteNode?.(id)} />
     </div>
   );
 }

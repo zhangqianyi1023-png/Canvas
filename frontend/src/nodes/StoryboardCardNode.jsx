@@ -22,6 +22,7 @@ function StoryboardCardNode({ id, selected, data }) {
   const promptErrorText = card.promptError ? `⚠ ${card.promptError}` : '';
   const isFrameGenerating = ['running', 'saving'].includes(card.imageGenerationTask?.status);
   const isMultiSelected = Boolean(data?.isMultiSelected);
+  const isNodeDragging = Boolean(data?.isNodeDragging);
 
   const handlePlaceholderClick = useCallback((event) => {
     event.stopPropagation();
@@ -183,7 +184,7 @@ function StoryboardCardNode({ id, selected, data }) {
       <Handle type="source" position={Position.Right} style={{ background: 'var(--success-alt)' }} />
       <InteractiveHandle side="right" nodeId={id} onDragCreate={data?.onInteractiveDragCreate} />
       <NodeHoverToolbar
-        hidden={isMultiSelected || selected}
+        hidden={isNodeDragging || isMultiSelected || selected}
         tagColors={data?.tagColors}
         onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
         onDelete={() => data?.onDeleteNode?.(id)}
