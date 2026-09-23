@@ -1,33 +1,24 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from '../components/Icon';
+import { NodeTagColorMenuItems, NodeTagPickerButtonContent, getNodeTagPickerTitle } from '../components/NodeTagPicker';
 import { useCanvasWheelHandoff } from '../canvasWheelHandoff';
-import { NODE_TAG_COLORS, normalizeNodeTagColors } from '../nodeTagColors';
 
 function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, onDelete, hidden = false, portal = false, forceVisible = false, variant = '', onToolbarPointerEnter, onToolbarPointerLeave }) {
   const layerRef = useRef(null);
   const toolbarRef = useRef(null);
   const [pos, setPos] = useState(null);
   const [openMenuId, setOpenMenuId] = useState('');
-  const normalizedTagColors = normalizeNodeTagColors(tagColors);
   const items = [
     ...actions,
     ...(typeof onTagToggle === 'function' ? [{
       id: 'node-tags',
       label: '标记',
-      title: normalizedTagColors.length > 0
-        ? `已 Pin：${normalizedTagColors.map(colorId => NODE_TAG_COLORS.find(color => color.id === colorId)?.label).filter(Boolean).join('、')}`
-        : '添加标记',
+      title: getNodeTagPickerTitle(tagColors),
       icon: 'tag',
       compact: true,
+      nodeTagPicker: true,
       menuLabel: '节点标记颜色',
-      menuItems: NODE_TAG_COLORS.map(color => ({
-        id: color.id,
-        label: color.label,
-        color: color.value,
-        active: normalizedTagColors.includes(color.id),
-        onClick: () => onTagToggle(color.id),
-      })),
     }] : []),
     ...(onDelete ? [{
       id: 'delete',
@@ -101,7 +92,8 @@ function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, onDelete, hidd
       {items.map(item => {
         const menuOpen = openMenuId === item.id;
         const active = menuOpen || Boolean(item.active);
-        const hasMenu = Array.isArray(item.menuItems) && item.menuItems.length > 0;
+        const hasMenu = item.nodeTagPicker || (Array.isArray(item.menuItems) && item.menuItems.length > 0);
+        const iconOnly = Boolean(item.compact || item.iconOnly || variant === 'video');
         return (
           <div
             key={item.id}
@@ -109,9 +101,9 @@ function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, onDelete, hidd
           >
             <button
               type="button"
-              className={`node-hover-toolbar-btn ${item.tone || ''}${item.compact ? ' is-compact' : ''}${item.separatorBefore ? ' has-separator' : ''}${active ? ' is-active' : ''}`.trim()}
-              title={item.compact ? undefined : (item.title || item.label)}
-              data-tooltip={item.compact ? (item.title || item.label) : undefined}
+              className={`node-hover-toolbar-btn ${item.tone || ''}${iconOnly ? ' is-compact' : ''}${item.separatorBefore ? ' has-separator' : ''}${active ? ' is-active' : ''}`.trim()}
+              title={iconOnly ? undefined : (item.title || item.label)}
+              data-tooltip={iconOnly ? (item.title || item.label) : undefined}
               aria-label={item.title || item.label}
               aria-haspopup={hasMenu ? 'menu' : undefined}
               aria-expanded={hasMenu ? menuOpen : undefined}
@@ -126,23 +118,33 @@ function NodeHoverToolbar({ actions = [], tagColors, onTagToggle, onDelete, hidd
                 item.onClick?.(event);
               }}
             >
-              {item.iconSrc
-                ? <img className="node-hover-toolbar-icon" src={item.iconSrc} alt="" aria-hidden="true" />
-                : <Icon name={item.icon} size={14} />}
-              <span className="node-hover-toolbar-label">{item.label}</span>
-              {item.id === 'node-tags' && normalizedTagColors.length > 0 && (
-                <span className="node-hover-toolbar-tag-dots" aria-hidden="true">
-                  {normalizedTagColors.slice(0, 3).map(colorId => {
-                    const color = NODE_TAG_COLORS.find(item => item.id === colorId);
-                    return color ? <span key={colorId} style={{ '--node-tag-color': color.value }} /> : null;
-                  })}
-                </span>
+              {item.id === 'node-tags' ? (
+                <NodeTagPickerButtonContent
+                  tagColors={tagColors}
+                  label={item.label}
+                  iconSize={14}
+                  labelClassName="node-hover-toolbar-label"
+                  dotsClassName="node-hover-toolbar-tag-dots"
+                />
+              ) : (
+                <>
+                  {item.iconSrc
+                    ? <img className="node-hover-toolbar-icon" src={item.iconSrc} alt="" aria-hidden="true" />
+                    : <Icon name={item.icon} size={14} />}
+                  <span className="node-hover-toolbar-label">{item.label}</span>
+                </>
               )}
-              {item.compact ? <span className="node-hover-toolbar-tooltip" role="tooltip" aria-hidden="true">{item.title || item.label}</span> : null}
+              {iconOnly ? <span className="node-hover-toolbar-tooltip" role="tooltip" aria-hidden="true">{item.title || item.label}</span> : null}
             </button>
             {menuOpen && (
               <div className="node-hover-toolbar-menu" role="menu" aria-label={item.menuLabel || item.label}>
-                {item.menuItems.map(menuItem => (
+                {item.nodeTagPicker ? (
+                  <NodeTagColorMenuItems
+                    tagColors={tagColors}
+                    onToggle={onTagToggle}
+                    onAfterToggle={() => setOpenMenuId('')}
+                  />
+                ) : item.menuItems.map(menuItem => (
                   <button
                     key={menuItem.id}
                     type="button"

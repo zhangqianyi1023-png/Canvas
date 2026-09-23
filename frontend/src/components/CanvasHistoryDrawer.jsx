@@ -18,6 +18,9 @@ const formatHistoryDate = value => {
 export default function CanvasHistoryDrawer({ open, materials = [], onClose, onAddMaterial }) {
   const [activeTab, setActiveTab] = useState('image');
   const [query, setQuery] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [viewMode, setViewMode] = useState('grid');
 
   const visibleMaterials = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -29,16 +32,53 @@ export default function CanvasHistoryDrawer({ open, materials = [], onClose, onA
 
   if (!open) return null;
 
+  const toggleSelected = (materialId) => {
+    setSelectedIds(current => {
+      const next = new Set(current);
+      if (next.has(materialId)) next.delete(materialId);
+      else next.add(materialId);
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handlePrototypeAction = (actionLabel) => {
+    window.alert(`原型功能：${actionLabel} ${selectedIds.size} 个已选历史素材。`);
+  };
+
   return (
     <div className="canvas-history-overlay" onClick={onClose}>
       <aside className="canvas-history-drawer nodrag nopan" onClick={event => event.stopPropagation()}>
         <header className="canvas-history-header">
-          <button type="button" className="canvas-history-back" onClick={onClose} aria-label="返回画布"><Icon name="arrowLeft" size={26} /></button>
           <h2>历史</h2>
           <div className="canvas-history-actions">
-            <button type="button" aria-label="选择"><span>选择</span></button>
-            <button type="button" aria-label="列表视图"><Icon name="batch" size={18} /></button>
-            <button type="button" aria-label="展开"><Icon name="expandDiagonal" size={18} /></button>
+            <button
+              type="button"
+              className={selectionMode ? 'active' : ''}
+              aria-label={selectionMode ? '退出选择' : '选择'}
+              onClick={() => {
+                if (selectionMode) {
+                  exitSelectionMode();
+                } else {
+                  setSelectionMode(true);
+                }
+              }}
+            >
+              <span>{selectionMode ? '取消' : '选择'}</span>
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'list' ? 'active' : ''}
+              aria-label={viewMode === 'list' ? '切换为卡片视图' : '切换为列表视图'}
+              onClick={() => setViewMode(current => current === 'list' ? 'grid' : 'list')}
+            >
+              <Icon name={viewMode === 'list' ? 'grid' : 'batch'} size={18} />
+            </button>
+            <button type="button" aria-label="关闭历史" onClick={onClose}><Icon name="x" size={18} /></button>
           </div>
         </header>
 
@@ -58,22 +98,51 @@ export default function CanvasHistoryDrawer({ open, materials = [], onClose, onA
           <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索历史" />
         </div>
 
-        <div className="canvas-history-grid">
+        <div className={`canvas-history-grid ${viewMode === 'list' ? 'is-list-view' : ''} ${selectionMode ? 'is-selecting' : ''}`}>
           {visibleMaterials.length === 0 ? (
             <div className="canvas-history-empty"><Icon name="history" size={30} /><p>暂无历史记录</p></div>
-          ) : visibleMaterials.map(material => (
-            <article key={material.id} className="canvas-history-card">
-              <button type="button" className="canvas-history-card-preview" onClick={() => onAddMaterial?.(material)}>
+          ) : visibleMaterials.map(material => {
+            const selected = selectedIds.has(material.id);
+            return (
+            <article key={material.id} className={`canvas-history-card ${selected ? 'selected' : ''}`}>
+              <button
+                type="button"
+                className="canvas-history-card-preview"
+                onClick={() => {
+                  if (selectionMode) {
+                    toggleSelected(material.id);
+                    return;
+                  }
+                  onAddMaterial?.(material);
+                }}
+              >
                 {material.imageUrl ? <img src={material.imageUrl} alt={material.name || '历史图片'} /> : <Icon name="fileText" size={28} />}
                 <span>已完成</span>
+                {selectionMode && (
+                  <span className={`canvas-history-select-check ${selected ? 'checked' : ''}`}>
+                    {selected ? <Icon name="check" size={14} /> : null}
+                  </span>
+                )}
               </button>
               <div className="canvas-history-card-info">
                 <strong>{material.type === 'video' ? '视频' : material.type === 'audio' ? '音频' : '图片'}</strong>
                 <time>{formatHistoryDate(material.createdAt)}</time>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
+        {selectionMode && (
+          <div className="canvas-history-bulk-bar">
+            <button type="button" className="canvas-history-bulk-exit" onClick={exitSelectionMode} aria-label="退出批量操作">
+              <Icon name="x" size={17} />
+            </button>
+            <span>已选 {selectedIds.size} 个</span>
+            <i aria-hidden="true" />
+            <button type="button" onClick={() => handlePrototypeAction('应用到画布')}>应用到画布</button>
+            <button type="button" onClick={() => handlePrototypeAction('下载')}>下载</button>
+          </div>
+        )}
       </aside>
     </div>
   );

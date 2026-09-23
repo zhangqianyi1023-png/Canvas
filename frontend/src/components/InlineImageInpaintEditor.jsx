@@ -133,6 +133,28 @@ const drawMaskLine = (ctx, from, to, { tool, brushSize }) => {
   ctx.restore();
 };
 
+const restoreCanvasImageData = (canvas, imageData) => {
+  if (!canvas || !imageData) return prepareCanvasContext(canvas);
+  const ctx = get2dContext(canvas);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.putImageData(imageData, 0, 0);
+  return prepareCanvasContext(canvas);
+};
+
+const drawMaskRect = (ctx, start, end, { tool }) => {
+  const x = Math.min(start.x, end.x);
+  const y = Math.min(start.y, end.y);
+  const width = Math.abs(end.x - start.x);
+  const height = Math.abs(end.y - start.y);
+  if (width < 1 || height < 1) return;
+
+  ctx.save();
+  ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x, y, width, height);
+  ctx.restore();
+};
+
 const restoreCanvasFromDataUrl = (canvas, dataUrl, onDone) => {
   const image = new Image();
   image.onload = () => {
@@ -200,6 +222,7 @@ function InlineImageInpaintEditor({
   anchorRef,
   apiConfigs = [],
   apiProviders = [],
+  mode = 'inpaint',
   onCancel,
   onGenerate,
 }) {
@@ -229,6 +252,8 @@ function InlineImageInpaintEditor({
   const [openPopover, setOpenPopover] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const isEraseMode = mode === 'erase';
+  const credits = count * (isEraseMode ? 8 : 12);
 
   const imageProviders = useMemo(
     () => buildInlineImageProviders(apiProviders, apiConfigs, 'inpaint'),
@@ -498,12 +523,18 @@ function InlineImageInpaintEditor({
     const context = prepareCanvasContext(canvas);
     drawStateRef.current = {
       pointerId: event.pointerId,
+      start: point,
       last: point,
       rect,
       context,
+      imageData: tool === 'rect' ? context.getImageData(0, 0, canvas.width, canvas.height) : null,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    drawMaskLine(context, point, point, { tool, brushSize });
+    if (tool === 'rect') {
+      drawMaskRect(context, point, point, { tool: 'brush' });
+    } else {
+      drawMaskLine(context, point, point, { tool, brushSize });
+    }
   }, [brushSize, isGenerating, pushUndo, tool]);
 
   const handlePointerMove = useCallback((event) => {
@@ -517,8 +548,14 @@ function InlineImageInpaintEditor({
     const pointerEvents = coalescedEvents.length > 0 ? coalescedEvents : [nativeEvent];
     pointerEvents.forEach((pointerEvent) => {
       const point = getCanvasPoint(canvas, pointerEvent, draft.rect);
-      drawMaskLine(draft.context, draft.last, point, { tool, brushSize });
-      draft.last = point;
+      if (tool === 'rect') {
+        draft.context = restoreCanvasImageData(canvas, draft.imageData);
+        drawMaskRect(draft.context, draft.start, point, { tool: 'brush' });
+        draft.last = point;
+      } else {
+        drawMaskLine(draft.context, draft.last, point, { tool, brushSize });
+        draft.last = point;
+      }
     });
   }, [brushSize, tool]);
 
@@ -575,7 +612,7 @@ function InlineImageInpaintEditor({
   }, []);
 
   const submit = useCallback(async () => {
-    const instruction = prompt.trim();
+    const instruction = isEraseMode ? '擦除选中区域' : prompt.trim();
     if (!instruction || !hasMask || isGenerating) return;
     setErrorMessage('');
     setIsGenerating(true);
@@ -593,13 +630,14 @@ function InlineImageInpaintEditor({
         sizePreset: resolvedRatioOption?.id || imageSizePreset,
         resolution: resolvedResolution,
         count,
+        credits,
       });
       onCancel?.();
     } catch (error) {
-      setErrorMessage(error?.message || '局部修改提交失败');
+      setErrorMessage(error?.message || (isEraseMode ? '擦除提交失败' : '局部修改提交失败'));
       setIsGenerating(false);
     }
-  }, [activeModel, buildMaskDataUrl, count, hasMask, imageSizePreset, isGenerating, onCancel, onGenerate, prompt, resolvedImageSize, resolvedRatioOption?.id, resolvedResolution, selectedProvider?.id, sourceSize.height, sourceSize.width]);
+  }, [activeModel, buildMaskDataUrl, count, credits, hasMask, imageSizePreset, isEraseMode, isGenerating, onCancel, onGenerate, prompt, resolvedImageSize, resolvedRatioOption?.id, resolvedResolution, selectedProvider?.id, sourceSize.height, sourceSize.width]);
 
   const toolbarPosition = toolbarAnchorRect
     ? {
@@ -626,13 +664,13 @@ function InlineImageInpaintEditor({
       <div
         className="inline-inpaint-toolbar nodrag nopan"
         role="toolbar"
-        aria-label="局部修改工具栏"
+        aria-label={isEraseMode ? '擦除工具栏' : '局部修改工具栏'}
         style={{ left: toolbarPosition.left, top: toolbarPosition.top }}
         onPointerDown={event => event.stopPropagation()}
         onClick={event => event.stopPropagation()}
       >
         <div className="inline-inpaint-toolbar-group inline-inpaint-cancel-group">
-          <button type="button" className="inline-inpaint-labeled-button canvas-flow-hover-target" onClick={onCancel} data-tooltip="退出局部修改" aria-label="退出局部修改">
+          <button type="button" className="inline-inpaint-labeled-button canvas-flow-hover-target" onClick={onCancel} data-tooltip={isEraseMode ? '退出擦除' : '退出局部修改'} aria-label={isEraseMode ? '退出擦除' : '退出局部修改'}>
             <Icon name="x" size={16} />
             <span>取消</span>
           </button>
@@ -641,6 +679,11 @@ function InlineImageInpaintEditor({
           <button type="button" className={`canvas-flow-hover-target ${tool === 'brush' ? 'active' : ''}`} onClick={() => setTool('brush')} data-tooltip="画笔" aria-label="画笔" aria-pressed={tool === 'brush'}>
             <Icon name="edit" size={16} />
           </button>
+          {isEraseMode ? (
+            <button type="button" className={`canvas-flow-hover-target ${tool === 'rect' ? 'active' : ''}`} onClick={() => setTool('rect')} data-tooltip="矩形" aria-label="矩形" aria-pressed={tool === 'rect'}>
+              <Icon name="square" size={15} />
+            </button>
+          ) : null}
           <button type="button" className={`canvas-flow-hover-target ${tool === 'eraser' ? 'active' : ''}`} onClick={() => setTool('eraser')} data-tooltip="橡皮" aria-label="橡皮" aria-pressed={tool === 'eraser'}>
             <Icon name="eraser" size={16} />
           </button>
@@ -681,37 +724,46 @@ function InlineImageInpaintEditor({
         onPointerDown={event => event.stopPropagation()}
         onClick={event => event.stopPropagation()}
       >
-        <textarea
-          value={prompt}
-          onChange={event => setPrompt(event.target.value)}
-          placeholder="描述你想调整的内容..."
-          rows={3}
-          disabled={isGenerating}
-        />
+        {isEraseMode ? (
+          <div className="inline-inpaint-prototype-note">
+            <strong>擦除选中区域</strong>
+            <span>原型模式 · 生成后会创建擦除结果节点</span>
+          </div>
+        ) : (
+          <textarea
+            value={prompt}
+            onChange={event => setPrompt(event.target.value)}
+            placeholder="描述你想调整的内容..."
+            rows={3}
+            disabled={isGenerating}
+          />
+        )}
         {errorMessage ? <div className="inline-inpaint-error">{errorMessage}</div> : null}
         <div className="inline-inpaint-footer">
-          <InpaintPopoverControl
-            label="图片 API"
-            value={selectedProvider?.name || '未配置 API'}
-            open={openPopover === 'provider'}
-            disabled={isGenerating || imageProviders.length === 0}
-            onToggle={() => togglePopover('provider')}
-          >
-            {imageProviders.length > 0
-              ? imageProviders.map(provider => (
-                <button
-                  type="button"
-                  key={provider.id}
-                  className={provider.id === selectedProvider?.id ? 'active' : ''}
-                  onClick={() => selectProvider(provider)}
-                  role="menuitem"
-                >
-                  <span>{provider.name}</span>
-                  {provider.id === selectedProvider?.id ? <Icon name="check" size={14} /> : null}
-                </button>
-              ))
-              : <div className="inline-inpaint-popover-empty">未配置 API</div>}
-          </InpaintPopoverControl>
+          {!isEraseMode ? (
+            <InpaintPopoverControl
+              label="图片 API"
+              value={selectedProvider?.name || '未配置 API'}
+              open={openPopover === 'provider'}
+              disabled={isGenerating || imageProviders.length === 0}
+              onToggle={() => togglePopover('provider')}
+            >
+              {imageProviders.length > 0
+                ? imageProviders.map(provider => (
+                  <button
+                    type="button"
+                    key={provider.id}
+                    className={provider.id === selectedProvider?.id ? 'active' : ''}
+                    onClick={() => selectProvider(provider)}
+                    role="menuitem"
+                  >
+                    <span>{provider.name}</span>
+                    {provider.id === selectedProvider?.id ? <Icon name="check" size={14} /> : null}
+                  </button>
+                ))
+                : <div className="inline-inpaint-popover-empty">未配置 API</div>}
+            </InpaintPopoverControl>
+          ) : null}
           <InpaintPopoverControl
             label="图片模型"
             value={activeModel || '选择模型'}
@@ -735,7 +787,7 @@ function InlineImageInpaintEditor({
               : <div className="inline-inpaint-popover-empty">暂无模型</div>}
           </InpaintPopoverControl>
           <InpaintPopoverControl
-            label="局部修改参数"
+            label={isEraseMode ? '擦除参数' : '局部修改参数'}
             value={settingsSummary}
             open={openPopover === 'settings'}
             disabled={isGenerating}
@@ -780,13 +832,17 @@ function InlineImageInpaintEditor({
               </div>
             </div>
           </InpaintPopoverControl>
+          <span className="inline-inpaint-credit-pill" aria-label={`需要 ${credits} 积分`}>
+            <Icon name="lightning" size={13} />
+            {credits}
+          </span>
           <button
             type="button"
             className="inline-inpaint-run-btn"
             onClick={submit}
-            disabled={isGenerating || !prompt.trim() || !hasMask}
-            title={!hasMask ? '先在图片上画出调整区域' : '生成'}
-            aria-label="生成局部修改图片"
+            disabled={isGenerating || !hasMask || (!isEraseMode && !prompt.trim())}
+            title={!hasMask ? (isEraseMode ? '先在图片上画出擦除区域' : '先在图片上画出调整区域') : '生成'}
+            aria-label={isEraseMode ? '生成擦除图片' : '生成局部修改图片'}
           >
             <Icon name={isGenerating ? 'loader' : 'play'} size={17} />
           </button>

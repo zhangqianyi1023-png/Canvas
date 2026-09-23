@@ -5,6 +5,7 @@ import InlineImageAnnotationEditor from '../components/InlineImageAnnotationEdit
 import InlineImageInpaintEditor from '../components/InlineImageInpaintEditor';
 import InlineImagePerspectiveEditor from '../components/InlineImagePerspectiveEditor';
 import CanvasImagePrototype from '../components/CanvasImagePrototype';
+import { NodeTagColorMenuItems, NodeTagPickerButtonContent, getNodeTagPickerTitle } from '../components/NodeTagPicker';
 import { API_BASE } from '../apiBase';
 import { useCanvasWheelHandoff } from '../canvasWheelHandoff';
 import { resolveImageActionPortalPosition } from '../imageActionOverlayPosition';
@@ -13,7 +14,7 @@ import toolbarCropIcon from '../assets/figma-image-actions/toolbar-crop.svg';
 import toolbarUploadIcon from '../assets/figma-image-actions/toolbar-upload.svg';
 import toolbarFavoriteIcon from '../assets/figma-image-actions/toolbar-favorite.svg';
 import toolbarDownloadIcon from '../assets/figma-image-actions/toolbar-download.svg';
-import { NODE_TAG_COLORS, normalizeNodeTagColors } from '../nodeTagColors';
+import { normalizeNodeTagColors } from '../nodeTagColors';
 import {
   CROP_RATIO_OPTIONS,
   DEFAULT_CROP,
@@ -44,10 +45,11 @@ const actionItems = [
   { action: 'rotate', label: '旋转', icon: 'rotateImage', sourceTypes: ['result'] },
   { action: 'erase', label: '擦除', icon: 'erase' },
   { action: 'cutout', label: '抠图', icon: 'scissors' },
+  { action: 'annotate', label: '标注', icon: 'edit', sourceTypes: ['result'] },
   { action: 'gridSplit', label: '宫格拆分', icon: 'grid', sourceTypes: ['result'] },
   { action: 'seedanceCompliance', label: 'Seedance2.0 合规认证', icon: 'certificate', sourceTypes: ['result'] },
   { action: 'split', label: 'Quick Split', icon: 'grid' },
-  { action: 'favorite', label: '收藏', icon: 'layers', toolbarIcon: toolbarFavoriteIcon, iconOnly: true },
+  { action: 'favorite', label: '保存到素材库', icon: 'layers', toolbarIcon: toolbarFavoriteIcon, iconOnly: true },
   { action: 'download', label: '下载', icon: 'save', toolbarIcon: toolbarDownloadIcon, iconOnly: true },
 ];
 
@@ -57,13 +59,15 @@ const IMAGE_EDIT_ACTION_ORDER = [
   'inpaint',
   'lighting',
   'outpaint',
+  'gridSplit',
 ];
 
 const IMAGE_MORE_ACTION_ORDER = [
   'enhance',
   'resize',
   'cutout',
-  'gridSplit',
+  'annotate',
+  'erase',
   'seedanceCompliance',
   'rotate',
 ];
@@ -923,6 +927,7 @@ function ImageActionOverlay({
 }) {
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [inpaintOpen, setInpaintOpen] = useState(false);
+  const [eraseOpen, setEraseOpen] = useState(false);
   const [perspectiveOpen, setPerspectiveOpen] = useState(false);
   const [lightingOpen, setLightingOpen] = useState(false);
   const [rotationOpen, setRotationOpen] = useState(false);
@@ -967,7 +972,23 @@ function ImageActionOverlay({
   const editToolbarActions = IMAGE_EDIT_ACTION_ORDER
     .map(action => imageActions.find(item => item.action === action))
     .filter(Boolean)
-    .map(item => ({ ...item, iconOnly: true }));
+    .map(item => (
+      item.action === 'gridSplit'
+        ? {
+            ...item,
+            iconOnly: true,
+            menuLabel: '选择宫格拆分方式',
+            menuItems: GRID_SPLIT_PRESETS.map(option => ({
+              id: option.id,
+              label: option.label,
+              icon: 'grid',
+              action: 'gridSplitPreset',
+              rows: option.rows,
+              cols: option.cols,
+            })),
+          }
+        : { ...item, iconOnly: true }
+    ));
   const moreMenuItems = IMAGE_MORE_ACTION_ORDER
     .map(action => imageActions.find(item => item.action === action))
     .filter(Boolean)
@@ -992,17 +1013,12 @@ function ImageActionOverlay({
     ? [{
         action: 'nodeTags',
         label: '添加标记',
+        title: getNodeTagPickerTitle(tagColors),
         icon: 'tag',
         iconOnly: true,
         active: normalizedTagColors.length > 0,
+        nodeTagPicker: true,
         menuLabel: '节点标记颜色',
-        menuItems: NODE_TAG_COLORS.map(color => ({
-          id: color.id,
-          label: color.label,
-          color: color.value,
-          active: normalizedTagColors.includes(color.id),
-          onClick: () => onTagToggle(color.id),
-        })),
       }]
     : [];
   const afterUploadActions = imageActions.filter(item => item.action === 'favorite' || item.action === 'download');
@@ -1031,6 +1047,10 @@ function ImageActionOverlay({
 
   const closeInpaint = useCallback(() => {
     setInpaintOpen(false);
+  }, []);
+
+  const closeErase = useCallback(() => {
+    setEraseOpen(false);
   }, []);
 
   const closeAnnotation = useCallback(() => {
@@ -1165,12 +1185,12 @@ function ImageActionOverlay({
   }, [rotationOpen]);
 
   useEffect(() => {
-    if (!annotationOpen && !inpaintOpen && !perspectiveOpen && !lightingOpen && !cropOpen && !gridOpen && !prototypeOperation) return undefined;
+    if (!annotationOpen && !inpaintOpen && !eraseOpen && !perspectiveOpen && !lightingOpen && !cropOpen && !gridOpen && !prototypeOperation) return undefined;
     const anchor = resolveRotationAnchor(layerRef.current);
     if (!anchor) return undefined;
     anchor.classList.add('is-image-action-editing');
     if (annotationOpen) anchor.classList.add('is-annotation-editing');
-    if (inpaintOpen) anchor.classList.add('is-inpaint-editing');
+    if (inpaintOpen || eraseOpen) anchor.classList.add('is-inpaint-editing');
     if (perspectiveOpen) anchor.classList.add('is-perspective-editing');
     if (lightingOpen) anchor.classList.add('is-lighting-editing');
     if (gridOpen) anchor.classList.add('is-grid-splitting');
@@ -1184,11 +1204,11 @@ function ImageActionOverlay({
       anchor.classList.remove('is-grid-splitting');
       anchor.classList.remove('is-prototype-editing');
     };
-  }, [annotationOpen, cropOpen, gridOpen, inpaintOpen, lightingOpen, perspectiveOpen, prototypeOperation]);
+  }, [annotationOpen, cropOpen, eraseOpen, gridOpen, inpaintOpen, lightingOpen, perspectiveOpen, prototypeOperation]);
 
   useEffect(() => {
-    onEditingChange?.(annotationOpen || inpaintOpen || perspectiveOpen || lightingOpen || rotationOpen || cropOpen || gridOpen || Boolean(prototypeOperation));
-  }, [annotationOpen, cropOpen, gridOpen, inpaintOpen, lightingOpen, onEditingChange, perspectiveOpen, prototypeOperation, rotationOpen]);
+    onEditingChange?.(annotationOpen || inpaintOpen || eraseOpen || perspectiveOpen || lightingOpen || rotationOpen || cropOpen || gridOpen || Boolean(prototypeOperation));
+  }, [annotationOpen, cropOpen, eraseOpen, gridOpen, inpaintOpen, lightingOpen, onEditingChange, perspectiveOpen, prototypeOperation, rotationOpen]);
 
   useEffect(() => () => {
     cropPointerCleanupRef.current?.();
@@ -1234,6 +1254,7 @@ function ImageActionOverlay({
 
     if (action === 'inpaint') {
       setAnnotationOpen(false);
+      setEraseOpen(false);
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setGridOpen(false);
@@ -1243,9 +1264,25 @@ function ImageActionOverlay({
       return;
     }
 
-    if (['outpaint', 'erase', 'cutout', 'enhance', 'split', 'resize'].includes(action)) {
+    if (action === 'erase') {
       setAnnotationOpen(false);
       setInpaintOpen(false);
+      setPerspectiveOpen(false);
+      setLightingOpen(false);
+      setRotationOpen(false);
+      setCropOpen(false);
+      setGridOpen(false);
+      setGridPresetOpen(false);
+      setGridCustomPanelOpen(false);
+      setPrototypeOperation(null);
+      setEraseOpen(true);
+      return;
+    }
+
+    if (['outpaint', 'cutout', 'enhance', 'split', 'resize'].includes(action)) {
+      setAnnotationOpen(false);
+      setInpaintOpen(false);
+      setEraseOpen(false);
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setRotationOpen(false);
@@ -1260,6 +1297,7 @@ function ImageActionOverlay({
     if (action === 'gridSplit') {
       setAnnotationOpen(false);
       setInpaintOpen(false);
+      setEraseOpen(false);
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setRotationOpen(false);
@@ -1273,6 +1311,7 @@ function ImageActionOverlay({
     if (action === 'perspective') {
       setAnnotationOpen(false);
       setInpaintOpen(false);
+      setEraseOpen(false);
       setLightingOpen(false);
       setRotationOpen(false);
       setGridOpen(false);
@@ -1285,6 +1324,7 @@ function ImageActionOverlay({
     if (action === 'lighting') {
       setAnnotationOpen(false);
       setInpaintOpen(false);
+      setEraseOpen(false);
       setPerspectiveOpen(false);
       setRotationOpen(false);
       setCropOpen(false);
@@ -1300,6 +1340,7 @@ function ImageActionOverlay({
       const image = layerRef.current?.parentElement?.querySelector?.(':scope > img');
       setAnnotationOpen(false);
       setInpaintOpen(false);
+      setEraseOpen(false);
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setRotationOpen(false);
@@ -1320,6 +1361,7 @@ function ImageActionOverlay({
 
     if (action === 'annotate') {
       setInpaintOpen(false);
+      setEraseOpen(false);
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setRotationOpen(false);
@@ -1334,6 +1376,7 @@ function ImageActionOverlay({
     if (action === 'rotate') {
       setAnnotationOpen(false);
       setInpaintOpen(false);
+      setEraseOpen(false);
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setCropOpen(false);
@@ -1354,6 +1397,7 @@ function ImageActionOverlay({
     if (action === 'upload') {
       setAnnotationOpen(false);
       setInpaintOpen(false);
+      setEraseOpen(false);
       setPerspectiveOpen(false);
       setLightingOpen(false);
       setCropOpen(false);
@@ -1398,6 +1442,7 @@ function ImageActionOverlay({
   const openGridSplit = useCallback((rows, cols) => {
     setAnnotationOpen(false);
     setInpaintOpen(false);
+    setEraseOpen(false);
     setPerspectiveOpen(false);
     setLightingOpen(false);
     setRotationOpen(false);
@@ -1639,6 +1684,18 @@ function ImageActionOverlay({
     })
   ), [imageIndex, imageUrl, nodeId, onAction, sourceHandle, sourceType]);
 
+  const submitErase = useCallback((payload) => (
+    onAction?.('prototypeCreate', {
+      imageUrl,
+      nodeId,
+      sourceType,
+      imageIndex,
+      sourceHandle,
+      operation: 'erase',
+      ...payload,
+    })
+  ), [imageIndex, imageUrl, nodeId, onAction, sourceHandle, sourceType]);
+
   const submitPerspective = useCallback((payload) => (
     onAction?.('perspectiveGenerate', {
       imageUrl,
@@ -1750,7 +1807,7 @@ function ImageActionOverlay({
           ].filter(Boolean).join(' ')}
         >
           {group.actions.map((item, index) => {
-            const hasMenu = Array.isArray(item.menuItems) && item.menuItems.length > 0;
+            const hasMenu = item.nodeTagPicker || (Array.isArray(item.menuItems) && item.menuItems.length > 0);
             const menuOpen = openMenuAction === item.action;
             const active = menuOpen || Boolean(item.active);
             return (
@@ -1766,6 +1823,7 @@ function ImageActionOverlay({
                     item.action === 'inpaint' && inpaintOpen ? 'active' : '',
                     item.action === 'perspective' && perspectiveOpen ? 'active' : '',
                     item.action === 'lighting' && lightingOpen ? 'active' : '',
+                    item.action === 'gridSplit' && gridOpen ? 'active' : '',
                     active ? 'active' : '',
                     item.tone === 'danger' ? 'danger' : '',
                     item.iconOnly ? 'is-icon-only' : '',
@@ -1778,29 +1836,40 @@ function ImageActionOverlay({
                     }
                     emitAction(item.action);
                   }}
-                  data-tooltip={item.label}
-                  aria-label={item.label}
+                  data-tooltip={item.title || item.label}
+                  aria-label={item.title || item.label}
                   aria-haspopup={hasMenu ? 'menu' : undefined}
                   aria-expanded={hasMenu ? menuOpen : undefined}
                 >
-                  <span className="image-action-toolbar-icon" aria-hidden="true">
-                    {item.toolbarIcon
-                      ? <img src={item.toolbarIcon} alt="" />
-                      : <Icon name={item.icon} size={16} />}
-                  </span>
-                  <span className="image-action-toolbar-label">{item.label}</span>
-                  {item.action === 'nodeTags' && normalizedTagColors.length > 0 ? (
-                    <span className="image-action-toolbar-tag-dots" aria-hidden="true">
-                      {normalizedTagColors.slice(0, 3).map(colorId => {
-                        const color = NODE_TAG_COLORS.find(option => option.id === colorId);
-                        return color ? <span key={colorId} style={{ '--node-tag-color': color.value }} /> : null;
-                      })}
-                    </span>
-                  ) : null}
+                  {item.action === 'nodeTags' ? (
+                    <NodeTagPickerButtonContent
+                      tagColors={tagColors}
+                      label={item.label}
+                      iconSize={16}
+                      iconClassName="image-action-toolbar-icon"
+                      labelClassName="image-action-toolbar-label"
+                      dotsClassName="image-action-toolbar-tag-dots"
+                    />
+                  ) : (
+                    <>
+                      <span className="image-action-toolbar-icon" aria-hidden="true">
+                        {item.toolbarIcon
+                          ? <img src={item.toolbarIcon} alt="" />
+                          : <Icon name={item.icon} size={16} />}
+                      </span>
+                      <span className="image-action-toolbar-label">{item.label}</span>
+                    </>
+                  )}
                 </button>
                 {hasMenu && menuOpen ? (
                   <div className="image-action-toolbar-menu" role="menu" aria-label={item.menuLabel || item.label}>
-                    {item.menuItems.map(menuItem => {
+                    {item.nodeTagPicker ? (
+                      <NodeTagColorMenuItems
+                        tagColors={tagColors}
+                        onToggle={onTagToggle}
+                        onAfterToggle={() => setOpenMenuAction('')}
+                      />
+                    ) : item.menuItems.map(menuItem => {
                       const hasSubmenu = menuItem.action === 'gridSplit';
                       const submenuOpen = hasSubmenu && gridPresetOpen;
                       return (
@@ -1822,6 +1891,11 @@ function ImageActionOverlay({
                                 setGridCustomPanelOpen(false);
                                 return;
                               }
+                              if (menuItem.action === 'gridSplitPreset') {
+                                openGridSplit(menuItem.rows, menuItem.cols);
+                                setOpenMenuAction('');
+                                return;
+                              }
                               if (menuItem.action) {
                                 emitAction(menuItem.action);
                               } else {
@@ -1832,6 +1906,7 @@ function ImageActionOverlay({
                           >
                             {menuItem.color ? (
                               <span className="image-action-toolbar-menu-color" style={{ '--node-tag-color': menuItem.color }}>
+                                <span className="image-action-toolbar-menu-color-dot" aria-hidden="true" />
                                 {menuItem.active ? <Icon name="check" size={13} /> : null}
                               </span>
                             ) : (
@@ -1959,6 +2034,7 @@ function ImageActionOverlay({
     && !rotationOpen
     && !annotationOpen
     && !inpaintOpen
+    && !eraseOpen
     && !perspectiveOpen
     && !lightingOpen
     && !gridOpen
@@ -1971,9 +2047,9 @@ function ImageActionOverlay({
   });
 
   return (
-    <div ref={layerRef} className={`image-action-layer ${forceVisible ? 'is-open' : ''} ${annotationOpen ? 'is-annotating' : ''} ${inpaintOpen ? 'is-inpainting' : ''} ${perspectiveOpen ? 'is-perspective' : ''} ${lightingOpen ? 'is-lighting' : ''} ${cropOpen ? 'is-cropping' : ''} ${gridOpen ? 'is-grid-splitting' : ''}`}>
-      {!suppressToolbar && !annotationOpen && !inpaintOpen && !perspectiveOpen && !lightingOpen && !rotationOpen && !cropOpen && !gridOpen && !prototypeOperation && !portalToolbar ? toolbar : null}
-      {!suppressToolbar && !annotationOpen && !inpaintOpen && !perspectiveOpen && !lightingOpen && !rotationOpen && !cropOpen && !gridOpen && portalToolbar && forceVisible && portalPosition && typeof document !== 'undefined'
+    <div ref={layerRef} className={`image-action-layer ${forceVisible ? 'is-open' : ''} ${annotationOpen ? 'is-annotating' : ''} ${inpaintOpen ? 'is-inpainting' : ''} ${eraseOpen ? 'is-inpainting is-erasing' : ''} ${perspectiveOpen ? 'is-perspective' : ''} ${lightingOpen ? 'is-lighting' : ''} ${cropOpen ? 'is-cropping' : ''} ${gridOpen ? 'is-grid-splitting' : ''}`}>
+      {!suppressToolbar && !annotationOpen && !inpaintOpen && !eraseOpen && !perspectiveOpen && !lightingOpen && !rotationOpen && !cropOpen && !gridOpen && !prototypeOperation && !portalToolbar ? toolbar : null}
+      {!suppressToolbar && !annotationOpen && !inpaintOpen && !eraseOpen && !perspectiveOpen && !lightingOpen && !rotationOpen && !cropOpen && !gridOpen && portalToolbar && forceVisible && portalPosition && typeof document !== 'undefined'
         ? createPortal(toolbar, document.body)
         : null}
       {cropOpen && portalToolbar && forceVisible && portalPosition && typeof document !== 'undefined'
@@ -1998,6 +2074,17 @@ function ImageActionOverlay({
           apiProviders={apiProviders}
           onCancel={closeInpaint}
           onGenerate={submitInpaint}
+        />
+      ) : null}
+      {eraseOpen && imageUrl ? (
+        <InlineImageInpaintEditor
+          imageUrl={imageUrl}
+          anchorRef={layerRef}
+          apiConfigs={apiConfigs}
+          apiProviders={apiProviders}
+          mode="erase"
+          onCancel={closeErase}
+          onGenerate={submitErase}
         />
       ) : null}
       {perspectiveOpen && imageUrl ? (

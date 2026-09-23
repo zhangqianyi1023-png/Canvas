@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NODE_TAG_COLOR_MAP, normalizeNodeTagColors } from '../nodeTagColors';
 
-function EditableNodeTitle({ icon, value, fallback, tagColors, onChange, onEditingChange }) {
+function EditableNodeTitle({ icon, value, fallback, tagColors, titleAfterText, onChange, onEditingChange }) {
   const resolvedFallback = fallback || '未命名节点';
   const currentValue = String(value || '').trim() || resolvedFallback;
   const normalizedTagColors = normalizeNodeTagColors(tagColors);
@@ -90,6 +90,10 @@ function EditableNodeTitle({ icon, value, fallback, tagColors, onChange, onEditi
       ) : (
         <>
           <span className="node-title-text" title={currentValue}>{currentValue}</span>
+          {titleAfterText ? (
+            <span className="node-title-after-text">{titleAfterText}</span>
+          ) : null}
+          <span className="node-title-flex-spacer" aria-hidden="true" />
           {normalizedTagColors.length > 0 && (
             <span className="node-title-tag-dots" aria-label={`标记：${normalizedTagColors.map(colorId => NODE_TAG_COLOR_MAP[colorId].label).join('、')}`}>
               {normalizedTagColors.map(colorId => {

@@ -1850,7 +1850,7 @@ const normalizeTagColorLabels = (labels) => {
     .map(([colorId, label]) => [colorId, String(label).trim().slice(0, 16)]));
 };
 
-function CanvasTagFilterBar({ groups, activeColorId, openColorId, tagColorLabels, onSetActive, onSetOpen, onRenameColor, onLocateNode }) {
+function CanvasTagFilterBar({ groups, activeColorId, openColorId, tagColorLabels, onSetActive, onSetOpen, onRenameColor, onLocateNode, onRemoveColorFromAll, onDownloadColorAssets }) {
   const [editingColorId, setEditingColorId] = useState('');
   const [draftLabel, setDraftLabel] = useState('');
   const inputRef = useRef(null);
@@ -1965,6 +1965,27 @@ function CanvasTagFilterBar({ groups, activeColorId, openColorId, tagColorLabels
                     <span>{getCanvasNodeDisplayName(node)}</span>
                   </button>
                 ))}
+              </div>
+              <div className="canvas-tag-filter-menu-footer">
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRemoveColorFromAll(group.color.id);
+                  }}
+                >
+                  移除全部
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDownloadColorAssets(group.color.id, group.nodes);
+                  }}
+                >
+                  下载全部
+                </button>
               </div>
             </div>
           )}
@@ -2083,7 +2104,7 @@ export function CanvasFlow({
   initialViewport,
   initialTagColorLabels = {},
   onCanvasChange, apiConfigs = [], apiProviders = [],
-  materials, setMaterials, materialGroups,
+  materials, setMaterials, materialGroups, setMaterialGroups,
   workflowTemplates, setWorkflowTemplates,
   officialTemplates = [],
   officialPromptStyles = [],
@@ -2198,6 +2219,11 @@ export function CanvasFlow({
   const [activeTagColorId, setActiveTagColorId] = useState('');
   const [openTagColorId, setOpenTagColorId] = useState('');
   const [tagColorLabels, setTagColorLabels] = useState(() => normalizeTagColorLabels(initialTagColorLabels));
+  const [saveMaterialScope, setSaveMaterialScope] = useState('personal');
+  const [saveMaterialFolderMenuId, setSaveMaterialFolderMenuId] = useState('');
+  const [saveMaterialEditingFolderId, setSaveMaterialEditingFolderId] = useState('');
+  const [saveMaterialFolderDraft, setSaveMaterialFolderDraft] = useState('');
+  const [saveMaterialExpandedFolders, setSaveMaterialExpandedFolders] = useState(() => []);
   const [snapEnabled, setSnapEnabled] = useState(getInitialSnapEnabled);
   const [alignmentGuides, setAlignmentGuides] = useState(null); // { guides: [], snappedPos: null }
   const [optionDragGhost, setOptionDragGhost] = useState(null);
@@ -2456,17 +2482,31 @@ const ALIGN_SNAP_THRESHOLD = 5;
     return Array.from(byKey.values());
   }, [certifiedAvatarAssets, materials]);
 
+  const getMaterialGroupScope = useCallback((group) => group?.scope || 'personal', []);
+
+  const getFallbackMaterialGroupId = useCallback((scope = 'personal', groups = materialGroups || []) => {
+    const scopedGroups = groups.filter(group => getMaterialGroupScope(group) === scope);
+    return scopedGroups.find(group => group.name === '默认分组')?.id || scopedGroups[0]?.id || '';
+  }, [getMaterialGroupScope, materialGroups]);
+
   const openSaveMaterialModal = useCallback(({ type, url, resultId, sourceId }) => {
     if (!defaultMaterialGroup) return;
+    const groupId = getFallbackMaterialGroupId('personal') || defaultMaterialGroup.id;
+    setSaveMaterialScope('personal');
+    setSaveMaterialFolderMenuId('');
+    setSaveMaterialEditingFolderId('');
+    setSaveMaterialFolderDraft('');
+    setSaveMaterialExpandedFolders([]);
     setSaveMaterialDraft({
       type,
       url,
       resultId: resultId || sourceId,
       name: `素材 ${new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')}`,
       prompt: '',
-      groupId: defaultMaterialGroup.id,
+      scope: 'personal',
+      groupId,
     });
-  }, [defaultMaterialGroup]);
+  }, [defaultMaterialGroup, getFallbackMaterialGroupId]);
 
   const confirmSaveMaterial = useCallback(() => {
     if (!saveMaterialDraft || !setMaterials) return;
@@ -2479,12 +2519,88 @@ const ALIGN_SNAP_THRESHOLD = 5;
       source: 'canvas',
       sourceId: saveMaterialDraft.resultId,
       groupId: saveMaterialDraft.groupId,
+      scope: saveMaterialDraft.scope || saveMaterialScope,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     setMaterials(prev => [material, ...prev]);
     setSaveMaterialDraft(null);
-  }, [saveMaterialDraft, setMaterials]);
+  }, [saveMaterialDraft, saveMaterialScope, setMaterials]);
+
+  const switchSaveMaterialScope = useCallback((scope) => {
+    setSaveMaterialScope(scope);
+    setSaveMaterialFolderMenuId('');
+    setSaveMaterialEditingFolderId('');
+    setSaveMaterialFolderDraft('');
+    setSaveMaterialDraft(current => (
+      current
+        ? { ...current, scope, groupId: getFallbackMaterialGroupId(scope) }
+        : current
+    ));
+  }, [getFallbackMaterialGroupId]);
+
+  const toggleSaveMaterialFolder = useCallback((folderId) => {
+    setSaveMaterialExpandedFolders(current => (
+      current.includes(folderId)
+        ? current.filter(id => id !== folderId)
+        : [...current, folderId]
+    ));
+  }, []);
+
+  const createSaveMaterialFolder = useCallback((parentId = '') => {
+    if (!setMaterialGroups) return;
+    const now = new Date().toISOString();
+    const folder = {
+      id: makeId('material_group'),
+      name: '新建文件夹',
+      scope: saveMaterialScope,
+      parentId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setMaterialGroups(current => [...(Array.isArray(current) ? current : []), folder]);
+    setSaveMaterialDraft(current => current ? { ...current, scope: saveMaterialScope, groupId: folder.id } : current);
+    setSaveMaterialEditingFolderId(folder.id);
+    setSaveMaterialFolderDraft(folder.name);
+    setSaveMaterialFolderMenuId('');
+    if (parentId) {
+      setSaveMaterialExpandedFolders(current => current.includes(parentId) ? current : [...current, parentId]);
+    }
+  }, [saveMaterialScope, setMaterialGroups]);
+
+  const renameSaveMaterialFolder = useCallback((folderId, name) => {
+    if (!setMaterialGroups || !folderId) return;
+    const nextName = String(name || '').trim() || '未命名文件夹';
+    setMaterialGroups(current => (Array.isArray(current) ? current : []).map(group => (
+      group.id === folderId
+        ? { ...group, name: nextName, updatedAt: new Date().toISOString() }
+        : group
+    )));
+    setSaveMaterialEditingFolderId('');
+    setSaveMaterialFolderDraft('');
+  }, [setMaterialGroups]);
+
+  const deleteSaveMaterialFolder = useCallback((folderId) => {
+    if (!setMaterialGroups || !folderId) return;
+    const groups = Array.isArray(materialGroups) ? materialGroups : [];
+    const collectIds = (id, ids = new Set()) => {
+      ids.add(id);
+      groups.filter(group => group.parentId === id).forEach(child => collectIds(child.id, ids));
+      return ids;
+    };
+    const deletingIds = collectIds(folderId);
+    const fallbackId = getFallbackMaterialGroupId(saveMaterialScope, groups.filter(group => !deletingIds.has(group.id)));
+    setMaterialGroups(current => (Array.isArray(current) ? current : []).filter(group => !deletingIds.has(group.id)));
+    setSaveMaterialFolderMenuId('');
+    setSaveMaterialEditingFolderId('');
+    setSaveMaterialFolderDraft('');
+    setSaveMaterialExpandedFolders(current => current.filter(id => !deletingIds.has(id)));
+    setSaveMaterialDraft(current => (
+      current && deletingIds.has(current.groupId)
+        ? { ...current, groupId: fallbackId }
+        : current
+    ));
+  }, [getFallbackMaterialGroupId, materialGroups, saveMaterialScope, setMaterialGroups]);
 
   const downloadNodeVideos = useCallback(async (nodeId) => {
     const node = nodesRef.current.find(item => item.id === nodeId);
@@ -3571,6 +3687,36 @@ const ALIGN_SNAP_THRESHOLD = 5;
       return next;
     });
   }, []);
+
+  const removeTagColorFromAll = useCallback((colorId) => {
+    if (!NODE_TAG_COLOR_MAP[colorId]) return;
+    setNodes(current => current.map(node => {
+      const currentColors = normalizeNodeTagColors(node.data?.tagColors);
+      if (!currentColors.includes(colorId)) return node;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          tagColors: currentColors.filter(item => item !== colorId),
+        },
+      };
+    }));
+    setActiveTagColorId(current => current === colorId ? '' : current);
+    setOpenTagColorId(current => current === colorId ? '' : current);
+  }, [setNodes]);
+
+  const downloadTagColorAssets = useCallback((colorId, taggedNodes = []) => {
+    if (!NODE_TAG_COLOR_MAP[colorId]) return;
+    const colorLabel = tagColorLabels[colorId] || NODE_TAG_COLOR_MAP[colorId].label;
+    const assetCount = taggedNodes.filter(node => (
+      node.type === 'result'
+      || node.type === 'videoInput'
+      || node.data?.imageUrl
+      || node.data?.videoUrl
+      || node.data?.audioUrl
+    )).length;
+    window.alert(`原型功能：将下载“${colorLabel}”标记下的 ${assetCount || taggedNodes.length} 个图片/视频/音频素材。`);
+  }, [tagColorLabels]);
 
   useEffect(() => {
     if (!activeTagColorId) return;
@@ -12443,6 +12589,129 @@ const ALIGN_SNAP_THRESHOLD = 5;
     };
   }, [menu]);
 
+  const saveMaterialFolders = useMemo(() => (
+    (Array.isArray(materialGroups) ? materialGroups : [])
+      .filter(group => getMaterialGroupScope(group) === saveMaterialScope)
+  ), [getMaterialGroupScope, materialGroups, saveMaterialScope]);
+  const selectedSaveMaterialFolder = saveMaterialFolders.find(folder => folder.id === saveMaterialDraft?.groupId) || null;
+
+  const renderSaveMaterialFolderRows = useCallback((parentId = '', depth = 0) => {
+    const folders = saveMaterialFolders.filter(folder => (folder.parentId || '') === parentId);
+    if (folders.length === 0) return null;
+    return folders.map(folder => {
+      const childCount = saveMaterialFolders.filter(item => (item.parentId || '') === folder.id).length;
+      const expanded = saveMaterialExpandedFolders.includes(folder.id);
+      const selected = saveMaterialDraft?.groupId === folder.id;
+      const editing = saveMaterialEditingFolderId === folder.id;
+      return (
+        <div className="material-save-folder-block" key={folder.id}>
+          <div
+            className={`material-save-folder-row ${selected ? 'is-selected' : ''}`}
+            style={{ '--folder-depth': depth }}
+          >
+            <button
+              type="button"
+              className="material-save-folder-toggle"
+              aria-label={expanded ? `收起${folder.name}` : `展开${folder.name}`}
+              disabled={childCount === 0}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleSaveMaterialFolder(folder.id);
+              }}
+            >
+              {childCount > 0 ? <Icon name={expanded ? 'chevronDown' : 'chevronRight'} size={17} /> : <span />}
+            </button>
+            <button
+              type="button"
+              className="material-save-folder-main"
+              onClick={() => setSaveMaterialDraft(current => current ? { ...current, scope: saveMaterialScope, groupId: folder.id } : current)}
+            >
+              <Icon name="folder" size={24} />
+              {editing ? (
+                <input
+                  className="material-save-folder-input"
+                  value={saveMaterialFolderDraft}
+                  autoFocus
+                  maxLength={24}
+                  onChange={event => setSaveMaterialFolderDraft(event.target.value)}
+                  onClick={event => event.stopPropagation()}
+                  onPointerDown={event => event.stopPropagation()}
+                  onBlur={() => renameSaveMaterialFolder(folder.id, saveMaterialFolderDraft)}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      renameSaveMaterialFolder(folder.id, saveMaterialFolderDraft);
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      setSaveMaterialEditingFolderId('');
+                      setSaveMaterialFolderDraft('');
+                    }
+                  }}
+                />
+              ) : (
+                <span>{folder.name || '未命名文件夹'}</span>
+              )}
+            </button>
+            <div className="material-save-folder-menu-wrap">
+              <button
+                type="button"
+                className="material-save-folder-more"
+                aria-label={`管理${folder.name || '文件夹'}`}
+                aria-haspopup="menu"
+                aria-expanded={saveMaterialFolderMenuId === folder.id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSaveMaterialFolderMenuId(current => current === folder.id ? '' : folder.id);
+                }}
+              >
+                <Icon name="more" size={18} />
+              </button>
+              {saveMaterialFolderMenuId === folder.id ? (
+                <div className="material-save-folder-menu" role="menu">
+                  <button type="button" role="menuitem" onClick={() => createSaveMaterialFolder(folder.id)}>
+                    <Icon name="add" size={17} />
+                    <span>新建文件夹</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setSaveMaterialFolderMenuId('');
+                      setSaveMaterialEditingFolderId(folder.id);
+                      setSaveMaterialFolderDraft(folder.name || '未命名文件夹');
+                    }}
+                  >
+                    <Icon name="edit" size={17} />
+                    <span>重命名</span>
+                  </button>
+                  <button type="button" role="menuitem" className="danger" onClick={() => deleteSaveMaterialFolder(folder.id)}>
+                    <Icon name="trash" size={17} />
+                    <span>删除</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          {expanded ? renderSaveMaterialFolderRows(folder.id, depth + 1) : null}
+        </div>
+      );
+    });
+  }, [
+    createSaveMaterialFolder,
+    deleteSaveMaterialFolder,
+    renameSaveMaterialFolder,
+    saveMaterialDraft?.groupId,
+    saveMaterialEditingFolderId,
+    saveMaterialExpandedFolders,
+    saveMaterialFolderDraft,
+    saveMaterialFolderMenuId,
+    saveMaterialFolders,
+    saveMaterialScope,
+    toggleSaveMaterialFolder,
+  ]);
+
   // 用原生事件绑定绕过 Chrome passive wheel 限制
   useEffect(() => {
     const el = canvasContainerRef.current;
@@ -12488,6 +12757,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
           onSetOpen={setOpenTagColorId}
           onRenameColor={renameTagColor}
           onLocateNode={focusTaggedNode}
+          onRemoveColorFromAll={removeTagColorFromAll}
+          onDownloadColorAssets={downloadTagColorAssets}
         />
         <ReactFlow
           nodes={nodesForRender}
@@ -12707,7 +12978,9 @@ const ALIGN_SNAP_THRESHOLD = 5;
         open={materialDrawerOpen}
         mode="materials"
         materials={materials || []}
+        setMaterials={setMaterials}
         materialGroups={materialGroups || []}
+        setMaterialGroups={setMaterialGroups}
         workflowTemplates={workflowTemplates || []}
         officialTemplates={officialTemplates}
         onClose={() => setMaterialDrawerOpen(false)}
@@ -13080,54 +13353,55 @@ const ALIGN_SNAP_THRESHOLD = 5;
 
       {saveMaterialDraft && (
         <div className="modal-overlay material-save-modal-overlay" onClick={() => setSaveMaterialDraft(null)}>
-          <div className="material-edit-dialog" onClick={e => e.stopPropagation()}>
-            <div className="material-edit-header">
-              <h3>保存到素材</h3>
-              <button type="button" className="icon-button" onClick={() => setSaveMaterialDraft(null)}>
+          <div className="material-save-dialog" onClick={e => e.stopPropagation()}>
+            <div className="material-save-header">
+              <h3><Icon name="folder" size={24} />保存到素材库</h3>
+              <button type="button" className="material-save-new-folder" onClick={() => createSaveMaterialFolder('')}>
+                <Icon name="add" size={20} />
+                <span>新建文件夹</span>
+              </button>
+              <button type="button" className="material-save-close" aria-label="关闭" onClick={() => setSaveMaterialDraft(null)}>
                 <Icon name="x" size={20} />
               </button>
             </div>
-            <div className="material-edit-body">
-              <div className="material-save-preview">
-                {saveMaterialDraft.type === 'video' ? (
-                  <video src={saveMaterialDraft.url} muted />
+            <div className="material-save-body">
+              <div className="material-save-tabs" role="tablist" aria-label="素材空间">
+                {[
+                  { id: 'personal', label: '个人' },
+                  { id: 'team', label: '团队' },
+                ].map(scope => (
+                  <button
+                    key={scope.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={saveMaterialScope === scope.id}
+                    className={saveMaterialScope === scope.id ? 'active' : ''}
+                    onClick={() => switchSaveMaterialScope(scope.id)}
+                  >
+                    {scope.label}
+                  </button>
+                ))}
+              </div>
+              <div className="material-save-folder-list" role="tree" aria-label="素材库文件夹">
+                {saveMaterialFolders.length > 0 ? (
+                  renderSaveMaterialFolderRows('', 0)
                 ) : (
-                  <img src={saveMaterialDraft.url} alt="预览" />
+                  <div className="material-save-empty">
+                    <Icon name="folder" size={28} />
+                    <strong>暂无文件夹</strong>
+                    <span>点击右上角新建文件夹后再保存素材</span>
+                  </div>
                 )}
               </div>
-              <label>
-                素材名称
-                <input
-                  type="text"
-                  value={saveMaterialDraft.name}
-                  onChange={e => setSaveMaterialDraft({ ...saveMaterialDraft, name: e.target.value })}
-                  placeholder="给素材起个名字"
-                />
-              </label>
-              <label>
-                提示词
-                <textarea
-                  rows={4}
-                  value={saveMaterialDraft.prompt}
-                  onChange={e => setSaveMaterialDraft({ ...saveMaterialDraft, prompt: e.target.value })}
-                  placeholder="为这个素材添加提示词描述..."
-                />
-              </label>
-              <label>
-                分组
-                <select
-                  value={saveMaterialDraft.groupId}
-                  onChange={e => setSaveMaterialDraft({ ...saveMaterialDraft, groupId: e.target.value })}
-                >
-                  {(materialGroups || []).map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-              </label>
+              {selectedSaveMaterialFolder ? (
+                <div className="material-save-target">
+                  保存到：<strong>{saveMaterialScope === 'team' ? '团队' : '个人'} / {selectedSaveMaterialFolder.name || '未命名文件夹'}</strong>
+                </div>
+              ) : null}
             </div>
-            <div className="modal-actions">
-              <button className="modal-btn cancel" onClick={() => setSaveMaterialDraft(null)}>取消</button>
-              <button className="modal-btn confirm" onClick={confirmSaveMaterial}>保存</button>
+            <div className="material-save-actions">
+              <button type="button" className="material-save-cancel" onClick={() => setSaveMaterialDraft(null)}>取消</button>
+              <button type="button" className="material-save-confirm" onClick={confirmSaveMaterial} disabled={!saveMaterialDraft.groupId}>保存</button>
             </div>
           </div>
         </div>
@@ -14292,12 +14566,22 @@ function ModelPickerModal({ data, onConfirm, onCancel }) {
 
 
 
-function CanvasPage({ project, apiConfigs, apiProviders, onBack, onRenameProject, onCanvasChange, materials, setMaterials, materialGroups, workflowTemplates, setWorkflowTemplates, officialTemplates, officialPromptStyles, pendingInjectRef, runtimeSettings, crossProjectClipboardRef, refreshLocalAssets, currentLanguage = 'zh-CN', onLanguageChange }) {
+function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, onRenameProject, onCanvasChange, materials, setMaterials, materialGroups, setMaterialGroups, workflowTemplates, setWorkflowTemplates, officialTemplates, officialPromptStyles, pendingInjectRef, runtimeSettings, crossProjectClipboardRef, refreshLocalAssets, currentLanguage = 'zh-CN', onLanguageChange }) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const [canvasSwitcherOpen, setCanvasSwitcherOpen] = useState(false);
+  const [canvasSwitcherQuery, setCanvasSwitcherQuery] = useState('');
   const accountMenuRef = useRef(null);
+  const canvasSwitcherRef = useRef(null);
   const accountText = getCanvasLanguageText(currentLanguage);
   const activeLanguage = CANVAS_LANGUAGES.find(language => language.id === currentLanguage) || CANVAS_LANGUAGES[1];
+  const canvasSwitcherProjects = useMemo(() => {
+    const source = Array.isArray(projects) && projects.length > 0 ? projects : [project];
+    const query = canvasSwitcherQuery.trim().toLowerCase();
+    return [...source]
+      .filter(item => !query || String(item.name || '').toLowerCase().includes(query))
+      .sort((a, b) => (a.id === project.id ? -1 : b.id === project.id ? 1 : new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)));
+  }, [canvasSwitcherQuery, project, projects]);
   const handleCanvasChange = useCallback((nodes, edges, meta) => {
     onCanvasChange(project.id, nodes, edges, meta);
   }, [onCanvasChange, project.id]);
@@ -14313,18 +14597,92 @@ function CanvasPage({ project, apiConfigs, apiProviders, onBack, onRenameProject
     return () => document.removeEventListener('pointerdown', closeAccountMenu, true);
   }, [accountMenuOpen]);
 
+  useEffect(() => {
+    if (!canvasSwitcherOpen) return undefined;
+    const closeCanvasSwitcher = (event) => {
+      if (event.type === 'keydown' && event.key !== 'Escape') return;
+      if (event.type === 'pointerdown' && canvasSwitcherRef.current?.contains(event.target)) return;
+      setCanvasSwitcherOpen(false);
+    };
+    document.addEventListener('pointerdown', closeCanvasSwitcher, true);
+    document.addEventListener('keydown', closeCanvasSwitcher);
+    return () => {
+      document.removeEventListener('pointerdown', closeCanvasSwitcher, true);
+      document.removeEventListener('keydown', closeCanvasSwitcher);
+    };
+  }, [canvasSwitcherOpen]);
+
   return (
     <div className="canvas-page">
       <div className="canvas-topbar">
-        <button className="back-button" onClick={onBack}>
-          <Icon name="arrowLeft" size={18} />
+        <button className="back-button canvas-logo-back-button" onClick={onBack} aria-label="返回画布列表">
+          <img src={publicAsset('infinite-canvas-logo.png')} alt="" aria-hidden="true" />
         </button>
-        <input
-          className="canvas-title-input"
-          value={project.name}
-          onChange={e => onRenameProject(project.id, e.target.value)}
-          aria-label="画布名称"
-        />
+        <div className="canvas-title-switcher" ref={canvasSwitcherRef}>
+          <input
+            className="canvas-title-input"
+            value={project.name}
+            onChange={e => onRenameProject(project.id, e.target.value)}
+            aria-label="画布名称"
+          />
+          <button
+            type="button"
+            className={`canvas-title-switcher-button ${canvasSwitcherOpen ? 'active' : ''}`}
+            aria-label="打开画布列表"
+            aria-expanded={canvasSwitcherOpen}
+            onClick={() => setCanvasSwitcherOpen(open => !open)}
+          >
+            <Icon name="chevronDown" size={16} />
+          </button>
+          {canvasSwitcherOpen && (
+            <div className="canvas-switcher-menu" role="menu" aria-label="画布列表">
+              <div className="canvas-switcher-search">
+                <Icon name="search" size={15} />
+                <input
+                  value={canvasSwitcherQuery}
+                  onChange={event => setCanvasSwitcherQuery(event.target.value)}
+                  placeholder="搜索画布"
+                  autoFocus
+                />
+              </div>
+              <div className="canvas-switcher-list">
+                {canvasSwitcherProjects.length > 0 ? canvasSwitcherProjects.map(item => {
+                  const covers = getProjectCoverImages(item);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={item.id === project.id ? 'active' : ''}
+                      role="menuitem"
+                      onClick={() => {
+                        window.alert(`原型功能：切换到画布“${item.name || 'Untitled'}”。`);
+                        setCanvasSwitcherOpen(false);
+                      }}
+                    >
+                      <span className={`canvas-switcher-cover ${covers.length > 0 ? 'has-cover' : ''}`}>
+                        {covers[0] ? <img src={covers[0]} alt="" loading="lazy" decoding="async" /> : <Icon name="image" size={18} />}
+                      </span>
+                      <span className="canvas-switcher-name">{item.name || 'Untitled'}</span>
+                    </button>
+                  );
+                }) : (
+                  <div className="canvas-switcher-empty">没有匹配的画布</div>
+                )}
+              </div>
+              <button
+                type="button"
+                className="canvas-switcher-create"
+                onClick={() => {
+                  window.alert('原型功能：新建画布。');
+                  setCanvasSwitcherOpen(false);
+                }}
+              >
+                <Icon name="add" size={17} />
+                <span>新建画布</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <div className="canvas-account-pill" ref={accountMenuRef} aria-label={accountText.accountAria}>
         {/* 仅作为当前原型的顶部账号信息展示，不接入真实积分或用户系统。 */}
@@ -14430,6 +14788,7 @@ function CanvasPage({ project, apiConfigs, apiProviders, onBack, onRenameProject
           materials={materials}
           setMaterials={setMaterials}
           materialGroups={materialGroups}
+          setMaterialGroups={setMaterialGroups}
           workflowTemplates={workflowTemplates}
           setWorkflowTemplates={setWorkflowTemplates}
           officialTemplates={officialTemplates}
@@ -14863,6 +15222,7 @@ function App() {
       <div className="app-shell">
         <CanvasPage
           project={activeProject}
+          projects={projects}
           apiConfigs={canvasApiConfigs}
           apiProviders={apiConfigs}
           onBack={() => navigate('projects')}
@@ -14871,6 +15231,7 @@ function App() {
           materials={materials}
           setMaterials={setMaterials}
           materialGroups={materialGroups}
+          setMaterialGroups={setMaterialGroups}
           workflowTemplates={workflowTemplates}
           setWorkflowTemplates={setWorkflowTemplates}
           officialTemplates={officialTemplates}

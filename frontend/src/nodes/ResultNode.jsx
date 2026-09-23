@@ -11,6 +11,7 @@ import InteractiveHandle from './InteractiveHandle';
 import NodeHoverToolbar from './NodeHoverToolbar';
 import EditableNodeTitle from './EditableNodeTitle';
 import Icon from '../components/Icon';
+import { NodeTagColorMenuItems, NodeTagPickerButtonContent, getNodeTagPickerTitle } from '../components/NodeTagPicker';
 import AngleCameraPreview from '../components/AngleCameraPreview';
 import ImagePreviewOverlay from '../components/ImagePreviewOverlay';
 import ImageActionOverlay from './ImageActionOverlay';
@@ -48,7 +49,7 @@ import {
   getTextFormatState,
 } from '../textFormatting';
 import { formatImageDimensions, normalizeImageDimensions } from '../imageDimensions';
-import { NODE_TAG_COLORS, normalizeNodeTagColors } from '../nodeTagColors';
+import { normalizeNodeTagColors } from '../nodeTagColors';
 
 const IMAGE_POINTER_INTENT_THRESHOLD = 6;
 const STORYBOARD_FRAME_POINTER_INTENT_THRESHOLD = 8;
@@ -239,6 +240,7 @@ function TextFormatToolbarPortal({
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [tagMenuPosition, setTagMenuPosition] = useState(null);
   const normalizedTagColors = normalizeNodeTagColors(tagColors);
+  const tagPickerTitle = getNodeTagPickerTitle(tagColors);
   const selectedBackgroundColor = resolveTextBackgroundColor(backgroundColor);
 
   useLayoutEffect(() => {
@@ -497,7 +499,7 @@ function TextFormatToolbarPortal({
             ref={tagButtonRef}
             type="button"
             className="text-format-icon-btn text-format-tag-btn"
-            aria-label="添加标记"
+            aria-label={tagPickerTitle}
             aria-haspopup="menu"
             aria-expanded={tagMenuOpen}
             aria-pressed={normalizedTagColors.length > 0}
@@ -507,16 +509,14 @@ function TextFormatToolbarPortal({
               setTagMenuOpen(current => !current);
             }}
           >
-            <Icon name="tag" size={15} />
-            {normalizedTagColors.length > 0 ? (
-              <span className="text-format-tag-dots" aria-hidden="true">
-                {normalizedTagColors.slice(0, 3).map(colorId => {
-                  const color = NODE_TAG_COLORS.find(option => option.id === colorId);
-                  return color ? <span key={colorId} style={{ '--node-tag-color': color.value }} /> : null;
-                })}
-              </span>
-            ) : null}
-            <span className="text-format-toolbar-tooltip" role="tooltip" aria-hidden="true">添加标记</span>
+            <NodeTagPickerButtonContent
+              tagColors={tagColors}
+              iconSize={15}
+              dotsClassName="text-format-tag-dots"
+              tooltipClassName="text-format-toolbar-tooltip"
+              tooltipTitle={tagPickerTitle}
+              showLabel={false}
+            />
           </button>
         </span>
       ) : null}
@@ -588,25 +588,11 @@ function TextFormatToolbarPortal({
       onMouseDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
-      {NODE_TAG_COLORS.map(color => (
-        <button
-          key={color.id}
-          type="button"
-          role="menuitemcheckbox"
-          aria-checked={normalizedTagColors.includes(color.id)}
-          className={normalizedTagColors.includes(color.id) ? 'is-active' : ''}
-          onClick={(event) => {
-            event.stopPropagation();
-            onTagToggle(color.id);
-            setTagMenuOpen(false);
-          }}
-        >
-          <span className="text-format-tag-menu-color" style={{ '--node-tag-color': color.value }}>
-            {normalizedTagColors.includes(color.id) ? <Icon name="check" size={13} /> : null}
-          </span>
-          <span>{color.label}</span>
-        </button>
-      ))}
+      <NodeTagColorMenuItems
+        tagColors={tagColors}
+        onToggle={onTagToggle}
+        onAfterToggle={() => setTagMenuOpen(false)}
+      />
     </div>
   ) : null;
 
@@ -3919,16 +3905,16 @@ function ResultNode({ id, selected, data }) {
             value={displayLabel}
             fallback={isStoryboardScriptResult ? '分镜工作台' : '结果'}
             tagColors={data?.tagColors}
+            titleAfterText={seedanceComplianceStatus === 'passed' ? (
+              <span className="seedance-compliance-badge is-passed" title="Seedance2.0 已合规" aria-label="Seedance2.0 已合规">
+                <Icon name="certificate" size={13} />
+              </span>
+            ) : null}
             onChange={(nextLabel) => data?.onResultDataChange?.(id, { label: nextLabel })}
             onEditingChange={setIsTitleEditing}
           />
           {seedanceComplianceStatus === 'checking' && (
             <span className="seedance-compliance-badge is-checking">正在验证，请稍等...</span>
-          )}
-          {seedanceComplianceStatus === 'passed' && (
-            <span className="seedance-compliance-badge is-passed" title="Seedance2.0 已合规" aria-label="Seedance2.0 已合规">
-              <Icon name="certificate" size={13} />
-            </span>
           )}
           {(isImageResult || isVideoResult) && mediaResolutionLabel && (
             <span className="result-image-dimensions">{mediaResolutionLabel}</span>

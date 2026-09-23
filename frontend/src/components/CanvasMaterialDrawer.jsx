@@ -74,6 +74,8 @@ const MATERIAL_SCOPES = [
   { id: 'team', label: '团队' },
 ];
 
+const makeMaterialId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
 const isTeamMaterial = material => (
   material?.scope === 'team'
   || material?.visibility === 'team'
@@ -82,10 +84,26 @@ const isTeamMaterial = material => (
   || Boolean(material?.teamId || material?.workspaceId)
 );
 
+const getMaterialScope = material => (isTeamMaterial(material) ? 'team' : 'personal');
+
+const getMaterialGroupScope = group => group?.scope || 'personal';
+
+const isSubjectLibraryMaterial = material => (
+  String(material?.seedanceComplianceStatus || material?.complianceStatus || '').toLowerCase() === 'passed'
+  || material?.seedanceCertified === true
+  || material?.isSeedanceCertified === true
+  || isVerifiedCharacterMaterial(material)
+);
+
+const getDefaultFolderName = (index) => ['角色', '场景', '道具', '风格', '音效', 'Others'][index] || `文件夹 ${index + 1}`;
+
 export default function CanvasMaterialDrawer({
   open,
   mode = 'materials',
   materials = [],
+  setMaterials,
+  materialGroups = [],
+  setMaterialGroups,
   workflowTemplates = [],
   onClose,
   onUploadFiles,
@@ -106,6 +124,15 @@ export default function CanvasMaterialDrawer({
   const [previewTemplate, setPreviewTemplate] = useState(null);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [templateMenuId, setTemplateMenuId] = useState(null);
+  const [activeLibraryView, setActiveLibraryView] = useState('folders');
+  const [expandedFolderIds, setExpandedFolderIds] = useState(() => new Set());
+  const [folderMenuId, setFolderMenuId] = useState('');
+  const [materialMenuId, setMaterialMenuId] = useState('');
+  const [moveMaterialId, setMoveMaterialId] = useState('');
+  const [editingFolderId, setEditingFolderId] = useState('');
+  const [editingMaterialId, setEditingMaterialId] = useState('');
+  const [folderDraft, setFolderDraft] = useState('');
+  const [materialDraft, setMaterialDraft] = useState('');
   const [roleCategory, setRoleCategory] = useState('all');
   const [roleSearchOpen, setRoleSearchOpen] = useState(false);
   const tabRefs = useRef([]);
@@ -126,8 +153,26 @@ export default function CanvasMaterialDrawer({
     )),
     [activeMaterialScope, imageMaterials],
   );
+  const scopedMaterialGroups = useMemo(() => {
+    const existingGroups = Array.isArray(materialGroups)
+      ? materialGroups.filter(group => getMaterialGroupScope(group) === activeMaterialScope)
+      : [];
+    if (existingGroups.length > 0) return existingGroups;
+    return ['角色', '场景', '道具', '风格', '音效', 'Others'].map((name, index) => ({
+      id: `prototype_${activeMaterialScope}_${index}`,
+      name,
+      scope: activeMaterialScope,
+      parentId: '',
+      prototype: true,
+    }));
+  }, [activeMaterialScope, materialGroups]);
   const filteredMaterials = useMemo(() => {
     let result = scopedImageMaterials;
+    if (activeLibraryView === 'favorites') {
+      result = result.filter(material => Boolean(material.favorite || material.favorited));
+    } else if (activeLibraryView === 'subjects') {
+      result = result.filter(isSubjectLibraryMaterial);
+    }
     if (activeMaterialType !== 'all') {
       result = result.filter(material => (
         activeMaterialType === '3d'
@@ -143,7 +188,20 @@ export default function CanvasMaterialDrawer({
       ));
     }
     return [...result].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [activeMaterialType, scopedImageMaterials, searchQueries.images]);
+  }, [activeLibraryView, activeMaterialType, scopedImageMaterials, searchQueries.images]);
+  const materialCountsByGroup = useMemo(() => scopedImageMaterials.reduce((counts, material) => {
+    const groupId = material.groupId || '';
+    counts[groupId] = (counts[groupId] || 0) + 1;
+    return counts;
+  }, {}), [scopedImageMaterials]);
+  const favoriteMaterials = useMemo(
+    () => scopedImageMaterials.filter(material => Boolean(material.favorite || material.favorited)),
+    [scopedImageMaterials],
+  );
+  const subjectMaterials = useMemo(
+    () => scopedImageMaterials.filter(isSubjectLibraryMaterial),
+    [scopedImageMaterials],
+  );
   const filteredCharacterMaterials = useMemo(() => {
     const query = searchQueries.characters.trim().toLowerCase();
     const result = query
@@ -193,6 +251,85 @@ export default function CanvasMaterialDrawer({
     setActiveMaterialScope(MATERIAL_SCOPES[nextIndex].id);
     tabRefs.current[nextIndex]?.focus();
   };
+  const closeLibraryMenus = () => {
+    setFolderMenuId('');
+    setMaterialMenuId('');
+    setMoveMaterialId('');
+  };
+  const toggleFolder = folderId => {
+    setExpandedFolderIds(current => {
+      const next = new Set(current);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  };
+  const createFolder = (parentId = '') => {
+    if (!setMaterialGroups) return;
+    const folder = {
+      id: makeMaterialId('material_group'),
+      name: '新建文件夹',
+      scope: activeMaterialScope,
+      parentId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setMaterialGroups(current => [...(Array.isArray(current) ? current : []), folder]);
+    setExpandedFolderIds(current => new Set([...current, parentId].filter(Boolean)));
+    setEditingFolderId(folder.id);
+    setFolderDraft(folder.name);
+    closeLibraryMenus();
+  };
+  const renameFolder = (folderId, name) => {
+    if (!setMaterialGroups || !folderId) return;
+    const nextName = String(name || '').trim() || '未命名文件夹';
+    setMaterialGroups(current => (Array.isArray(current) ? current : []).map(group => (
+      group.id === folderId ? { ...group, name: nextName, updatedAt: new Date().toISOString() } : group
+    )));
+    setEditingFolderId('');
+    setFolderDraft('');
+  };
+  const deleteFolder = folderId => {
+    if (!setMaterialGroups || !folderId) return;
+    const groups = Array.isArray(materialGroups) ? materialGroups : [];
+    const collectIds = (id, ids = new Set()) => {
+      ids.add(id);
+      groups.filter(group => group.parentId === id).forEach(child => collectIds(child.id, ids));
+      return ids;
+    };
+    const deletingIds = collectIds(folderId);
+    setMaterialGroups(current => (Array.isArray(current) ? current : []).filter(group => !deletingIds.has(group.id)));
+    setMaterials?.(current => (Array.isArray(current) ? current : []).map(material => (
+      deletingIds.has(material.groupId) ? { ...material, groupId: '', updatedAt: new Date().toISOString() } : material
+    )));
+    closeLibraryMenus();
+  };
+  const renameMaterial = (materialId, name) => {
+    const nextName = String(name || '').trim() || '未命名素材';
+    setMaterials?.(current => (Array.isArray(current) ? current : []).map(material => (
+      material.id === materialId ? { ...material, name: nextName, updatedAt: new Date().toISOString() } : material
+    )));
+    setEditingMaterialId('');
+    setMaterialDraft('');
+  };
+  const patchMaterial = (materialId, patch) => {
+    setMaterials?.(current => (Array.isArray(current) ? current : []).map(material => (
+      material.id === materialId ? { ...material, ...patch, updatedAt: new Date().toISOString() } : material
+    )));
+  };
+  const deleteMaterial = materialId => {
+    setMaterials?.(current => (Array.isArray(current) ? current : []).filter(material => material.id !== materialId));
+    closeLibraryMenus();
+  };
+  const downloadMaterial = material => {
+    const url = material?.imageUrl || material?.url;
+    if (!url) return;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = material?.name || '素材';
+    link.click();
+    closeLibraryMenus();
+  };
   const currentCount = activeTab === 'images'
     ? scopedImageMaterials.length
     : activeTab === 'characters'
@@ -204,6 +341,191 @@ export default function CanvasMaterialDrawer({
       ? '角色'
       : '素材';
   const visibleMaterials = activeTab === 'characters' ? filteredCharacterMaterials : filteredMaterials;
+
+  const renderMaterialRows = (items, emptyText = '该文件夹暂无素材', depth = 0) => (
+    items.length === 0 ? (
+      <div className="canvas-material-tree-empty" style={{ '--folder-depth': depth }}>{emptyText}</div>
+    ) : items.map(material => {
+      const editing = editingMaterialId === material.id;
+      const favorited = Boolean(material.favorite || material.favorited);
+      return (
+        <div className="canvas-material-file-row" key={material.id} style={{ '--folder-depth': depth }} draggable onDragStart={event => startMaterialDrag(event, material)}>
+          <button type="button" className="canvas-material-file-main" onClick={() => setDetailMaterial(material)}>
+            <span className="canvas-material-file-thumb">
+              {material.type === 'video' && material.imageUrl ? (
+                <video src={material.imageUrl} muted preload="metadata" />
+              ) : material.imageUrl ? (
+                <img src={material.imageUrl} alt="" loading="lazy" decoding="async" />
+              ) : (
+                <Icon name={material.type === 'video' ? 'video' : 'image'} size={18} />
+              )}
+            </span>
+            {editing ? (
+              <input
+                className="canvas-material-inline-input"
+                value={materialDraft}
+                autoFocus
+                maxLength={32}
+                onChange={event => setMaterialDraft(event.target.value)}
+                onClick={event => event.stopPropagation()}
+                onPointerDown={event => event.stopPropagation()}
+                onBlur={() => renameMaterial(material.id, materialDraft)}
+                onKeyDown={event => {
+                  event.stopPropagation();
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    renameMaterial(material.id, materialDraft);
+                  }
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setEditingMaterialId('');
+                    setMaterialDraft('');
+                  }
+                }}
+              />
+            ) : (
+              <span className="canvas-material-file-name">{material.name || '未命名素材'}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={`canvas-material-file-star${favorited ? ' active' : ''}`}
+            aria-label={favorited ? '取消收藏' : '收藏素材'}
+            onClick={() => patchMaterial(material.id, { favorite: !favorited })}
+          >
+            <Icon name="star" size={16} />
+          </button>
+          <div className="canvas-material-row-menu-wrap">
+            <button
+              type="button"
+              className="canvas-material-row-more"
+              aria-label={`管理${material.name || '素材'}`}
+              onClick={() => {
+                setMaterialMenuId(current => current === material.id ? '' : material.id);
+                setFolderMenuId('');
+                setMoveMaterialId('');
+              }}
+            >
+              <Icon name="more" size={17} />
+            </button>
+            {materialMenuId === material.id && (
+              <div className="canvas-material-row-menu">
+                <button type="button" onClick={() => { setEditingMaterialId(material.id); setMaterialDraft(material.name || '未命名素材'); closeLibraryMenus(); }}>
+                  <Icon name="edit" size={15} /> 重命名文件名称
+                </button>
+                <button type="button" onClick={() => setMoveMaterialId(current => current === material.id ? '' : material.id)}>
+                  <Icon name="folder" size={15} /> 移动文件
+                </button>
+                {moveMaterialId === material.id && (
+                  <div className="canvas-material-move-list">
+                    {scopedMaterialGroups.map(folder => (
+                      <button key={folder.id} type="button" onClick={() => { patchMaterial(material.id, { groupId: folder.id, scope: activeMaterialScope }); closeLibraryMenus(); }}>
+                        {folder.name || '未命名文件夹'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button type="button" onClick={() => downloadMaterial(material)}>
+                  <Icon name="download" size={15} /> 下载文件
+                </button>
+                <button type="button" className="danger" onClick={() => deleteMaterial(material.id)}>
+                  <Icon name="trash" size={15} /> 删除文件
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    })
+  );
+
+  const renderFolderRows = (parentId = '', depth = 0) => {
+    const folders = scopedMaterialGroups.filter(folder => (folder.parentId || '') === parentId);
+    return folders.map((folder, index) => {
+      const children = scopedMaterialGroups.filter(item => (item.parentId || '') === folder.id);
+      const folderMaterials = filteredMaterials.filter(material => (material.groupId || '') === folder.id);
+      const expanded = expandedFolderIds.has(folder.id) || folder.prototype || folderMaterials.length > 0;
+      const editing = editingFolderId === folder.id;
+      return (
+        <div className="canvas-material-folder-block" key={folder.id}>
+          <div className="canvas-material-folder-row" style={{ '--folder-depth': depth }}>
+            <button
+              type="button"
+              className="canvas-material-folder-toggle"
+              aria-label={expanded ? '收起文件夹' : '展开文件夹'}
+              onClick={() => toggleFolder(folder.id)}
+            >
+              <Icon name={expanded ? 'chevronDown' : 'chevronRight'} size={18} />
+            </button>
+            <button type="button" className="canvas-material-folder-main" onClick={() => toggleFolder(folder.id)}>
+              <Icon name="folder" size={27} />
+              {editing ? (
+                <input
+                  className="canvas-material-inline-input"
+                  value={folderDraft}
+                  autoFocus
+                  maxLength={24}
+                  onChange={event => setFolderDraft(event.target.value)}
+                  onClick={event => event.stopPropagation()}
+                  onPointerDown={event => event.stopPropagation()}
+                  onBlur={() => renameFolder(folder.id, folderDraft)}
+                  onKeyDown={event => {
+                    event.stopPropagation();
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      renameFolder(folder.id, folderDraft);
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      setEditingFolderId('');
+                      setFolderDraft('');
+                    }
+                  }}
+                />
+              ) : (
+                <span>{folder.name || getDefaultFolderName(index)}</span>
+              )}
+            </button>
+            <span className="canvas-material-folder-count">{materialCountsByGroup[folder.id] || 0}</span>
+            {!folder.prototype && (
+              <div className="canvas-material-row-menu-wrap">
+                <button
+                  type="button"
+                  className="canvas-material-row-more"
+                  aria-label={`管理${folder.name || '文件夹'}`}
+                  onClick={() => {
+                    setFolderMenuId(current => current === folder.id ? '' : folder.id);
+                    setMaterialMenuId('');
+                  }}
+                >
+                  <Icon name="more" size={17} />
+                </button>
+                {folderMenuId === folder.id && (
+                  <div className="canvas-material-row-menu">
+                    <button type="button" onClick={() => createFolder(folder.id)}>
+                      <Icon name="add" size={15} /> 新建文件夹
+                    </button>
+                    <button type="button" onClick={() => { setEditingFolderId(folder.id); setFolderDraft(folder.name || '未命名文件夹'); closeLibraryMenus(); }}>
+                      <Icon name="edit" size={15} /> 修改文件夹
+                    </button>
+                    <button type="button" className="danger" onClick={() => deleteFolder(folder.id)}>
+                      <Icon name="trash" size={15} /> 删除文件夹
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {expanded && (
+            <div className="canvas-material-folder-children">
+              {children.length > 0 ? renderFolderRows(folder.id, depth + 1) : null}
+              {renderMaterialRows(folderMaterials, '该文件夹暂无素材', depth + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
 
   return (
     <>
@@ -219,6 +541,12 @@ export default function CanvasMaterialDrawer({
           <div className="canvas-material-drawer-actions">
             {isCharacterMode && <button type="button" className="canvas-material-add-button" aria-label="添加角色"><Icon name="add" size={22} /></button>}
             <div className="canvas-material-drawer-actions-secondary">
+            {!isCharacterMode && (
+              <button type="button" className="canvas-material-ai-role-entry" onClick={() => window.alert('这里是 AI 角色库入口，当前先作为原型入口展示。')}>
+                <Icon name="user" size={18} />
+                <span>AI角色</span>
+              </button>
+            )}
             {isCharacterMode && (
               <button
                 type="button"
@@ -254,7 +582,9 @@ export default function CanvasMaterialDrawer({
                 className={activeMaterialScope === tab.id ? 'active' : ''}
                 onClick={() => {
                   setActiveMaterialScope(tab.id);
+                  setActiveLibraryView('folders');
                   setDetailMaterial(null);
+                  closeLibraryMenus();
                 }}
                 onKeyDown={event => handleTabKeyDown(event, index)}
               >
@@ -271,7 +601,7 @@ export default function CanvasMaterialDrawer({
             onChange={event => setSearchQuery(event.target.value)}
             placeholder={isCharacterMode ? '搜索角色...' : '搜索素材...'}
           />
-          {!isCharacterMode && <button type="button" className="canvas-material-upload-button" onClick={onUploadFiles}>上传</button>}
+          {!isCharacterMode && activeTab === 'images' && <button type="button" className="canvas-material-upload-button" onClick={onUploadFiles}>上传</button>}
         </div>
 
         {isCharacterMode && (
@@ -293,7 +623,7 @@ export default function CanvasMaterialDrawer({
           </div>
         )}
 
-        {activeTab === 'images' && !isCharacterMode && (
+        {activeTab === 'images' && !isCharacterMode && activeLibraryView !== 'folders' && (
           <div className="canvas-material-groups">
             {MATERIAL_FILTERS.map(filter => (
               <button
@@ -308,6 +638,79 @@ export default function CanvasMaterialDrawer({
           </div>
         )}
 
+        {activeTab === 'images' && !isCharacterMode ? (
+          <div className="canvas-material-library-home" role="tabpanel">
+            <div className="canvas-material-quick-links">
+              <button
+                type="button"
+                className={`canvas-material-quick-link ${activeLibraryView === 'favorites' ? 'active' : ''}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveLibraryView(current => current === 'favorites' ? 'folders' : 'favorites');
+                  closeLibraryMenus();
+                }}
+              >
+                <Icon name="star" size={22} />
+                <span>收藏</span>
+                <strong>{favoriteMaterials.length}</strong>
+              </button>
+              <button
+                type="button"
+                className={`canvas-material-quick-link ${activeLibraryView === 'subjects' ? 'active' : ''}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveLibraryView(current => current === 'subjects' ? 'folders' : 'subjects');
+                  closeLibraryMenus();
+                }}
+              >
+                <Icon name="user" size={22} />
+                <span>主体库</span>
+                <em title="Seedance 2.0 合规认证通过的素材会出现在这里">?</em>
+                <strong>{subjectMaterials.length}</strong>
+              </button>
+            </div>
+            {activeLibraryView === 'folders' ? (
+              <>
+                <div className="canvas-material-library-divider" />
+                <div className="canvas-material-folder-heading">
+                  <span>文件夹</span>
+                  <button type="button" onClick={(event) => { event.stopPropagation(); createFolder(''); }} disabled={!setMaterialGroups}>
+                    <Icon name="add" size={18} />
+                    <span>新建文件夹</span>
+                  </button>
+                </div>
+                <div className="canvas-material-tree" role="tree">
+                  {renderFolderRows('', 0)}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="canvas-material-filter-row">
+                  {MATERIAL_FILTERS.map(filter => (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      className={activeMaterialType === filter.id ? 'active' : ''}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setActiveMaterialType(filter.id);
+                      }}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="canvas-material-flat-list">
+                  {renderMaterialRows(
+                    filteredMaterials,
+                    activeLibraryView === 'favorites' ? '暂无收藏素材' : '暂无已认证主体素材',
+                    0,
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
         <div className="canvas-material-list" role="tabpanel">
           {(activeTab === 'images' || activeTab === 'characters') && (
             visibleMaterials.length === 0 ? (
@@ -401,6 +804,7 @@ export default function CanvasMaterialDrawer({
             ))
           )}
         </div>
+        )}
 
         {detailMaterial && (
           <div className="canvas-material-detail">

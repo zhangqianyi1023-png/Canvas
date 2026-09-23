@@ -1,7 +1,7 @@
 import { CANVAS_OPERATIONS } from './canvasNodeContract.js';
 
 const ACTIONS = [
-  { id: 'annotate', operation: 'agent', label: '标记', nodeTypes: ['image'], implemented: true },
+  { id: 'annotate', operation: 'agent', label: '标注', nodeTypes: ['image'], implemented: true },
   { id: 'crop', operation: 'crop', label: '裁剪', nodeTypes: ['image'], implemented: true },
   { id: 'perspective', operation: 'perspective', label: '角度控制', nodeTypes: ['image'], implemented: true },
   { id: 'inpaint', operation: 'inpaint', label: '局部修改', nodeTypes: ['image'], implemented: true },
