@@ -2986,7 +2986,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
     return scopedGroups.find(group => group.name === '默认分组')?.id || scopedGroups[0]?.id || '';
   }, [getMaterialGroupScope, materialGroups]);
 
-  const openSaveMaterialModal = useCallback(({ type, url, resultId, sourceId }) => {
+  const openSaveMaterialModal = useCallback(({ type, url, resultId, sourceId, name, prompt }) => {
     if (!defaultMaterialGroup) return;
     const groupId = getFallbackMaterialGroupId('personal') || defaultMaterialGroup.id;
     setSaveMaterialScope('personal');
@@ -2996,10 +2996,10 @@ const ALIGN_SNAP_THRESHOLD = 5;
     setSaveMaterialExpandedFolders([]);
     setSaveMaterialDraft({
       type,
-      url,
+      url: url || '',
       resultId: resultId || sourceId,
-      name: `素材 ${new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')}`,
-      prompt: '',
+      name: name || `素材 ${new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')}`,
+      prompt: prompt || '',
       scope: 'personal',
       groupId,
     });
@@ -9210,7 +9210,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
       distance,
       crop,
     } = payload || {};
-    if (!imageUrl || !nodeId) return;
+    if (!nodeId) return;
 
     if (action === 'rotateCreate') {
       if ((sourceType || 'result') !== 'result') {
@@ -9555,8 +9555,18 @@ const ALIGN_SNAP_THRESHOLD = 5;
         ? 'video'
         : payload?.mediaType === 'audio'
           ? 'audio'
-          : 'image';
-      openSaveMaterialModal({ type: mediaType, url: imageUrl, sourceId: nodeId });
+          : payload?.mediaType === 'text' || sourceType === 'text'
+            ? 'text'
+            : 'image';
+      if (mediaType !== 'text' && !imageUrl) return;
+      const textContent = String(payload?.textContent || '').trim();
+      openSaveMaterialModal({
+        type: mediaType,
+        url: imageUrl || '',
+        sourceId: nodeId,
+        name: mediaType === 'text' && textContent ? textContent.slice(0, 24) : undefined,
+        prompt: mediaType === 'text' ? textContent : undefined,
+      });
       return;
     }
 

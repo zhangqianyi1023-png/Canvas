@@ -505,33 +505,46 @@ function TextFormatToolbarPortal({
         <span className="text-format-toolbar-tooltip" role="tooltip" aria-hidden="true">插入分割线</span>
       </button>
       {typeof onTagToggle === 'function' ? (
-        <span className="text-format-tag-menu-wrap">
-          <button
-            ref={tagButtonRef}
-            type="button"
-            className="text-format-icon-btn text-format-tag-btn"
-            aria-label={tagPickerTitle}
-            title={tagPickerTitle}
-            aria-haspopup="menu"
-            aria-expanded={tagMenuOpen}
-            aria-pressed={normalizedTagColors.length > 0}
-            onClick={(event) => {
-              event.stopPropagation();
-              setBackgroundMenuOpen(false);
-              setTagMenuOpen(current => !current);
-            }}
-          >
-            <NodeTagPickerButtonContent
-              tagColors={tagColors}
-              iconSize={15}
-              dotsClassName="text-format-tag-dots"
-              tooltipClassName="text-format-toolbar-tooltip"
-              tooltipTitle={tagPickerTitle}
-              showLabel={false}
-            />
-          </button>
-        </span>
+        <>
+          <span className="text-format-divider" />
+          <span className="text-format-tag-menu-wrap">
+            <button
+              ref={tagButtonRef}
+              type="button"
+              className="text-format-icon-btn text-format-tag-btn"
+              aria-label={tagPickerTitle}
+              title={tagPickerTitle}
+              aria-haspopup="menu"
+              aria-expanded={tagMenuOpen}
+              aria-pressed={normalizedTagColors.length > 0}
+              onClick={(event) => {
+                event.stopPropagation();
+                setBackgroundMenuOpen(false);
+                setTagMenuOpen(current => !current);
+              }}
+            >
+              <NodeTagPickerButtonContent
+                tagColors={tagColors}
+                iconSize={15}
+                dotsClassName="text-format-tag-dots"
+                tooltipClassName="text-format-toolbar-tooltip"
+                tooltipTitle={tagPickerTitle}
+                showLabel={false}
+              />
+            </button>
+          </span>
+          <span className="text-format-divider" />
+        </>
       ) : null}
+      <button
+        type="button"
+        className="text-format-icon-btn"
+        aria-label="添加到素材库"
+        onClick={() => onCommand?.('saveToLibrary')}
+      >
+        <Icon name="folder" size={15} />
+        <span className="text-format-toolbar-tooltip" role="tooltip" aria-hidden="true">添加到素材库</span>
+      </button>
       <button
         type="button"
         className="text-format-icon-btn"
@@ -1855,7 +1868,16 @@ function ResultNode({ id, selected, data }) {
       copyPrompt();
       return;
     }
-  }, [openTextExpandedEditor, result]);
+    if (command === 'saveToLibrary') {
+      data?.onImageAction?.('favorite', {
+        nodeId: id,
+        sourceType: 'text',
+        mediaType: 'text',
+        textContent: result || '',
+      });
+      return;
+    }
+  }, [data, id, openTextExpandedEditor, result]);
 
   const openTextExpanded = useCallback((event) => {
     if (!isTextResult) return;

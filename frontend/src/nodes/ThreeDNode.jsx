@@ -4,6 +4,8 @@ import { Handle, Position } from 'reactflow';
 import GenerateCreditButton from '../components/GenerateCreditButton';
 import Icon from '../components/Icon';
 import ModelSelect from '../components/ModelSelect';
+import VoicePromptInput from '../components/VoicePromptInput';
+import { appendVoicePromptText } from '../components/voicePromptUtils';
 import EditableNodeTitle from './EditableNodeTitle';
 import InteractiveHandle from './InteractiveHandle';
 import NodeHoverToolbar from './NodeHoverToolbar';
@@ -144,9 +146,10 @@ function ThreeDGenerator({
           ) : null}
         </div>
 
-        <button type="button" className="three-d-voice-button" aria-label="语音输入">
-          <Icon name="mic" size={15} />
-        </button>
+        <VoicePromptInput
+          disabled={generating}
+          onComplete={nextText => onPromptChange(appendVoicePromptText(prompt, nextText))}
+        />
 
         <GenerateCreditButton
           cost={20}
