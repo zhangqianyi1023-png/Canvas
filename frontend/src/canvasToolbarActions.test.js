@@ -24,6 +24,7 @@ test('lists only implemented image actions for the current toolbar', () => {
     'erase',
     'split',
     'download',
+    'fullscreen',
     'save-to-library',
   ]);
 });
