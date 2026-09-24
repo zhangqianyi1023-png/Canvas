@@ -4,6 +4,7 @@ import { useReactFlow, useStore } from 'reactflow';
 import Icon from '../components/Icon';
 import GenerateCreditButton from '../components/GenerateCreditButton';
 import ImageMentionTextarea from '../components/ImageMentionTextarea';
+import ProcessorVoiceGenerateControl from '../components/ProcessorVoiceGenerateControl';
 import ProcessorModelDropdown from '../components/ModelSelect';
 import QuickPromptControl from '../components/QuickPromptControl';
 import VoicePromptInput from '../components/VoicePromptInput';
@@ -2503,19 +2504,19 @@ function GeneratorNode({ id, data }) {
                 onSelect={handleQuickPromptSelect}
               />
             </div>
-            <VoicePromptInput
-              disabled={isGenerationLocked}
+            <ProcessorVoiceGenerateControl
+              voiceDisabled={isGenerationLocked}
               labels={labels}
-              onComplete={nextText => handleChange('image_prompt', appendVoicePromptText(form.image_prompt, nextText))}
-            />
-            <GenerateCreditButton
-              cost={8}
-              running={isImageGenerationRunning}
-              loading={isUploadingReferences}
-              disabled={isUploadingReferences || (!isImageGenerationRunning && !combinedImagePrompt.trim())}
-              onClick={handleImageGenerate}
-              runLabel={labels.runImage}
-              cancelLabel={labels.cancelGeneration}
+              onVoiceComplete={nextText => handleChange('image_prompt', appendVoicePromptText(form.image_prompt, nextText))}
+              creditButtonProps={{
+                cost: 8,
+                running: isImageGenerationRunning,
+                loading: isUploadingReferences,
+                disabled: isUploadingReferences || (!isImageGenerationRunning && !combinedImagePrompt.trim()),
+                onClick: handleImageGenerate,
+                runLabel: labels.runImage,
+                cancelLabel: labels.cancelGeneration,
+              }}
             />
           </div>
         </div>

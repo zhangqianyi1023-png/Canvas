@@ -131,7 +131,12 @@ import {
   stripRuntimeNodeData,
 } from './workflowTemplates';
 import { createCanvasOperation } from './canvasNodeContract.js';
-import { createCanvasStackGraph, unstackCanvasNodes } from './canvasStack.js';
+import {
+  addNodeToCanvasStack,
+  createCanvasStackGraph,
+  removeNodeFromCanvasStack,
+  unstackCanvasNodes,
+} from './canvasStack.js';
 import {
   applyWorkflowTemplateRunInputs,
   getWorkflowTemplateRunInputs,
@@ -1564,6 +1569,7 @@ const getDefaultNodeLabel = (node) => {
   if (node.type === 'smartSplitter') return '智能拆分器';
   if (node.type === 'playlist') return 'Playlist';
   if (node.type === 'threeD') return '3D';
+  if (node.type === 'stack') return '素材堆';
   if (node.type === 'result') {
     if (node.data?.resultType === 'generateImage') return '图片';
     if (node.data?.resultType === 'generateVideo') return '视频';
@@ -2502,12 +2508,16 @@ export function CanvasFlow({
   const [snapEnabled, setSnapEnabled] = useState(getInitialSnapEnabled);
   const [alignmentGuides, setAlignmentGuides] = useState(null); // { guides: [], snappedPos: null }
   const [optionDragGhost, setOptionDragGhost] = useState(null);
+  const [activeStackId, setActiveStackId] = useState('');
+  const [, setStackDropTargetId] = useState('');
+  const [stackFocusDrag, setStackFocusDrag] = useState(null);
   const menuRef = useRef(null);
   const hydratedRef = useRef(false);
   const canvasContainerRef = useRef(null);
   const activeComposerOverlayRef = useRef(null);
   const activeSmartSplitterOverlayRef = useRef(null);
   const expandedProcessorOverlayRef = useRef(null);
+  const stackDropTargetRef = useRef('');
   const copilotLastCreatedIdsRef = useRef([]);
   const copilotLastEditUndoRef = useRef(null);
   const stableNodeTypesRef = useRef(nodeTypes);
@@ -4525,9 +4535,140 @@ const ALIGN_SNAP_THRESHOLD = 5;
     });
   }, [setNodes]);
 
+  const getStackChildNodes = useCallback((stackId, nodeSnapshot = nodesRef.current) => {
+    const stack = nodeSnapshot.find(node => node.id === stackId && node.type === 'stack');
+    const childIds = stack?.data?.childIds || [];
+    return childIds
+      .map(childId => nodeSnapshot.find(node => node.id === childId))
+      .filter(Boolean);
+  }, []);
+
+  const openStackFocus = useCallback((stackId) => {
+    if (!nodesRef.current.some(node => node.id === stackId && node.type === 'stack')) return;
+    setActiveStackId(stackId);
+  }, []);
+
+  const closeStackFocus = useCallback(() => {
+    setActiveStackId('');
+    setStackFocusDrag(null);
+  }, []);
+
+  const clearStackDropTarget = useCallback(() => {
+    if (!stackDropTargetRef.current) return;
+    const previousId = stackDropTargetRef.current;
+    stackDropTargetRef.current = '';
+    setStackDropTargetId('');
+    setNodes(nds => nds.map(node => (
+      node.id === previousId && node.type === 'stack'
+        ? { ...node, data: { ...node.data, isDropTarget: false } }
+        : node
+    )));
+  }, [setNodes]);
+
+  const markStackDropTarget = useCallback((stackId) => {
+    if (stackDropTargetRef.current === stackId) return;
+    const previousId = stackDropTargetRef.current;
+    stackDropTargetRef.current = stackId || '';
+    setStackDropTargetId(stackId || '');
+    setNodes(nds => nds.map(node => {
+      if (node.type !== 'stack') return node;
+      const isDropTarget = node.id === stackId;
+      if (Boolean(node.data?.isDropTarget) === isDropTarget && node.id !== previousId) return node;
+      return { ...node, data: { ...node.data, isDropTarget } };
+    }));
+  }, [setNodes]);
+
+  const findStackDropTarget = useCallback((draggedNode, point, nodeSnapshot = nodesRef.current) => {
+    if (!draggedNode || !point || ['group', 'stack', 'generator'].includes(draggedNode.type)) return '';
+    const flowPoint = screenToFlowPosition(point);
+    const draggedWidth = getNodeWidth(draggedNode);
+    const draggedHeight = getNodeHeight(draggedNode);
+    const center = {
+      x: flowPoint.x,
+      y: flowPoint.y,
+    };
+    const stacks = nodeSnapshot
+      .filter(node => node.type === 'stack' && node.id !== draggedNode.id && !node.hidden)
+      .map(stack => {
+        const position = getAbsoluteNodePosition(stack, nodeSnapshot);
+        const width = getNodeWidth(stack);
+        const height = getNodeHeight(stack);
+        return { stack, position, width, height, area: width * height };
+      })
+      .filter(({ position, width, height }) => (
+        center.x >= position.x - draggedWidth * 0.15 &&
+        center.x <= position.x + width + draggedWidth * 0.15 &&
+        center.y >= position.y - draggedHeight * 0.15 &&
+        center.y <= position.y + height + draggedHeight * 0.15
+      ))
+      .sort((a, b) => a.area - b.area);
+    return stacks[0]?.stack?.id || '';
+  }, [getAbsoluteNodePosition, screenToFlowPosition]);
+
+  const addNodeToStack = useCallback((stackId, nodeId) => {
+    setNodes(nds => addNodeToCanvasStack(nds, stackId, nodeId));
+  }, [setNodes]);
+
+  const removeNodeFromStack = useCallback((stackId, nodeId, position) => {
+    setNodes(nds => removeNodeFromCanvasStack(nds, stackId, nodeId, position));
+    setStackFocusDrag(null);
+  }, [setNodes]);
+
   const unstackNodes = useCallback((stackId) => {
     setNodes(nds => unstackCanvasNodes(nds, stackId));
+    setActiveStackId(current => current === stackId ? '' : current);
   }, [setNodes]);
+
+  const downloadStackNodes = useCallback(async (stackId) => {
+    const children = getStackChildNodes(stackId);
+    const downloadItems = children.flatMap(node => getDownloadMediaItemsForNode(node));
+    if (downloadItems.length === 0) {
+      window.alert('当前堆叠里没有可下载的图片、视频或音频');
+      return;
+    }
+    try {
+      const result = await downloadMedia(downloadItems, 'stack-media', {
+        zip: true,
+        zipFilename: `stack-media-${new Date().toISOString().slice(0, 10)}`,
+      });
+      if (result.downloaded === 0) {
+        window.alert('堆叠素材下载失败，请稍后重试');
+      }
+    } catch (error) {
+      console.warn('[downloadStack] 下载失败', error);
+      window.alert('堆叠素材下载失败，请稍后重试');
+    }
+  }, [getStackChildNodes]);
+
+  const saveStackToLibrary = useCallback((stackId) => {
+    if (!setMaterials || !defaultMaterialGroup) {
+      window.alert('当前素材库不可用');
+      return;
+    }
+    const children = getStackChildNodes(stackId);
+    const mediaItems = children.flatMap(node => getDownloadMediaItemsForNode(node).map(item => ({ ...item, node })));
+    if (mediaItems.length === 0) {
+      window.alert('当前堆叠里没有可添加到资源库的图片、视频或音频');
+      return;
+    }
+    const groupId = getFallbackMaterialGroupId('personal') || defaultMaterialGroup.id;
+    const now = new Date().toISOString();
+    const materialsToAdd = mediaItems.map((item, index) => ({
+      id: `material_${Date.now()}_${index}_${Math.random().toString(16).slice(2)}`,
+      name: item.filename || `${getDefaultNodeLabel(item.node)}-${index + 1}`,
+      imageUrl: item.url,
+      prompt: item.node?.data?.prompt || item.node?.data?.promptDraft || '',
+      type: item.type,
+      source: 'canvas-stack',
+      sourceId: stackId,
+      groupId,
+      scope: 'personal',
+      createdAt: now,
+      updatedAt: now,
+    }));
+    setMaterials(prev => [...materialsToAdd, ...(Array.isArray(prev) ? prev : [])]);
+    window.alert(`已添加 ${materialsToAdd.length} 个素材到资源库`);
+  }, [defaultMaterialGroup, getFallbackMaterialGroupId, getStackChildNodes, setMaterials]);
 
   const createStackFromNodeIds = useCallback((nodeIds) => {
     const graph = createCanvasStackGraph({
@@ -4542,9 +4683,18 @@ const ALIGN_SNAP_THRESHOLD = 5;
         ? { ...node, selected: false }
         : node),
     ].map(node => node.id === graph.stack.id
-      ? { ...node, data: { ...node.data, onUnstack: unstackNodes } }
+      ? {
+          ...node,
+          data: {
+            ...node.data,
+            onOpenStack: openStackFocus,
+            onUnstack: unstackNodes,
+            onSaveStackToLibrary: saveStackToLibrary,
+            onDownloadStack: downloadStackNodes,
+          },
+        }
       : node));
-  }, [setNodes, unstackNodes]);
+  }, [downloadStackNodes, openStackFocus, saveStackToLibrary, setNodes, unstackNodes]);
 
   const createGroupFromNodeIds = useCallback((nodeIds) => {
     const uniqueIds = [...new Set(nodeIds)].filter(Boolean);
@@ -4990,6 +5140,15 @@ const ALIGN_SNAP_THRESHOLD = 5;
       return;
     }
 
+    const dragPoint = getDragClientPoint(event);
+    const stackTargetId = findStackDropTarget(draggedNode, dragPoint);
+    if (stackTargetId) {
+      markStackDropTarget(stackTargetId);
+      setAlignmentGuides(null);
+      return;
+    }
+    clearStackDropTarget();
+
     const result = computeAlignmentGuides(draggedNode, nodesRef.current, viewportTransform);
     if (!result || result.guides.length === 0) {
       setAlignmentGuides(null);
@@ -5015,7 +5174,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         return { ...n, position: pos };
       }));
     }
-  }, [getDragClientPoint, screenToFlowPosition, computeAlignmentGuides, viewportTransform, setNodes]);
+  }, [clearStackDropTarget, computeAlignmentGuides, findStackDropTarget, getDragClientPoint, markStackDropTarget, screenToFlowPosition, viewportTransform, setNodes]);
 
   const onNodeDragStop = useCallback((event, draggedNode) => {
     setAlignmentGuides(null);
@@ -5053,6 +5212,15 @@ const ALIGN_SNAP_THRESHOLD = 5;
       });
       return;
     }
+
+    const stopPoint = getDragClientPoint(event);
+    const stackTargetId = stackDropTargetRef.current || findStackDropTarget(draggedNode, stopPoint);
+    if (stackTargetId && draggedNode?.id) {
+      clearStackDropTarget();
+      addNodeToStack(stackTargetId, draggedNode.id);
+      return;
+    }
+    clearStackDropTarget();
 
     if (draggedNode.type === 'group' || draggedNode.type === 'generator') {
       return;
@@ -5163,7 +5331,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         return node;
       });
     });
-  }, [endNodeDragInteraction, getDragClientPoint, screenToFlowPosition, setNodes]);
+  }, [addNodeToStack, clearStackDropTarget, endNodeDragInteraction, findStackDropTarget, getDragClientPoint, screenToFlowPosition, setNodes]);
 
   // 同步上游节点 → 对应处理器
   const syncPromptToGenerators = useCallback(() => {
@@ -11806,13 +11974,17 @@ const ALIGN_SNAP_THRESHOLD = 5;
           return { ...n, data: { ...n.data, label: n.data?.label || '未命名组合', onDeleteNode: deleteCanvasNode, onUngroup: ungroupNodes, onSaveTemplate: openSaveTemplateDialog, onGroupResize, onGroupNameChange } };
         }
 
+        if (n.type === 'stack') {
+          return { ...n, data: { ...n.data, label: n.data?.label || '素材堆', onOpenStack: openStackFocus, onUnstack: unstackNodes, onSaveStackToLibrary: saveStackToLibrary, onDownloadStack: downloadStackNodes } };
+        }
+
         // 所有节点附加交互圆点拖拽回调
         return { ...n, data: { ...n.data, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
       });
 
       return hydrated;
     });
-  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onGroupNameChange, onGroupResize, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onThreeDNodeChange, onInteractiveDragCreate, onWorkflowNodeDataChange, openSaveTemplateDialog, openVideoWorkbench, runImageGeneration, runTextGeneration, runVideoGeneration, setGenerating, setNodes, ungroupNodes, runtimeSettings]);
+  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, downloadStackNodes, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onGroupNameChange, onGroupResize, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onThreeDNodeChange, onInteractiveDragCreate, onWorkflowNodeDataChange, openSaveTemplateDialog, openStackFocus, openVideoWorkbench, runImageGeneration, runTextGeneration, runVideoGeneration, saveStackToLibrary, setGenerating, setNodes, ungroupNodes, unstackNodes, runtimeSettings]);
 
   useEffect(() => {
     setNodes(nds => nds.map(n => {
@@ -11872,6 +12044,9 @@ const ALIGN_SNAP_THRESHOLD = 5;
       if (n.type === 'group') {
         return { ...n, data: { ...n.data, label: n.data?.label || '未命名组合', onDeleteNode: deleteCanvasNode, onUngroup: ungroupNodes, onSaveTemplate: openSaveTemplateDialog, onGroupResize, onGroupNameChange } };
       }
+      if (n.type === 'stack') {
+        return { ...n, data: { ...n.data, label: n.data?.label || '素材堆', onOpenStack: openStackFocus, onUnstack: unstackNodes, onSaveStackToLibrary: saveStackToLibrary, onDownloadStack: downloadStackNodes } };
+      }
       if (REMOVED_NODE_TYPES.has(n.type)) {
         return { ...n, data: { label: n.data?.label || getDefaultNodeLabel(n), onDeleteNode: deleteCanvasNode } };
       }
@@ -11892,7 +12067,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
       }
       return n;
     }));
-  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGroupNameChange, onGroupResize, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onThreeDNodeChange, openSaveTemplateDialog, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, setNodes, ungroupNodes, runtimeSettings]);
+  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, downloadStackNodes, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGroupNameChange, onGroupResize, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onThreeDNodeChange, openSaveTemplateDialog, openStackFocus, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, saveStackToLibrary, setNodes, ungroupNodes, unstackNodes, runtimeSettings]);
 
   const hydrateTemplateNode = useCallback((node) => {
     if (node.type === 'result') {
@@ -13093,6 +13268,31 @@ const ALIGN_SNAP_THRESHOLD = 5;
           },
         }));
       }
+      if (node.type === 'stack') {
+        const isMultiSelected = shouldHideNodeResize(node);
+        return getCachedRenderNode(node, [
+          node.data?.count || 0,
+          node.data?.childIds?.join(',') || '',
+          node.data?.isDropTarget ? 1 : 0,
+          isMultiSelected,
+          node.zIndex || 0,
+          openStackFocus,
+          unstackNodes,
+          saveStackToLibrary,
+          downloadStackNodes,
+        ], () => ({
+          ...node,
+          zIndex: Math.max(node.zIndex || 0, 2),
+          data: {
+            ...node.data,
+            isMultiSelected,
+            onOpenStack: openStackFocus,
+            onUnstack: unstackNodes,
+            onSaveStackToLibrary: saveStackToLibrary,
+            onDownloadStack: downloadStackNodes,
+          },
+        }));
+      }
       const isMultiSelected = shouldHideNodeResize(node);
       return getCachedRenderNode(node, [
         node.type,
@@ -13128,7 +13328,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         },
       };
     });
-  }, [activeResultId, activeTagColorId, createVideoEditorFromResult, deleteCanvasNode, duplicateNodeFromToolbar, edges, expandedProcessorOverlay, getGroupMinimumSize, groupSelectionFromToolbar, handleRunGroup, isSelectionBoxActive, nodeDragActive, nodes, onCaptureVideoFrame, onGroupBackgroundChange, onGroupNameChange, onGroupResize, onNodeTagToggle, onResultImageDimensionsChange, onResultImageUpload, onResultNodeDragByScreenDelta, onResultTextBackgroundChange, onResultTextChange, onResultTextEditingChange, onResultVideoDimensionsChange, onResultVideoUpload, onVideoQuickTrimChange, openSaveTemplateDialog, ungroupNodes]);
+  }, [activeResultId, activeTagColorId, createVideoEditorFromResult, deleteCanvasNode, downloadStackNodes, duplicateNodeFromToolbar, edges, expandedProcessorOverlay, getGroupMinimumSize, groupSelectionFromToolbar, handleRunGroup, isSelectionBoxActive, nodeDragActive, nodes, onCaptureVideoFrame, onGroupBackgroundChange, onGroupNameChange, onGroupResize, onNodeTagToggle, onResultImageDimensionsChange, onResultImageUpload, onResultNodeDragByScreenDelta, onResultTextBackgroundChange, onResultTextChange, onResultTextEditingChange, onResultVideoDimensionsChange, onResultVideoUpload, onVideoQuickTrimChange, openSaveTemplateDialog, openStackFocus, saveStackToLibrary, ungroupNodes, unstackNodes]);
 
   // 组合背景、连线、内容节点依次位于 0/1/2 层。连线不会再被组合色块遮挡，
   // 同时实际节点和节点里的交互圆点仍稳定显示在线条之上。
@@ -13138,6 +13338,81 @@ const ALIGN_SNAP_THRESHOLD = 5;
       zIndex: Math.max(edge.zIndex || 0, 1),
     }))
   ), [edges]);
+
+  const activeStack = useMemo(
+    () => nodes.find(node => node.id === activeStackId && node.type === 'stack') || null,
+    [activeStackId, nodes]
+  );
+
+  const activeStackChildren = useMemo(() => {
+    if (!activeStack) return [];
+    const childIds = activeStack.data?.childIds || [];
+    return childIds
+      .map(childId => nodes.find(node => node.id === childId))
+      .filter(Boolean);
+  }, [activeStack, nodes]);
+
+  const getStackPreview = useCallback((node) => {
+    const image = getNodeDownloadImages(node)[0];
+    if (image) return { type: 'image', url: image };
+    const video = getNodeDownloadVideos(node)[0];
+    if (video) return { type: 'video', url: video };
+    const audio = getNodeDownloadAudios(node)[0];
+    if (audio) return { type: 'audio', url: audio };
+    const text = node?.data?.resultText || node?.data?.text || node?.data?.promptDraft || node?.data?.prompt || '';
+    return { type: 'text', text };
+  }, []);
+
+  const beginStackFocusDrag = useCallback((event, nodeId) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setStackFocusDrag({
+      nodeId,
+      x: event.clientX,
+      y: event.clientY,
+      edgeActive: false,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!stackFocusDrag) return undefined;
+    const edgeSize = 84;
+    const onPointerMove = (event) => {
+      const edgeActive = (
+        event.clientX <= edgeSize ||
+        event.clientX >= window.innerWidth - edgeSize ||
+        event.clientY <= edgeSize ||
+        event.clientY >= window.innerHeight - edgeSize
+      );
+      setStackFocusDrag(current => current
+        ? { ...current, x: event.clientX, y: event.clientY, edgeActive }
+        : current);
+    };
+    const onPointerUp = (event) => {
+      const edgeActive = (
+        event.clientX <= edgeSize ||
+        event.clientX >= window.innerWidth - edgeSize ||
+        event.clientY <= edgeSize ||
+        event.clientY >= window.innerHeight - edgeSize
+      );
+      const nodeId = stackFocusDrag.nodeId;
+      const stackId = activeStackId;
+      setStackFocusDrag(null);
+      if (edgeActive && nodeId && stackId) {
+        const flowPosition = screenToFlowPosition({
+          x: Math.min(Math.max(event.clientX, edgeSize), window.innerWidth - edgeSize),
+          y: Math.min(Math.max(event.clientY, edgeSize), window.innerHeight - edgeSize),
+        });
+        removeNodeFromStack(stackId, nodeId, flowPosition);
+      }
+    };
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp, { once: true });
+    return () => {
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [activeStackId, removeNodeFromStack, screenToFlowPosition, stackFocusDrag]);
 
   const activeComposer = useMemo(() => {
     if (!activeResultId) return null;
@@ -14148,6 +14423,69 @@ const ALIGN_SNAP_THRESHOLD = 5;
         />
       )}
 
+      {activeStack && (
+        <div
+          className={`canvas-stack-focus-overlay${stackFocusDrag?.edgeActive ? ' is-edge-active' : ''}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="堆叠内容"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) closeStackFocus();
+          }}
+        >
+          <button type="button" className="canvas-stack-focus-close" onClick={closeStackFocus} aria-label="关闭堆叠内容">
+            <Icon name="x" size={18} />
+          </button>
+          <div className="canvas-stack-focus-grid">
+            {activeStackChildren.map((node) => {
+              const preview = getStackPreview(node);
+              const isDragging = stackFocusDrag?.nodeId === node.id;
+              return (
+                <article
+                  key={node.id}
+                  className={`canvas-stack-focus-card${isDragging ? ' is-dragging' : ''}`}
+                  onPointerDown={(event) => beginStackFocusDrag(event, node.id)}
+                  style={isDragging ? {
+                    transform: `translate(${stackFocusDrag.x - window.innerWidth / 2}px, ${stackFocusDrag.y - window.innerHeight / 2}px) scale(1.04)`,
+                  } : undefined}
+                >
+                  <div className="canvas-stack-focus-card-title">
+                    <Icon name={preview.type === 'video' ? 'video' : preview.type === 'audio' ? 'volume' : preview.type === 'image' ? 'image' : 'text'} size={15} />
+                    <span>{node.data?.label || getDefaultNodeLabel(node)}</span>
+                  </div>
+                  <div className={`canvas-stack-focus-preview is-${preview.type}`}>
+                    {preview.type === 'image' ? (
+                      <img src={preview.url} alt="" draggable={false} />
+                    ) : preview.type === 'video' ? (
+                      <video src={preview.url} muted playsInline preload="metadata" />
+                    ) : preview.type === 'audio' ? (
+                      <div className="canvas-stack-focus-placeholder">
+                        <Icon name="volume" size={28} />
+                        <span>音频素材</span>
+                      </div>
+                    ) : (
+                      <div className="canvas-stack-focus-placeholder">
+                        <Icon name="text" size={28} />
+                        <span>{preview.text || '文本节点'}</span>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="canvas-stack-focus-toast">
+            <Icon name="cursor" size={18} />
+            <span>拖动节点到屏幕边缘，可移出堆叠并返回画布</span>
+          </div>
+          {stackFocusDrag?.edgeActive && (
+            <div className="canvas-stack-focus-edge-hint">
+              松手后移出堆叠
+            </div>
+          )}
+        </div>
+      )}
+
       {menu && (
         <>
           {renderedMenuPosition && menu.connectionStart && (
@@ -15055,7 +15393,6 @@ function CanvasCopilotDrawer({
         pickingCanvasNode={pickingCanvasNode}
         onModelChange={setSelectedModelId}
         onSubmit={submit}
-        onUndo={tools.undoLastAction}
         onToggleCanvasPicker={onToggleCanvasPicker}
         onRemoveNodeTarget={onRemoveNodeTarget}
         onFocusNodeTarget={onFocusNodeTarget}

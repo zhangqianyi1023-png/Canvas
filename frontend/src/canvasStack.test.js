@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createCanvasStackGraph, unstackCanvasNodes } from './canvasStack.js';
+import {
+  addNodeToCanvasStack,
+  createCanvasStackGraph,
+  removeNodeFromCanvasStack,
+  unstackCanvasNodes,
+} from './canvasStack.js';
 
 test('stacks eligible selected nodes and hides the source nodes', () => {
   const graph = createCanvasStackGraph({
@@ -38,3 +43,46 @@ test('unstack restores children and removes only the stack container', () => {
   assert.equal(restored[2].selected, false);
 });
 
+test('adds an eligible canvas node into an existing stack', () => {
+  const nodes = [
+    { id: 'stack-1', type: 'stack', data: { childIds: ['a', 'b'], count: 2 } },
+    { id: 'a', hidden: true },
+    { id: 'b', hidden: true },
+    { id: 'c', type: 'result', position: { x: 40, y: 60 }, selected: true },
+  ];
+  const next = addNodeToCanvasStack(nodes, 'stack-1', 'c');
+  const stack = next.find(node => node.id === 'stack-1');
+  assert.deepEqual(stack.data.childIds, ['a', 'b', 'c']);
+  assert.equal(stack.data.count, 3);
+  assert.equal(stack.data.coverNodeId, 'c');
+  assert.equal(next.find(node => node.id === 'c').hidden, true);
+});
+
+test('removes a child from a stack and keeps the stack when enough children remain', () => {
+  const nodes = [
+    { id: 'stack-1', type: 'stack', data: { childIds: ['a', 'b', 'c'], count: 3 } },
+    { id: 'a', hidden: true },
+    { id: 'b', hidden: true },
+    { id: 'c', hidden: true },
+  ];
+  const next = removeNodeFromCanvasStack(nodes, 'stack-1', 'c', { x: 100, y: 120 });
+  const stack = next.find(node => node.id === 'stack-1');
+  const restored = next.find(node => node.id === 'c');
+  assert.deepEqual(stack.data.childIds, ['a', 'b']);
+  assert.equal(stack.data.count, 2);
+  assert.equal(restored.hidden, false);
+  assert.deepEqual(restored.position, { x: 100, y: 120 });
+});
+
+test('dissolves a stack when removing a child leaves fewer than two children', () => {
+  const nodes = [
+    { id: 'stack-1', type: 'stack', data: { childIds: ['a', 'b'], count: 2 } },
+    { id: 'a', hidden: true },
+    { id: 'b', hidden: true },
+  ];
+  const next = removeNodeFromCanvasStack(nodes, 'stack-1', 'b', { x: 200, y: 240 });
+  assert.equal(next.some(node => node.id === 'stack-1'), false);
+  assert.equal(next.find(node => node.id === 'a').hidden, false);
+  assert.equal(next.find(node => node.id === 'b').hidden, false);
+  assert.deepEqual(next.find(node => node.id === 'b').position, { x: 200, y: 240 });
+});

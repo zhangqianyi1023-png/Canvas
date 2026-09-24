@@ -39,7 +39,6 @@ function CopilotComposer({
   pickingCanvasNode = false,
   onModelChange,
   onSubmit,
-  onUndo,
   onToggleCanvasPicker,
   onRemoveNodeTarget,
   onFocusNodeTarget,
@@ -48,6 +47,8 @@ function CopilotComposer({
   const [attachments, setAttachments] = useState([]);
   const [inputError, setInputError] = useState('');
   const [listening, setListening] = useState(false);
+  const [voiceSubmitting, setVoiceSubmitting] = useState(false);
+  const [voiceSendHover, setVoiceSendHover] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [showMoreModels, setShowMoreModels] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -56,6 +57,7 @@ function CopilotComposer({
   const modelMenuRef = useRef(null);
   const speechRecognitionRef = useRef(null);
   const speechBaseInputRef = useRef('');
+  const voiceSubmitTimerRef = useRef(null);
 
   const selectedModel = useMemo(() => (
     selectedModelId === 'auto'
@@ -81,6 +83,10 @@ function CopilotComposer({
 
   useEffect(() => () => {
     speechRecognitionRef.current?.abort?.();
+  }, []);
+
+  useEffect(() => () => {
+    window.clearTimeout(voiceSubmitTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -165,8 +171,11 @@ function CopilotComposer({
   }, []);
 
   const toggleVoiceInput = useCallback(() => {
+    if (voiceSubmitting) return;
     if (listening) {
-      speechRecognitionRef.current?.stop?.();
+      speechRecognitionRef.current?.abort?.();
+      setInput(speechBaseInputRef.current);
+      setListening(false);
       return;
     }
 
@@ -211,11 +220,23 @@ function CopilotComposer({
       setListening(false);
       setInputError(error.message || '语音输入启动失败，请重试。');
     }
-  }, [input, listening]);
+  }, [input, listening, voiceSubmitting]);
+
+  const confirmVoiceInput = useCallback(() => {
+    if (voiceSubmitting) return;
+    speechRecognitionRef.current?.stop?.();
+    setListening(false);
+    setVoiceSendHover(false);
+    setVoiceSubmitting(true);
+    window.clearTimeout(voiceSubmitTimerRef.current);
+    voiceSubmitTimerRef.current = window.setTimeout(() => {
+      setVoiceSubmitting(false);
+    }, 2000);
+  }, [voiceSubmitting]);
 
   const submit = useCallback(async () => {
     const typedText = input.trim();
-    if (working || uploading || (!typedText && attachments.length === 0)) return;
+    if (working || uploading || voiceSubmitting || (!typedText && attachments.length === 0)) return;
     if (listening) speechRecognitionRef.current?.stop?.();
 
     const submittedAttachments = attachments.map(attachment => ({
@@ -242,7 +263,7 @@ function CopilotComposer({
       setInput(submittedInput);
       setAttachments(attachments);
     }
-  }, [attachments, input, listening, nodeTargets, onSubmit, selectedModel, uploading, working]);
+  }, [attachments, input, listening, nodeTargets, onSubmit, selectedModel, uploading, voiceSubmitting, working]);
 
   const handleKeyDown = useCallback((event) => {
     if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent?.isComposing) return;
@@ -288,6 +309,94 @@ function CopilotComposer({
     onModelChange?.(modelId);
     setModelMenuOpen(false);
   }, [onModelChange]);
+
+  const modelPicker = (
+    <div className="canvas-copilot-model-picker" ref={modelMenuRef}>
+      <button
+        type="button"
+        className={`canvas-copilot-model-trigger ${modelMenuOpen ? 'open' : ''}`}
+        onClick={() => setModelMenuOpen(current => !current)}
+        disabled={working}
+        aria-haspopup="menu"
+        aria-expanded={modelMenuOpen}
+        title={selectedModel ? `${selectedModel.providerName} · ${selectedModel.modelName}` : '自动选择模型'}
+      >
+        <span>{selectedModel?.label || 'Auto'}</span>
+        <Icon name="chevronDown" size={14} />
+      </button>
+      {modelMenuOpen && (
+        <div className="canvas-copilot-model-menu" role="menu">
+          <button
+            type="button"
+            className={`canvas-copilot-model-auto ${selectedModelId === 'auto' ? 'selected' : ''}`}
+            onClick={() => selectModel('auto')}
+            role="menuitemradio"
+            aria-checked={selectedModelId === 'auto'}
+          >
+            <span>
+              <strong>Auto</strong>
+              <small>平衡速度、思考强度与可用性。</small>
+            </span>
+            {selectedModelId === 'auto' && <Icon name="check" size={16} />}
+          </button>
+
+          <div className="canvas-copilot-model-section-label">精选推荐</div>
+          {recommendedModels.length > 0 ? recommendedModels.map(model => (
+            <button
+              type="button"
+              className={`canvas-copilot-model-option ${selectedModelId === model.id ? 'selected' : ''}`}
+              key={model.id}
+              onClick={() => selectModel(model.id)}
+              role="menuitemradio"
+              aria-checked={selectedModelId === model.id}
+            >
+              <span className="canvas-copilot-model-icon"><Icon name="messageAi3" size={15} /></span>
+              <span className="canvas-copilot-model-copy">
+                <strong>{model.label}</strong>
+                <small>{model.providerName}</small>
+              </span>
+              {selectedModelId === model.id && <Icon name="check" size={16} />}
+            </button>
+          )) : (
+            <div className="canvas-copilot-model-empty">暂无可用文本模型</div>
+          )}
+
+          {moreModels.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="canvas-copilot-model-more"
+                onClick={() => setShowMoreModels(current => !current)}
+                aria-expanded={showMoreModels}
+              >
+                <span>更多模型</span>
+                <Icon name="chevronDown" size={14} />
+              </button>
+              {showMoreModels && moreModels.map(model => (
+                <button
+                  type="button"
+                  className="canvas-copilot-model-option"
+                  key={model.id}
+                  onClick={() => model.available && selectModel(model.id)}
+                  disabled={!model.available}
+                  role="menuitemradio"
+                  aria-checked={selectedModelId === model.id}
+                >
+                  <span className="canvas-copilot-model-icon"><Icon name="messageAi3" size={15} /></span>
+                  <span className="canvas-copilot-model-copy">
+                    <strong>{model.label}</strong>
+                    <small>{model.providerName}</small>
+                  </span>
+                  {!model.available && <em>服务未启用</em>}
+                  {selectedModelId === model.id && <Icon name="check" size={16} />}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -363,124 +472,80 @@ function CopilotComposer({
           >
             <Icon name="attachment" size={17} />
           </button>
-          <button
-            type="button"
-            className="canvas-copilot-round-action"
-            onClick={onUndo}
-            disabled={working}
-            aria-label="撤销上次画布操作"
-            title="撤销"
-          >
-            <Icon name="undo" size={16} />
-          </button>
         </div>
-        <div className="canvas-copilot-composer-actions">
-          <div className="canvas-copilot-model-picker" ref={modelMenuRef}>
+        <div className={`canvas-copilot-composer-actions${listening ? ' is-voice-listening' : ''}${voiceSubmitting ? ' is-voice-submitting' : ''}`}>
+          {voiceSubmitting ? (
             <button
               type="button"
-              className={`canvas-copilot-model-trigger ${modelMenuOpen ? 'open' : ''}`}
-              onClick={() => setModelMenuOpen(current => !current)}
-              disabled={working}
-              aria-haspopup="menu"
-              aria-expanded={modelMenuOpen}
-              title={selectedModel ? `${selectedModel.providerName} · ${selectedModel.modelName}` : '自动选择模型'}
+              className="canvas-copilot-voice-loading"
+              disabled
+              aria-label="正在确认语音输入"
+              title="正在确认语音输入"
             >
-              <span>{selectedModel?.label || 'Auto'}</span>
-              <Icon name="chevronDown" size={14} />
+              <Icon name="loader" size={18} />
             </button>
-            {modelMenuOpen && (
-              <div className="canvas-copilot-model-menu" role="menu">
-                <button
-                  type="button"
-                  className={`canvas-copilot-model-auto ${selectedModelId === 'auto' ? 'selected' : ''}`}
-                  onClick={() => selectModel('auto')}
-                  role="menuitemradio"
-                  aria-checked={selectedModelId === 'auto'}
+          ) : listening ? (
+            <>
+              <button
+                type="button"
+                className="canvas-copilot-voice-cancel"
+                onClick={toggleVoiceInput}
+                disabled={working}
+                aria-label="取消语音输入"
+                title="取消"
+              >
+                <Icon name="x" size={18} />
+              </button>
+              <button
+                type="button"
+                className={`canvas-copilot-voice-confirm ${voiceSendHover ? 'is-send-hover' : ''}`}
+                onClick={confirmVoiceInput}
+                onPointerLeave={() => setVoiceSendHover(false)}
+                disabled={working}
+                aria-label="确认语音输入"
+                title="发送"
+              >
+                <span className="canvas-copilot-voice-dots left" aria-hidden="true">
+                  <i /><i /><i /><i />
+                </span>
+                <span className="canvas-copilot-voice-label">发送</span>
+                <span className="canvas-copilot-voice-dots right" aria-hidden="true">
+                  <i /><i /><i /><i />
+                </span>
+                <span
+                  className="canvas-copilot-voice-arrow"
+                  aria-hidden="true"
+                  onPointerEnter={() => setVoiceSendHover(true)}
                 >
-                  <span>
-                    <strong>Auto</strong>
-                    <small>平衡速度、思考强度与可用性。</small>
-                  </span>
-                  {selectedModelId === 'auto' && <Icon name="check" size={16} />}
-                </button>
-
-                <div className="canvas-copilot-model-section-label">精选推荐</div>
-                {recommendedModels.length > 0 ? recommendedModels.map(model => (
-                  <button
-                    type="button"
-                    className={`canvas-copilot-model-option ${selectedModelId === model.id ? 'selected' : ''}`}
-                    key={model.id}
-                    onClick={() => selectModel(model.id)}
-                    role="menuitemradio"
-                    aria-checked={selectedModelId === model.id}
-                  >
-                    <span className="canvas-copilot-model-icon"><Icon name="messageAi3" size={15} /></span>
-                    <span className="canvas-copilot-model-copy">
-                      <strong>{model.label}</strong>
-                      <small>{model.providerName}</small>
-                    </span>
-                    {selectedModelId === model.id && <Icon name="check" size={16} />}
-                  </button>
-                )) : (
-                  <div className="canvas-copilot-model-empty">暂无可用文本模型</div>
-                )}
-
-                {moreModels.length > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      className="canvas-copilot-model-more"
-                      onClick={() => setShowMoreModels(current => !current)}
-                      aria-expanded={showMoreModels}
-                    >
-                      <span>更多模型</span>
-                      <Icon name="chevronDown" size={14} />
-                    </button>
-                    {showMoreModels && moreModels.map(model => (
-                      <button
-                        type="button"
-                        className="canvas-copilot-model-option"
-                        key={model.id}
-                        onClick={() => model.available && selectModel(model.id)}
-                        disabled={!model.available}
-                        role="menuitemradio"
-                        aria-checked={selectedModelId === model.id}
-                      >
-                        <span className="canvas-copilot-model-icon"><Icon name="messageAi3" size={15} /></span>
-                        <span className="canvas-copilot-model-copy">
-                          <strong>{model.label}</strong>
-                          <small>{model.providerName}</small>
-                        </span>
-                        {!model.available && <em>服务未启用</em>}
-                        {selectedModelId === model.id && <Icon name="check" size={16} />}
-                      </button>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            className={`canvas-copilot-voice-btn ${listening ? 'active' : ''}`}
-            onClick={toggleVoiceInput}
-            disabled={working}
-            aria-label={listening ? '停止语音输入' : '开始语音输入'}
-            aria-pressed={listening}
-            title={listening ? '停止语音输入' : '语音输入'}
-          >
-            <Icon name="mic" size={17} />
-          </button>
-          <button
-            type="button"
-            className="canvas-copilot-send-btn"
-            onClick={submit}
-            disabled={working || uploading || (!input.trim() && attachments.length === 0)}
-            aria-label="发送"
-            title={uploading ? '文件读取中' : '发送'}
-          >
-            <Icon name={working || uploading ? 'loader' : 'arrowUp'} size={17} />
-          </button>
+                  <Icon name="arrowUp" size={18} />
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="canvas-copilot-voice-btn"
+                onClick={toggleVoiceInput}
+                disabled={working}
+                aria-label="开始语音输入"
+                title="语音输入"
+              >
+                <Icon name="mic" size={17} />
+              </button>
+              {modelPicker}
+              <button
+                type="button"
+                className="canvas-copilot-send-btn"
+                onClick={submit}
+                disabled={working || uploading || (!input.trim() && attachments.length === 0)}
+                aria-label="发送"
+                title={uploading ? '文件读取中' : '发送'}
+              >
+                <Icon name={working || uploading ? 'loader' : 'arrowUp'} size={17} />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
