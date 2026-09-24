@@ -1475,6 +1475,7 @@ const buildVideoEditorSources = (nodeId, nodes = [], edges = []) => {
         const output = getResultNodeOutput(sourceNode);
         (output.images || []).forEach((url, index) => addSource(url, 'image', sourceNode, index));
         (output.videos || []).forEach((url, index) => addSource(url, 'video', sourceNode, index));
+        (output.audios || []).forEach((url, index) => addSource(url, 'audio', sourceNode, index));
         return;
       }
       if (sourceNode.type === 'storyboardCard') {
@@ -9116,14 +9117,15 @@ const ALIGN_SNAP_THRESHOLD = 5;
       : '未选择分镜';
     const startCamera = cameraSettings.start || {};
     const endCamera = cameraSettings.end || {};
+    const hasCameraRange = mode === '切换' || mode === '平滑移动';
     const promptDraft = [
       '视频重拍原型',
       `重拍分镜：${segmentLabel}`,
       `镜头变化：${mode}`,
-      mode === '切换'
+      hasCameraRange
         ? `开始视角：${startCamera.custom ? '自定义视角' : (startCamera.angle || '未设置')} · ${startCamera.shotSize || '未设置'}`
         : `视角：${angle}`,
-      mode === '切换'
+      hasCameraRange
         ? `结束视角：${endCamera.custom ? '自定义视角' : (endCamera.angle || '未设置')} · ${endCamera.shotSize || '未设置'}`
         : `景别：${shotSize}`,
       settings.prompt ? `补充镜头要求：${settings.prompt}` : '',
@@ -12436,6 +12438,74 @@ const ALIGN_SNAP_THRESHOLD = 5;
     return result;
   }, [uploadAudioFilesForCanvas, uploadImageAssetsForCanvas, uploadVideoFilesForCanvas]);
 
+  const handleVideoEditorSourceUpload = useCallback(async (files, editorNodeId) => {
+    const targetEditor = nodesRef.current.find(node => node.id === editorNodeId && node.type === 'videoEditor');
+    if (!targetEditor) {
+      throw new Error('没有找到当前视频编辑器');
+    }
+
+    const supportedFiles = Array.from(files || []).filter(file => (
+      isSupportedImageFile(file) || isSupportedVideoFile(file) || isSupportedAudioFile(file)
+    ));
+    if (supportedFiles.length === 0) {
+      window.alert(`文件格式不支持。图片支持 ${SUPPORTED_IMAGE_LABEL}；视频支持 ${SUPPORTED_VIDEO_LABEL}；音频支持 ${SUPPORTED_AUDIO_LABEL}`);
+      return { createdCount: 0 };
+    }
+
+    const { imageAssets, videoUrls, audioUrls } = await uploadCanvasFilesForCanvas(supportedFiles);
+    const createdNodeIds = [];
+    const editorPosition = targetEditor.position || { x: 0, y: 0 };
+    const basePosition = {
+      x: editorPosition.x - 360,
+      y: editorPosition.y,
+    };
+    const nextPosition = (index) => ({
+      x: basePosition.x,
+      y: basePosition.y + index * 220,
+    });
+
+    let createdIndex = 0;
+    videoUrls.forEach((videoUrl) => {
+      const nodeId = createGeneratePair('generateVideo', nextPosition(createdIndex), null, {
+        videoUrl,
+        videoSource: 'upload',
+        activate: false,
+        selected: false,
+      });
+      createdIndex += 1;
+      if (nodeId) createdNodeIds.push(nodeId);
+    });
+
+    audioUrls.forEach((audioUrl) => {
+      const nodeId = createGeneratePair('generateAudio', nextPosition(createdIndex), null, {
+        audioUrl,
+        audioSource: 'upload',
+        activate: false,
+        selected: false,
+      });
+      createdIndex += 1;
+      if (nodeId) createdNodeIds.push(nodeId);
+    });
+
+    imageAssets.forEach((asset) => {
+      const nodeId = createGeneratePair('generateImage', nextPosition(createdIndex), null, {
+        imageUrl: asset.url,
+        style: asset.style || { width: 260, height: 195 },
+        imageSource: 'upload',
+        imageSize: asset.imageSize,
+        imageDimensions: asset.imageDimensions,
+        imageDimensionsByUrl: asset.imageDimensionsByUrl,
+        activate: false,
+        selected: false,
+      });
+      createdIndex += 1;
+      if (nodeId) createdNodeIds.push(nodeId);
+    });
+
+    createdNodeIds.forEach(sourceNodeId => connectCanvasNodes(sourceNodeId, editorNodeId));
+    return { createdCount: createdNodeIds.length };
+  }, [connectCanvasNodes, createGeneratePair, uploadCanvasFilesForCanvas]);
+
   const handlePaneUploadFiles = useCallback(async (event) => {
     const input = event.currentTarget;
     const files = Array.from(input.files || []);
@@ -14188,6 +14258,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           onClose={() => setActiveVideoEditorNodeId(null)}
           onSave={onVideoEditorTimelineSave}
           onRendered={onVideoEditorRendered}
+          onUploadSources={(files) => handleVideoEditorSourceUpload(files, activeVideoEditor.node.id)}
         />
       )}
 

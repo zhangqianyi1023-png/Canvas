@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import mimetypes
 import os
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 import requests
 
@@ -159,6 +159,29 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         return f"data:{mime};base64,{encoded}"
 
     @staticmethod
+    def _local_reference_as_provider_url(reference: str) -> str:
+        public_base = (
+            os.environ.get("INUX_PUBLIC_BASE_URL")
+            or os.environ.get("INUX_PUBLIC_ORIGIN")
+            or ""
+        ).strip().rstrip("/")
+        if not public_base:
+            return OpenAICompatibleAdapter._local_reference_as_data_url(reference)
+
+        parsed = urlparse(reference)
+        path = unquote(parsed.path or "")
+        if not path.startswith("/uploads/"):
+            return reference
+        if parsed.scheme and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
+            return reference
+
+        filename = os.path.basename(path)
+        local_path = os.path.abspath(os.path.join(UPLOAD_ROOT, filename))
+        if not local_path.startswith(UPLOAD_ROOT + os.sep) or not os.path.isfile(local_path):
+            raise ProviderError(f"本地参考图片不存在: {filename}")
+        return f"{public_base}/{quote(path.lstrip('/'), safe='/')}"
+
+    @staticmethod
     def _reference_as_file(reference: str, index: int) -> tuple[str, bytes, str]:
         if reference.startswith("data:image/"):
             header, encoded = reference.split(",", 1)
@@ -184,7 +207,7 @@ class OpenAICompatibleAdapter(ProviderAdapter):
 
     def prepare_references(self, references: list[str], base_url: str, api_key: str) -> list[str]:
         unique = list(dict.fromkeys(reference.strip() for reference in references if reference and reference.strip()))
-        return [self._local_reference_as_data_url(reference) for reference in unique]
+        return [self._local_reference_as_provider_url(reference) for reference in unique]
 
     def prepare_image_payload(self, payload: dict) -> dict:
         request_payload = dict(payload)
@@ -236,7 +259,7 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             url = str(item.get("url") or "").strip()
             if not url:
                 continue
-            role_images.append({**item, "url": self._local_reference_as_data_url(url)})
+            role_images.append({**item, "url": self._local_reference_as_provider_url(url)})
         if role_images:
             request_payload["image_with_roles"] = role_images
         return request_payload

@@ -279,6 +279,7 @@ function VideoEditorDialog({
   onClose,
   onSave,
   onRendered,
+  onUploadSources,
 }) {
   const [draft, setDraft] = useState(() => {
     const normalized = normalizeVideoEditorTimeline(timeline);
@@ -309,6 +310,7 @@ function VideoEditorDialog({
   const previewRef = useRef(null);
   const previewVideoRef = useRef(null);
   const timelineRef = useRef(null);
+  const sourceUploadInputRef = useRef(null);
   const exportMenuRef = useRef(null);
   const clipFrameStripsRef = useRef({});
   const draftRef = useRef(draft);
@@ -598,6 +600,13 @@ function VideoEditorDialog({
     }
   }, [rememberSourceMetadata]);
 
+  const handleSourceAudioMetadata = useCallback((source, event) => {
+    const { duration } = event.currentTarget;
+    if (Number.isFinite(duration) && duration > 0) {
+      rememberSourceMetadata(source, { duration });
+    }
+  }, [rememberSourceMetadata]);
+
   const createSourceClip = useCallback((source, start) => {
     const aspectRatio = source.aspectRatio || sourceAspectRatios[source.id];
     const sourceDuration = source.sourceDuration || source.duration || sourceDurations[source.id];
@@ -611,17 +620,38 @@ function VideoEditorDialog({
     const aspectRatio = formatAspectRatioLabel(
       source.aspectRatio || sourceAspectRatios[source.id] || canvasAspectRatio,
     );
-    const duration = source.type === 'video'
+    const duration = source.type === 'video' || source.type === 'audio'
       ? source.sourceDuration || source.duration || sourceDurations[source.id]
       : 0;
-    const detail = source.type === 'video' && duration
+    const detail = (source.type === 'video' || source.type === 'audio') && duration
       ? `${formatSeconds(duration)} · ${aspectRatio}`
       : aspectRatio;
+    const typeLabel = source.type === 'video'
+      ? '视频'
+      : source.type === 'audio'
+        ? '音频'
+        : '图片';
     return {
-      typeLabel: source.type === 'video' ? '视频' : '图片',
+      typeLabel,
       detail,
     };
   }, [canvasAspectRatio, sourceAspectRatios, sourceDurations]);
+
+  const handleSourceUploadChange = useCallback(async (event) => {
+    const input = event.currentTarget;
+    const files = Array.from(input.files || []);
+    input.value = '';
+    if (files.length === 0 || !onUploadSources) return;
+    setStatusMessage('正在上传素材...');
+    try {
+      const result = await onUploadSources(files);
+      const createdCount = Number(result?.createdCount) || 0;
+      setStatusMessage(createdCount > 0 ? `已上传 ${createdCount} 个素材并连接到编辑器` : '没有可上传的素材');
+    } catch (error) {
+      console.warn('[VideoEditorDialog] 上传素材失败', error);
+      setStatusMessage(error?.message || '素材上传失败');
+    }
+  }, [onUploadSources]);
 
   const insertSourceAtPlayhead = useCallback((source) => {
     if (!source?.url) return;
@@ -1705,9 +1735,28 @@ function VideoEditorDialog({
 
         <main className="video-editor-main">
           <aside className="video-editor-library">
-            <div className="video-editor-panel-title">素材</div>
+            <div className="video-editor-library-header">
+              <div className="video-editor-panel-title">素材</div>
+              <button
+                type="button"
+                className="video-editor-upload-source-btn"
+                onClick={() => sourceUploadInputRef.current?.click()}
+                disabled={!onUploadSources}
+              >
+                <Icon name="upload" size={14} />
+                <span>上传素材</span>
+              </button>
+              <input
+                ref={sourceUploadInputRef}
+                type="file"
+                accept="image/*,video/*,audio/*"
+                multiple
+                hidden
+                onChange={handleSourceUploadChange}
+              />
+            </div>
             {sources.length === 0 ? (
-              <div className="video-editor-empty">连接图片或视频节点后会显示在这里</div>
+              <div className="video-editor-empty">连接或上传图片、视频、音频素材后会显示在这里</div>
             ) : sources.map(source => {
               const sourceMeta = getSourceMeta(source);
               const isSourceAdded = draft.clips.some(clip => clip.sourceId === source.id);
@@ -1722,9 +1771,16 @@ function VideoEditorDialog({
                   title="拖到下方时间轴插入，双击插入到播放头"
                 >
                   <div className="video-editor-source-preview">
-                    {source.type === 'video'
-                      ? <video src={source.url} muted playsInline preload="metadata" draggable={false} onLoadedMetadata={event => handleSourceVideoMetadata(source, event)} />
-                      : <img src={source.url} alt={source.name || '素材'} draggable={false} onLoad={event => handleSourceImageLoad(source, event)} />}
+                    {source.type === 'video' ? (
+                      <video src={source.url} muted playsInline preload="metadata" draggable={false} onLoadedMetadata={event => handleSourceVideoMetadata(source, event)} />
+                    ) : source.type === 'audio' ? (
+                      <div className="video-editor-source-audio-preview" aria-hidden="true">
+                        <Icon name="volume" size={18} />
+                        <audio src={source.url} preload="metadata" onLoadedMetadata={event => handleSourceAudioMetadata(source, event)} />
+                      </div>
+                    ) : (
+                      <img src={source.url} alt={source.name || '素材'} draggable={false} onLoad={event => handleSourceImageLoad(source, event)} />
+                    )}
                     {isSourceAdded && <span className="source-added-badge">已添加</span>}
                   </div>
                   <div className="video-editor-source-meta">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import * as THREE from 'three';
 import Icon from '../components/Icon';
 import GenerateCreditButton from '../components/GenerateCreditButton';
 import InlineImageAnnotationEditor from '../components/InlineImageAnnotationEditor';
@@ -487,12 +488,12 @@ function ImageRotationEditor({
 }
 
 const LIGHTING_POSITION_OPTIONS = [
-  { id: 'left', label: '左侧', point: { x: 0.24, y: 0.5 } },
-  { id: 'top', label: '顶部', point: { x: 0.5, y: 0.2 } },
-  { id: 'right', label: '右侧', point: { x: 0.76, y: 0.5 } },
-  { id: 'front', label: '前方', point: { x: 0.5, y: 0.58 } },
-  { id: 'bottom', label: '底部', point: { x: 0.5, y: 0.8 } },
-  { id: 'back', label: '后方', point: { x: 0.5, y: 0.34 } },
+  { id: 'left', label: '左侧', point: { x: 0.24, y: 0.5, z: 0 } },
+  { id: 'top', label: '顶部', point: { x: 0.5, y: 0.2, z: 0 } },
+  { id: 'right', label: '右侧', point: { x: 0.76, y: 0.5, z: 0 } },
+  { id: 'front', label: '前方', point: { x: 0.5, y: 0.58, z: 0.82 } },
+  { id: 'bottom', label: '底部', point: { x: 0.5, y: 0.8, z: 0 } },
+  { id: 'back', label: '后方', point: { x: 0.5, y: 0.34, z: -0.82 } },
 ];
 
 const LIGHTING_EDITOR_GAP = 14;
@@ -506,7 +507,7 @@ const resolveLightingEditorPosition = (anchorRect) => {
   };
 };
 
-const clampLightPoint = ({ x, y }) => {
+const clampLightPoint = ({ x, y, z = 0 }) => {
   const center = 0.5;
   const dx = x - center;
   const dy = y - center;
@@ -516,14 +517,420 @@ const clampLightPoint = ({ x, y }) => {
     return {
       x: Math.min(0.97, Math.max(0.03, x)),
       y: Math.min(0.97, Math.max(0.03, y)),
+      z: Math.min(1, Math.max(-1, z)),
     };
   }
   const scale = maxDistance / distance;
   return {
     x: center + dx * scale,
     y: center + dy * scale,
+    z: Math.min(1, Math.max(-1, z)),
   };
 };
+
+const getLightingViewCameraPosition = (viewMode) => (
+  viewMode === 'front'
+    ? new THREE.Vector3(0, 0, 7.2)
+    : new THREE.Vector3(5.4, 3.8, 6.2)
+);
+
+const easeLightingCamera = (progress) => (
+  progress < 0.5
+    ? 4 * progress * progress * progress
+    : 1 - ((-2 * progress + 2) ** 3) / 2
+);
+
+const toLightingVector = (point = {}) => new THREE.Vector3(
+  ((Number(point.x) || 0.5) - 0.5) * 5.2,
+  (0.5 - (Number(point.y) || 0.5)) * 5.2,
+  (Number(point.z) || 0) * 2.8,
+);
+
+const fromLightingPointer = (event, rect, currentPoint = {}) => {
+  const next = clampLightPoint({
+    x: (event.clientX - rect.left) / rect.width,
+    y: (event.clientY - rect.top) / rect.height,
+    z: currentPoint.z || 0,
+  });
+  return next;
+};
+
+const getLightingHitTarget = (event, rect, viewCamera, lights, rimEnabled) => {
+  const pointer = new THREE.Vector2(event.clientX - rect.left, event.clientY - rect.top);
+  const candidates = [
+    ['main', lights.main],
+    rimEnabled ? ['rim', lights.rim] : null,
+  ].filter(Boolean);
+
+  return candidates.reduce((closest, [key, point]) => {
+    const projected = toLightingVector(point).project(viewCamera);
+    if (projected.z < -1 || projected.z > 1) return closest;
+    const screenPoint = new THREE.Vector2(
+      (projected.x * 0.5 + 0.5) * rect.width,
+      (-projected.y * 0.5 + 0.5) * rect.height,
+    );
+    const distance = pointer.distanceTo(screenPoint);
+    if (distance > 28 || (closest && closest.distance <= distance)) return closest;
+    return { key, distance };
+  }, null)?.key || null;
+};
+
+const resolveLightingColor = (temperature) => {
+  const color = new THREE.Color(0xffffff);
+  const warm = new THREE.Color(0xffbd73);
+  const neutral = new THREE.Color(0xffffff);
+  const cool = new THREE.Color(0x9fc6ff);
+  if (temperature <= 5000) {
+    color.copy(warm).lerp(neutral, Math.max(0, Math.min(1, (temperature - 2000) / 3000)));
+    return color;
+  }
+  color.copy(neutral).lerp(cool, Math.max(0, Math.min(1, (temperature - 5000) / 3000)));
+  return color;
+};
+
+const updateLightingBeam = (beam, fromVector, radius, opacity) => {
+  if (!beam) return;
+  const target = new THREE.Vector3(0, 0, 0);
+  const distance = Math.max(0.01, fromVector.distanceTo(target));
+  const direction = fromVector.clone().normalize();
+  beam.position.copy(fromVector).multiplyScalar(0.5);
+  beam.scale.set(radius, distance, radius);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+  beam.material.opacity = opacity;
+};
+
+const createLightingGuideSphere = (radius = 3) => {
+  const group = new THREE.Group();
+  const material = new THREE.LineBasicMaterial({
+    color: 0xb5bdc9,
+    transparent: true,
+    opacity: 0.1,
+  });
+  const segments = 96;
+  const latitudes = [-60, -30, 0, 30, 60];
+  const longitudeCount = 12;
+
+  latitudes.forEach(latitude => {
+    const angle = THREE.MathUtils.degToRad(latitude);
+    const y = Math.sin(angle) * radius;
+    const ringRadius = Math.cos(angle) * radius;
+    const points = Array.from({ length: segments }, (_, index) => {
+      const theta = (index / segments) * Math.PI * 2;
+      return new THREE.Vector3(Math.cos(theta) * ringRadius, y, Math.sin(theta) * ringRadius);
+    });
+    group.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), material));
+  });
+
+  Array.from({ length: longitudeCount }, (_, index) => {
+    const longitude = (index / longitudeCount) * Math.PI * 2;
+    const points = Array.from({ length: segments }, (__, pointIndex) => {
+      const theta = (pointIndex / segments) * Math.PI * 2;
+      const horizontal = Math.sin(theta) * radius;
+      return new THREE.Vector3(
+        Math.cos(longitude) * horizontal,
+        Math.cos(theta) * radius,
+        Math.sin(longitude) * horizontal,
+      );
+    });
+    group.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), material));
+    return null;
+  });
+
+  return group;
+};
+
+function ImageLighting3DControl({
+  imageUrl,
+  lights,
+  activeLight,
+  rimEnabled,
+  brightness,
+  temperature,
+  onActiveLightChange,
+  onLightChange,
+  onReset,
+}) {
+  const mountRef = useRef(null);
+  const sceneRef = useRef(null);
+  const viewFrameRef = useRef(0);
+  const dragLightRef = useRef(null);
+  const [viewMode, setViewMode] = useState('perspective');
+
+  const renderScene = useCallback(() => {
+    const current = sceneRef.current;
+    if (!current) return;
+
+    const mainVector = toLightingVector(lights.main);
+    const mainColor = resolveLightingColor(temperature);
+    const mainBeamOpacity = 0.1 + Math.min(1, Math.max(0.1, brightness / 100)) * 0.36;
+    const subjectRotationY = viewMode === 'front' ? 0 : -0.14;
+    current.subject.rotation.y = subjectRotationY;
+    current.subjectFrame.rotation.copy(current.subject.rotation);
+    current.mainLight.position.copy(mainVector);
+    current.mainLight.target.position.set(0, 0, 0);
+    current.mainLight.intensity = 0.6 + brightness / 54;
+    current.mainLight.color.copy(mainColor);
+    current.mainBulb.material.color.copy(mainColor);
+    current.mainBulb.position.copy(mainVector);
+    current.mainLine.geometry.setFromPoints([mainVector, new THREE.Vector3(0, 0, 0)]);
+    current.mainLine.material.color.copy(mainColor);
+    current.mainLine.material.opacity = 0.16 + brightness / 400;
+    current.mainBeam.material.color.copy(mainColor);
+    updateLightingBeam(current.mainBeam, mainVector, 0.92, mainBeamOpacity);
+
+    const rimVector = toLightingVector(lights.rim);
+    current.rimLight.visible = rimEnabled;
+    current.rimBulb.visible = rimEnabled;
+    current.rimLine.visible = rimEnabled;
+    current.rimBeam.visible = rimEnabled;
+    current.rimLight.position.copy(rimVector);
+    current.rimLight.target.position.set(0, 0, 0);
+    current.rimLight.intensity = 1.05;
+    current.rimBulb.position.copy(rimVector);
+    current.rimLine.geometry.setFromPoints([rimVector, new THREE.Vector3(0, 0, 0)]);
+    updateLightingBeam(current.rimBeam, rimVector, 0.72, 0.24);
+    current.renderer.render(current.scene, current.viewCamera);
+  }, [brightness, lights, rimEnabled, temperature, viewMode]);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return undefined;
+
+    const scene = new THREE.Scene();
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.domElement.className = 'image-lighting-3d-canvas';
+    mount.appendChild(renderer.domElement);
+
+    const viewCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    viewCamera.position.copy(getLightingViewCameraPosition('perspective'));
+    viewCamera.lookAt(0, 0, 0);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.38));
+
+    scene.add(createLightingGuideSphere(3));
+    scene.add(new THREE.GridHelper(7, 14, 0x3f4652, 0x2b3038));
+
+    const subjectMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.62,
+      metalness: 0,
+      side: THREE.DoubleSide,
+    });
+    const subject = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), subjectMaterial);
+    subject.position.set(0, 0, 0);
+    subject.rotation.y = -0.14;
+    scene.add(subject);
+
+    const subjectFrame = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(2.25, 2.25, 0.05)),
+      new THREE.LineBasicMaterial({ color: 0xe8edf5, transparent: true, opacity: 0.24 }),
+    );
+    subjectFrame.rotation.copy(subject.rotation);
+    scene.add(subjectFrame);
+
+    const mainLight = new THREE.SpotLight(0xffd39a, 1.65, 11, Math.PI / 5.4, 0.62, 0.65);
+    const rimLight = new THREE.SpotLight(0x8dbdff, 1.1, 10, Math.PI / 6, 0.58, 0.7);
+    scene.add(mainLight, mainLight.target, rimLight, rimLight.target);
+
+    const mainBulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.13, 20, 20),
+      new THREE.MeshBasicMaterial({ color: 0xffd677 }),
+    );
+    const rimBulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.11, 20, 20),
+      new THREE.MeshBasicMaterial({ color: 0x7db7ff }),
+    );
+    scene.add(mainBulb, rimBulb);
+
+    const mainLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+      new THREE.LineBasicMaterial({ color: 0xffd677, transparent: true, opacity: 0.46 }),
+    );
+    const rimLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+      new THREE.LineBasicMaterial({ color: 0x7db7ff, transparent: true, opacity: 0.42 }),
+    );
+    const beamGeometry = new THREE.ConeGeometry(1, 1, 40, 1, true);
+    const mainBeam = new THREE.Mesh(
+      beamGeometry.clone(),
+      new THREE.MeshBasicMaterial({
+        color: 0xffd39a,
+        transparent: true,
+        opacity: 0.36,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    const rimBeam = new THREE.Mesh(
+      beamGeometry.clone(),
+      new THREE.MeshBasicMaterial({
+        color: 0x7db7ff,
+        transparent: true,
+        opacity: 0.24,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    scene.add(mainBeam, rimBeam, mainLine, rimLine);
+
+    sceneRef.current = {
+      scene,
+      renderer,
+      viewCamera,
+      subject,
+      subjectFrame,
+      texture: null,
+      mainLight,
+      rimLight,
+      mainBulb,
+      rimBulb,
+      mainBeam,
+      rimBeam,
+      mainLine,
+      rimLine,
+    };
+
+    const resize = () => {
+      const width = Math.max(1, mount.clientWidth);
+      const height = Math.max(1, mount.clientHeight);
+      renderer.setSize(width, height, false);
+      viewCamera.aspect = width / height;
+      viewCamera.updateProjectionMatrix();
+      renderer.render(scene, viewCamera);
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(mount);
+    resize();
+
+    return () => {
+      window.cancelAnimationFrame(viewFrameRef.current);
+      observer.disconnect();
+      sceneRef.current?.texture?.dispose();
+      scene.traverse(object => {
+        object.geometry?.dispose?.();
+        if (Array.isArray(object.material)) {
+          object.material.forEach(material => material.dispose?.());
+        } else {
+          object.material?.dispose?.();
+        }
+      });
+      renderer.dispose();
+      renderer.forceContextLoss?.();
+      renderer.domElement.remove();
+      sceneRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    renderScene();
+  }, [renderScene]);
+
+  useEffect(() => {
+    const current = sceneRef.current;
+    if (!current || !imageUrl) return undefined;
+    let cancelled = false;
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    loader.load(imageUrl, texture => {
+      if (cancelled) {
+        texture.dispose();
+        return;
+      }
+      current.texture?.dispose();
+      current.texture = texture;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      current.subject.material.map = texture;
+      current.subject.material.needsUpdate = true;
+      current.renderer.render(current.scene, current.viewCamera);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl]);
+
+  useEffect(() => {
+    const current = sceneRef.current;
+    if (!current) return undefined;
+    window.cancelAnimationFrame(viewFrameRef.current);
+    const from = current.viewCamera.position.clone();
+    const to = getLightingViewCameraPosition(viewMode);
+    const startedAt = performance.now();
+    const duration = 360;
+    const animate = (timestamp) => {
+      const progress = Math.min(1, Math.max(0, (timestamp - startedAt) / duration));
+      current.viewCamera.position.lerpVectors(from, to, easeLightingCamera(progress));
+      current.viewCamera.lookAt(0, 0, 0);
+      current.renderer.render(current.scene, current.viewCamera);
+      if (progress < 1) {
+        viewFrameRef.current = window.requestAnimationFrame(animate);
+      }
+    };
+    viewFrameRef.current = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(viewFrameRef.current);
+  }, [viewMode]);
+
+  const beginDrag = useCallback((event) => {
+    if (event.button !== 0) return;
+    const rect = mountRef.current?.getBoundingClientRect();
+    const current = sceneRef.current;
+    if (!rect || !current) return;
+    const lightKey = getLightingHitTarget(event, rect, current.viewCamera, lights, rimEnabled);
+    if (!lightKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragLightRef.current = lightKey;
+    onActiveLightChange(lightKey);
+    onLightChange(lightKey, fromLightingPointer(event, rect, lights[lightKey]));
+
+    const handleMove = (moveEvent) => {
+      moveEvent.preventDefault();
+      const nextRect = mountRef.current?.getBoundingClientRect();
+      if (!nextRect || !dragLightRef.current) return;
+      onLightChange(dragLightRef.current, fromLightingPointer(moveEvent, nextRect, lights[dragLightRef.current]));
+    };
+    const cleanup = () => {
+      dragLightRef.current = null;
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', cleanup);
+      window.removeEventListener('pointercancel', cleanup);
+    };
+    window.addEventListener('pointermove', handleMove, { passive: false });
+    window.addEventListener('pointerup', cleanup, { once: true });
+    window.addEventListener('pointercancel', cleanup, { once: true });
+  }, [lights, onActiveLightChange, onLightChange, rimEnabled]);
+
+  const selectViewMode = useCallback((nextViewMode) => (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setViewMode(nextViewMode);
+  }, []);
+
+  return (
+    <div className="image-lighting-3d-control">
+      <div className="image-lighting-view-tabs" aria-label="视角模式">
+        <button type="button" className={viewMode === 'perspective' ? 'active' : ''} onClick={selectViewMode('perspective')}>透视</button>
+        <button type="button" className={viewMode === 'front' ? 'active' : ''} onClick={selectViewMode('front')}>正面</button>
+      </div>
+      <div
+        ref={mountRef}
+        className="image-lighting-3d-mount"
+        role="application"
+        aria-label="拖动控制灯光位置"
+        onPointerDown={event => beginDrag(event)}
+      />
+      <div className="image-lighting-orb-footer">
+        <button type="button" onClick={onReset}>
+          <Icon name="refresh" size={14} />
+          <span>重置</span>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function ThermometerIcon({ size = 16 }) {
   return (
@@ -620,11 +1027,10 @@ function InlineImageLightingEditor({
   const [rimEnabled, setRimEnabled] = useState(false);
   const [activeLight, setActiveLight] = useState('main');
   const [lights, setLights] = useState({
-    main: { x: 0.5, y: 0.58 },
-    rim: { x: 0.72, y: 0.28 },
+    main: { x: 0.5, y: 0.58, z: 0.82 },
+    rim: { x: 0.72, y: 0.28, z: -0.72 },
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  const orbRef = useRef(null);
   const editorRef = useRef(null);
   const [position, setPosition] = useState(null);
 
@@ -659,40 +1065,6 @@ function InlineImageLightingEditor({
     }));
   }, []);
 
-  const resolvePointFromEvent = useCallback((event) => {
-    const rect = orbRef.current?.getBoundingClientRect();
-    if (!rect?.width || !rect?.height) return null;
-    return clampLightPoint({
-      x: (event.clientX - rect.left) / rect.width,
-      y: (event.clientY - rect.top) / rect.height,
-    });
-  }, []);
-
-  const beginLightDrag = useCallback((event, lightKey = activeLight) => {
-    if (event.button !== 0) return;
-    if (lightKey === 'rim' && !rimEnabled) return;
-    const nextPoint = resolvePointFromEvent(event);
-    if (!nextPoint) return;
-    event.preventDefault();
-    event.stopPropagation();
-    setActiveLight(lightKey);
-    setLightPoint(lightKey, nextPoint);
-
-    const handleMove = (moveEvent) => {
-      moveEvent.preventDefault();
-      const movePoint = resolvePointFromEvent(moveEvent);
-      if (movePoint) setLightPoint(lightKey, movePoint);
-    };
-    const cleanup = () => {
-      window.removeEventListener('pointermove', handleMove);
-      window.removeEventListener('pointerup', cleanup);
-      window.removeEventListener('pointercancel', cleanup);
-    };
-    window.addEventListener('pointermove', handleMove, { passive: false });
-    window.addEventListener('pointerup', cleanup, { once: true });
-    window.addEventListener('pointercancel', cleanup, { once: true });
-  }, [activeLight, resolvePointFromEvent, rimEnabled, setLightPoint]);
-
   const selectPosition = useCallback((option) => {
     setActivePosition(option.id);
     setActiveLight('main');
@@ -716,8 +1088,6 @@ function InlineImageLightingEditor({
     }
   }, [activePosition, brightness, isGenerating, lights, onGenerate, rimEnabled, temperature]);
 
-  const temperatureRatio = (temperature - 2000) / 6000;
-
   const editor = (
     <div
       ref={editorRef}
@@ -727,61 +1097,17 @@ function InlineImageLightingEditor({
       onClick={(event) => event.stopPropagation()}
     >
       <div className="image-lighting-orb-panel">
-        <div className="image-lighting-view-tabs" aria-label="视角模式">
-          <button type="button" className="active">透视</button>
-          <button type="button">正面</button>
-        </div>
-        <div
-          ref={orbRef}
-          className="image-lighting-orb"
-          role="application"
-          aria-label="拖动控制灯光位置"
-          onPointerDown={event => beginLightDrag(event)}
-        >
-          <span className="image-lighting-ring outer" aria-hidden="true" />
-          <span className="image-lighting-ring middle" aria-hidden="true" />
-          <span className="image-lighting-ring inner" aria-hidden="true" />
-          <span className="image-lighting-axis horizontal" aria-hidden="true" />
-          <span className="image-lighting-axis vertical" aria-hidden="true" />
-          <div
-            className="image-lighting-preview"
-            style={{
-              '--light-x': `${lights.main.x * 100}%`,
-              '--light-y': `${lights.main.y * 100}%`,
-              '--light-brightness': brightness / 100,
-              '--light-temperature': temperatureRatio,
-            }}
-          >
-            <img src={imageUrl} alt="" draggable={false} />
-          </div>
-          <button
-            type="button"
-            className={`image-lighting-dot main ${activeLight === 'main' ? 'active' : ''}`}
-            style={{ left: `${lights.main.x * 100}%`, top: `${lights.main.y * 100}%` }}
-            aria-label="拖动主光源"
-            onPointerDown={event => beginLightDrag(event, 'main')}
-          >
-            <span />
-          </button>
-          {rimEnabled ? (
-            <button
-              type="button"
-              className={`image-lighting-dot rim ${activeLight === 'rim' ? 'active' : ''}`}
-              style={{ left: `${lights.rim.x * 100}%`, top: `${lights.rim.y * 100}%` }}
-              aria-label="拖动轮廓光"
-              onPointerDown={event => beginLightDrag(event, 'rim')}
-            >
-              <span />
-            </button>
-          ) : null}
-        </div>
-        <div className="image-lighting-orb-footer">
-          <span>{activeLight === 'rim' ? '轮廓光' : '主光源'}</span>
-          <button type="button" onClick={() => selectPosition(LIGHTING_POSITION_OPTIONS.find(option => option.id === 'front'))}>
-            <Icon name="refresh" size={14} />
-            <span>重置</span>
-          </button>
-        </div>
+        <ImageLighting3DControl
+          imageUrl={imageUrl}
+          lights={lights}
+          activeLight={activeLight}
+          rimEnabled={rimEnabled}
+          brightness={brightness}
+          temperature={temperature}
+          onActiveLightChange={setActiveLight}
+          onLightChange={setLightPoint}
+          onReset={() => selectPosition(LIGHTING_POSITION_OPTIONS.find(option => option.id === 'front'))}
+        />
       </div>
 
       <div className="image-lighting-control-panel">
@@ -1040,20 +1366,20 @@ function ImageActionOverlay({
     ? { action: 'query', label: '查询', icon: 'refresh' }
     : null;
   const toolbarGroups = [
-    ...(!isResultImageToolbar && editToolbarActions.length > 0
+    ...(!isEmptyResultImageToolbar && editToolbarActions.length > 0
       ? [{ key: 'edit', actions: [...editToolbarActions, ...moreToolbarActions] }]
       : []),
     ...(isEmptyResultImageToolbar && uploadToolbarActions.length > 0
       ? [{ key: 'upload', actions: uploadToolbarActions }]
       : []),
     ...(markerToolbarActions.length > 0
-      ? [{ key: 'marker', actions: markerToolbarActions, separatorBefore: (!isResultImageToolbar && editToolbarActions.length > 0) || isEmptyResultImageToolbar }]
+      ? [{ key: 'marker', actions: markerToolbarActions, separatorBefore: (!isEmptyResultImageToolbar && editToolbarActions.length > 0) || isEmptyResultImageToolbar }]
       : []),
     ...(!isEmptyResultImageToolbar && secondaryToolbarActions.length > 0
-      ? [{ key: 'secondary', actions: secondaryToolbarActions, separatorBefore: (!isResultImageToolbar && editToolbarActions.length > 0) || markerToolbarActions.length > 0 }]
+      ? [{ key: 'secondary', actions: secondaryToolbarActions, separatorBefore: (!isEmptyResultImageToolbar && editToolbarActions.length > 0) || markerToolbarActions.length > 0 }]
       : []),
     ...(pendingToolbarAction
-      ? [{ key: 'pending', actions: [pendingToolbarAction], separatorBefore: (!isResultImageToolbar && editToolbarActions.length > 0) || markerToolbarActions.length > 0 || secondaryToolbarActions.length > 0 }]
+      ? [{ key: 'pending', actions: [pendingToolbarAction], separatorBefore: (!isEmptyResultImageToolbar && editToolbarActions.length > 0) || markerToolbarActions.length > 0 || secondaryToolbarActions.length > 0 }]
       : []),
   ];
   const visibleActions = toolbarGroups.flatMap(group => group.actions);

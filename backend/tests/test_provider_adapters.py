@@ -1,3 +1,4 @@
+import os
 import unittest
 import tempfile
 from pathlib import Path
@@ -307,6 +308,22 @@ class ProviderAdapterTest(unittest.TestCase):
                 )
 
         self.assertEqual(prepared, ["data:image/png;base64,aW1hZ2UtYnl0ZXM="])
+
+    def test_openai_local_reference_uses_public_upload_url_when_configured(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image_path = Path(temp_dir) / "reference image.png"
+            image_path.write_bytes(b"image-bytes")
+            with patch("providers.openai_compatible.UPLOAD_ROOT", temp_dir), patch.dict(
+                os.environ,
+                {"INUX_PUBLIC_BASE_URL": "http://118.25.16.178/"},
+            ):
+                prepared = OpenAICompatibleAdapter().prepare_references(
+                    ["/uploads/reference image.png"],
+                    "https://api.test/v1",
+                    "secret",
+                )
+
+        self.assertEqual(prepared, ["http://118.25.16.178/uploads/reference%20image.png"])
 
     @patch("providers.rightcode.requests.post")
     def test_rightcode_image_generation_uses_draw_async_endpoint(self, post):

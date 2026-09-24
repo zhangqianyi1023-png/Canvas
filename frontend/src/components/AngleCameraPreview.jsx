@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import Icon from './Icon';
 
@@ -26,6 +26,18 @@ const createOrbitRing = (radius, rotation = {}) => {
   return ring;
 };
 
+const getPreviewCameraPosition = (viewMode) => (
+  viewMode === 'front'
+    ? new THREE.Vector3(0, 0, 7.2)
+    : new THREE.Vector3(5.3, 3.6, 6.1)
+);
+
+const easeInOutCubic = (progress) => (
+  progress < 0.5
+    ? 4 * progress * progress * progress
+    : 1 - ((-2 * progress + 2) ** 3) / 2
+);
+
 function AngleCameraPreview({
   imageUrl,
   yaw = 0,
@@ -33,6 +45,8 @@ function AngleCameraPreview({
   distance = 4,
   secondaryCamera = null,
   disabled = false,
+  showViewModeToggle = false,
+  hintLabel = '',
   onChange,
 }) {
   const mountRef = useRef(null);
@@ -40,7 +54,9 @@ function AngleCameraPreview({
   const dragRef = useRef(null);
   const pendingChangeRef = useRef(null);
   const changeFrameRef = useRef(0);
+  const viewFrameRef = useRef(0);
   const onChangeRef = useRef(onChange);
+  const [viewMode, setViewMode] = useState('perspective');
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -104,7 +120,7 @@ function AngleCameraPreview({
     mount.appendChild(renderer.domElement);
 
     const viewCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-    viewCamera.position.set(5.3, 3.6, 6.1);
+    viewCamera.position.copy(getPreviewCameraPosition('perspective'));
     viewCamera.lookAt(0, 0, 0);
 
     scene.add(new THREE.AmbientLight(0xffffff, 1.25));
@@ -271,6 +287,36 @@ function AngleCameraPreview({
 
   useEffect(() => {
     const current = sceneStateRef.current;
+    if (!current) return undefined;
+
+    window.cancelAnimationFrame(viewFrameRef.current);
+    const from = current.viewCamera.position.clone();
+    const to = getPreviewCameraPosition(viewMode);
+    const startedAt = performance.now();
+    const duration = 360;
+
+    const animate = (timestamp) => {
+      const progress = clamp((timestamp - startedAt) / duration, 0, 1);
+      const eased = easeInOutCubic(progress);
+      current.viewCamera.position.lerpVectors(from, to, eased);
+      current.viewCamera.lookAt(0, 0, 0);
+      current.renderer.render(current.scene, current.viewCamera);
+      if (progress < 1) {
+        viewFrameRef.current = window.requestAnimationFrame(animate);
+        return;
+      }
+      viewFrameRef.current = 0;
+    };
+
+    viewFrameRef.current = window.requestAnimationFrame(animate);
+    return () => {
+      window.cancelAnimationFrame(viewFrameRef.current);
+      viewFrameRef.current = 0;
+    };
+  }, [viewMode]);
+
+  useEffect(() => {
+    const current = sceneStateRef.current;
     if (!current || !imageUrl) return undefined;
     let cancelled = false;
     const loader = new THREE.TextureLoader();
@@ -308,6 +354,7 @@ function AngleCameraPreview({
 
   useEffect(() => () => {
     window.cancelAnimationFrame(changeFrameRef.current);
+    window.cancelAnimationFrame(viewFrameRef.current);
   }, []);
 
   const scheduleChange = useCallback((nextYaw, nextPitch) => {
@@ -363,8 +410,36 @@ function AngleCameraPreview({
     });
   }, [disabled, pitch, yaw]);
 
+  const chooseViewMode = useCallback((nextViewMode) => (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setViewMode(nextViewMode);
+  }, []);
+
   return (
     <div className={`angle-camera-preview ${disabled ? 'is-disabled' : ''}`}>
+      {showViewModeToggle && (
+        <div className="angle-camera-view-toggle" role="tablist" aria-label="预览视图">
+          <button
+            type="button"
+            className={viewMode === 'perspective' ? 'active' : ''}
+            role="tab"
+            aria-selected={viewMode === 'perspective'}
+            onClick={chooseViewMode('perspective')}
+          >
+            透视
+          </button>
+          <button
+            type="button"
+            className={viewMode === 'front' ? 'active' : ''}
+            role="tab"
+            aria-selected={viewMode === 'front'}
+            onClick={chooseViewMode('front')}
+          >
+            正面
+          </button>
+        </div>
+      )}
       <div
         ref={mountRef}
         className="angle-camera-mount"
@@ -387,6 +462,7 @@ function AngleCameraPreview({
       <button type="button" className="angle-camera-nudge is-down" onClick={() => nudge(0, 10)} disabled={disabled} data-tooltip="向下移动相机" aria-label="向下移动相机10度">
         <Icon name="arrowLeft" size={16} />
       </button>
+      {hintLabel && <span className="angle-camera-hint">{hintLabel}</span>}
     </div>
   );
 }
