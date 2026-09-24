@@ -4,6 +4,7 @@ import {
   collectTimelineSnapPoints,
   compactTimelineClips,
   createClipFromSource,
+  createVideoEditorTracks,
   createVideoEditorCanvasFromAspectRatio,
   duplicateClipAtTime,
   findClipAtTime,
@@ -11,17 +12,27 @@ import {
   getAspectFillScale,
   getAspectFitScale,
   getClipMaxDuration,
+  getTimelineActiveClips,
   getTimelinePlaybackState,
   insertClipAtTime,
+  insertClipIntoLayeredTimeline,
+  formatVideoEditorFrameClock,
+  frameToVideoEditorTime,
   normalizeAspectRatioNumber,
   normalizeVideoEditorTimeline,
   moveClipWithSnap,
+  removeClipFromLayeredTimeline,
   removeClipWithRipple,
   reorderClipWithRipple,
+  snapVideoEditorTimeToFrame,
   splitClipAtTime,
+  syncVideoEditorTimelineTracks,
+  timeToVideoEditorFrame,
+  trimClipInLayeredTimeline,
   trimClipWithRipple,
   trimClipEndWithSnap,
   trimClipStartWithSnap,
+  VIDEO_EDITOR_TRACK_DEFINITIONS,
 } from './videoEditorModel.js';
 
 const baseClip = {
@@ -153,6 +164,13 @@ test('formatSeconds rounds to one fixed decimal place', () => {
   assert.equal(formatSeconds(10.96), '11.0s');
 });
 
+test('frame helpers convert timeline seconds to frame-accurate values', () => {
+  assert.equal(timeToVideoEditorFrame(1.249, 30), 37);
+  assert.equal(frameToVideoEditorTime(37, 30), 1.233);
+  assert.equal(snapVideoEditorTimeToFrame(1.249, 30), 1.233);
+  assert.equal(formatVideoEditorFrameClock(61.2, 30), '01:01:06');
+});
+
 test('normalizeAspectRatioNumber accepts colon ratios and numeric ratios', () => {
   assert.equal(normalizeAspectRatioNumber('9:16'), 9 / 16);
   assert.equal(normalizeAspectRatioNumber('16/9'), 16 / 9);
@@ -255,7 +273,132 @@ test('normalizeVideoEditorTimeline preserves portrait 4K canvas height', () => {
   assert.equal(timeline.canvas.width, 2160);
   assert.equal(timeline.canvas.height, 3840);
   assert.equal(timeline.canvas.aspectRatio, '9:16');
-  assert.equal(timeline.canvas.resolution, '4K');
+  assert.equal(timeline.canvas.resolution, '4k');
+});
+
+test('createVideoEditorTracks groups clips by image, video, and audio tracks', () => {
+  const clips = [
+    { ...baseClip, id: 'audio-a', type: 'audio', start: 5 },
+    { ...baseClip, id: 'image-a', type: 'image', start: 2 },
+    { ...baseClip, id: 'video-a', type: 'video', start: 0 },
+    { ...baseClip, id: 'audio-b', type: 'audio', start: 1 },
+  ];
+  const tracks = createVideoEditorTracks(clips);
+
+  assert.deepEqual(VIDEO_EDITOR_TRACK_DEFINITIONS.map(track => track.id), ['imageTrack', 'videoTrack', 'audioTrack']);
+  assert.deepEqual(tracks.map(track => track.clips.map(clip => clip.id)), [
+    ['image-a'],
+    ['video-a'],
+    ['audio-b', 'audio-a'],
+  ]);
+});
+
+test('normalizeVideoEditorTimeline can rebuild clips from legacy track data', () => {
+  const timeline = normalizeVideoEditorTimeline({
+    tracks: [
+      {
+        id: 'audioTrack',
+        type: 'audio',
+        clips: [
+          {
+            id: 'audio-a',
+            type: 'audio',
+            url: '/uploads/audio.mp3',
+            sourceDuration: 12,
+            playbackRate: 2,
+            volume: 1.5,
+            fadeIn: 0.4,
+            fadeOut: 0.6,
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(timeline.clips.length, 1);
+  assert.equal(timeline.clips[0].type, 'audio');
+  assert.equal(timeline.clips[0].duration, 6);
+  assert.equal(timeline.clips[0].playbackRate, 2);
+  assert.equal(timeline.clips[0].volume, 1.5);
+  assert.deepEqual(timeline.tracks.map(track => track.clips.length), [0, 0, 1]);
+});
+
+test('createClipFromSource supports audio clips and default video fill scale', () => {
+  const audioClip = createClipFromSource({
+    id: 'audio-source',
+    type: 'audio',
+    url: '/uploads/audio.mp3',
+    sourceDuration: 9,
+  }, 1);
+  const videoClip = createClipFromSource({
+    id: 'wide-video',
+    type: 'video',
+    url: '/uploads/wide.mp4',
+    aspectRatio: '16:9',
+  }, 0, { canvasAspectRatio: '9:16', defaultFit: 'fill' });
+
+  assert.equal(audioClip.type, 'audio');
+  assert.equal(audioClip.name, '音频素材');
+  assert.equal(audioClip.duration, 9);
+  assert.equal(audioClip.playbackRate, 1);
+  assert.equal(audioClip.volume, 1);
+  assert.ok(videoClip.transform.scale > 1);
+});
+
+test('playback state and split account for audio or video playback rate', () => {
+  const clips = [{ ...baseClip, id: 'audio-a', type: 'audio', duration: 4, inPoint: 1, playbackRate: 2 }];
+  const state = getTimelinePlaybackState(clips, 1.5);
+  const split = splitClipAtTime(clips, 'audio-a', 2);
+
+  assert.equal(state.mediaTime, 4);
+  assert.equal(split[1].inPoint, 5);
+});
+
+test('getTimelineActiveClips returns layered clips at the playhead', () => {
+  const active = getTimelineActiveClips([
+    { ...baseClip, id: 'image-a', type: 'image', start: 1, duration: 4 },
+    { ...baseClip, id: 'audio-a', type: 'audio', start: 0, duration: 5 },
+    { ...baseClip, id: 'video-a', type: 'video', start: 0, duration: 5 },
+  ], 2);
+
+  assert.deepEqual(active.map(clip => clip.id), ['video-a', 'image-a', 'audio-a']);
+});
+
+test('layered timeline operations ripple only video clips', () => {
+  const clips = [
+    { ...baseClip, id: 'video-a', type: 'video', start: 0, duration: 4 },
+    { ...baseClip, id: 'video-b', type: 'video', start: 4, duration: 2 },
+    { ...baseClip, id: 'audio-a', type: 'audio', start: 1, duration: 5 },
+  ];
+  const inserted = insertClipIntoLayeredTimeline(
+    clips,
+    { ...baseClip, id: 'video-new', type: 'video', duration: 1 },
+    2,
+  );
+  const removed = removeClipFromLayeredTimeline(clips, 'video-a');
+  const trimmed = trimClipInLayeredTimeline(clips, 'audio-a', { duration: 2, inPoint: 1 });
+
+  assert.deepEqual(inserted.clips.filter(clip => clip.type === 'video').map(clip => clip.start), [0, 2, 3, 5]);
+  assert.equal(inserted.clips.find(clip => clip.id === 'audio-a').start, 1);
+  assert.deepEqual(removed.filter(clip => clip.type === 'video').map(clip => clip.start), [0]);
+  assert.equal(trimmed.find(clip => clip.id === 'audio-a').duration, 2);
+  assert.equal(trimmed.find(clip => clip.id === 'video-b').start, 4);
+});
+
+test('syncVideoEditorTimelineTracks refreshes track clips from timeline clips', () => {
+  const synced = syncVideoEditorTimelineTracks({
+    clips: [
+      { ...baseClip, id: 'video-a', type: 'video', start: 0 },
+      { ...baseClip, id: 'audio-a', type: 'audio', start: 0 },
+    ],
+    tracks: [],
+  });
+
+  assert.deepEqual(synced.tracks.map(track => track.clips.map(clip => clip.id)), [
+    [],
+    ['video-a'],
+    ['audio-a'],
+  ]);
 });
 
 test('compactTimelineClips sorts clips and removes gaps', () => {

@@ -10938,6 +10938,10 @@ body {
   backdrop-filter: blur(18px);
 }
 
+.processor-model-menu.is-portaled {
+  min-width: 0;
+}
+
 .processor-model-option {
   display: flex;
   align-items: center;
@@ -28803,7 +28807,7 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
   border-radius: 0;
   box-shadow: none;
   display: grid;
-  grid-template-rows: 56px minmax(260px, 1fr) var(--video-editor-timeline-height);
+  grid-template-rows: 52px minmax(260px, 1fr) var(--video-editor-timeline-height);
   gap: 6px;
   padding: 4px;
   box-sizing: border-box;
@@ -29142,10 +29146,14 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
 }
 
 .video-editor-source-card {
-  display: block;
-  margin-bottom: 10px;
-  padding: 0;
-  border: 0;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px solid transparent;
   border-radius: 10px;
   background: transparent;
   box-shadow: none;
@@ -29155,6 +29163,8 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
 }
 
 .video-editor-source-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  background: color-mix(in srgb, var(--fg-primary) 4%, transparent);
   transform: translateY(-1px);
 }
 
@@ -29166,13 +29176,13 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
 
 .video-editor-source-preview {
   position: relative;
-  width: 100%;
+  width: 88px;
   aspect-ratio: 16 / 9;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--fg-primary) 9%, transparent), transparent),
     color-mix(in srgb, var(--fg-primary) 10%, var(--bg-surface));
   border: 1px solid color-mix(in srgb, var(--border-default) 74%, transparent);
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg-elevated) 32%, transparent);
   transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
@@ -29180,9 +29190,7 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
 
 .video-editor-source-card:hover .video-editor-source-preview {
   border-color: color-mix(in srgb, var(--accent) 48%, var(--border-default));
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
-    0 10px 24px color-mix(in srgb, var(--fg-primary) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .video-editor-source-card.added .video-editor-source-preview {
@@ -29199,32 +29207,34 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
 
 .source-added-badge {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 5px;
+  left: 5px;
   z-index: 2;
-  height: 22px;
-  padding: 0 7px;
-  border-radius: 7px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 6px;
   background: rgba(20, 20, 22, 0.68);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
-  line-height: 22px;
+  line-height: 18px;
   backdrop-filter: blur(10px);
   pointer-events: none;
 }
 
 .video-editor-source-meta {
-  display: block;
+  display: grid;
+  gap: 4px;
   min-width: 0;
-  margin-top: 8px;
-  padding: 0 3px 3px;
+  margin-top: 0;
+  padding: 0 2px 0 0;
 }
 
 .source-title-row {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -29243,10 +29253,10 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
 .video-editor-source-meta .source-inline-detail {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   margin-top: 0;
   color: var(--fg-secondary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
@@ -29825,7 +29835,7 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
 
 .video-editor-track-scroll {
   overflow: auto;
-  padding: 0 16px 18px;
+  padding: 0;
   background: color-mix(in srgb, var(--ve-panel-subtle) 78%, transparent);
   transition: background 120ms ease;
 }
@@ -29852,6 +29862,99 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
     var(--ve-track-bg);
   border: 1px solid var(--border-subtle);
   border-top: 0;
+}
+
+.video-editor-track-rows {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.video-editor-track-row {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 72px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--bg-elevated) 56%, transparent) 0 132px, transparent 132px),
+    transparent;
+}
+
+.video-editor-track-row.video {
+  border-bottom-color: color-mix(in srgb, #22d3ee 20%, var(--border-subtle));
+}
+
+.video-editor-track-row.image {
+  border-bottom-color: color-mix(in srgb, var(--accent) 20%, var(--border-subtle));
+}
+
+.video-editor-track-row.audio {
+  border-bottom-color: color-mix(in srgb, #34d399 20%, var(--border-subtle));
+}
+
+.video-editor-track-row::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 132px;
+  width: 1px;
+  background: color-mix(in srgb, var(--border-subtle) 66%, transparent);
+  pointer-events: none;
+}
+
+.video-editor-track-row-label {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--glass-bg);
+  color: var(--fg-secondary);
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+  line-height: 22px;
+  backdrop-filter: blur(10px);
+}
+
+.video-editor-track-row-controls {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  pointer-events: auto;
+}
+
+.video-editor-track-row-controls button {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 86%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+  color: var(--fg-secondary);
+  cursor: pointer;
+}
+
+.video-editor-track-row-controls button:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-default));
+  background: var(--ve-control-hover);
+  color: var(--fg-primary);
 }
 
 .video-editor-track.density-frame {
@@ -30216,6 +30319,38 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
     var(--bg-surface);
 }
 
+.video-editor-clip .clip-media.image {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 34%, transparent), rgba(255, 255, 255, 0.08)),
+    var(--bg-surface);
+}
+
+.video-editor-clip .clip-media.audio {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #34d399 28%, transparent), color-mix(in srgb, #22c55e 12%, transparent)),
+    var(--bg-surface);
+}
+
+.video-editor-clip .clip-audio-bars {
+  display: grid;
+  grid-template-columns: repeat(28, minmax(2px, 1fr));
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  gap: 2px;
+  padding: 12px 14px;
+  opacity: .82;
+}
+
+.video-editor-clip .clip-audio-bars i {
+  display: block;
+  height: calc(54px * var(--bar-scale, .5));
+  border-radius: 999px;
+  background: color-mix(in srgb, #d1fae5 76%, transparent);
+}
+
 .video-editor-clip::after {
   content: "";
   position: absolute;
@@ -30238,6 +30373,10 @@ body:has(.material-save-modal-overlay) .node-hover-toolbar-portal {
 
 .video-editor-clip .clip-accent.video {
   background: color-mix(in srgb, var(--ve-snap) 74%, #0f766e);
+}
+
+.video-editor-clip .clip-accent.audio {
+  background: color-mix(in srgb, #34d399 78%, #0f766e);
 }
 
 .video-editor-clip .clip-content {

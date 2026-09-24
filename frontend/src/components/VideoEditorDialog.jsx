@@ -7,12 +7,15 @@ import {
   createClipFromSource,
   createTimelineScale,
   createVideoEditorCanvasFromAspectRatio,
+  createVideoEditorTracks,
+  DEFAULT_VIDEO_EDITOR_FRAME_RATE,
   DEFAULT_PREVIEW_MEDIA_WIDTH_RATIO,
   duplicateClipAtTime,
   getAspectFillScale,
   getAspectFitScale,
   formatSeconds,
   formatAspectRatioLabel,
+  formatVideoEditorFrameClock,
   getClipMaxDuration,
   getTimelinePlaybackState,
   getTimelineDuration,
@@ -21,12 +24,14 @@ import {
   normalizeVideoEditorTimeline,
   removeClipWithRipple,
   reorderClipWithRipple,
+  snapVideoEditorTimeToFrame,
   splitClipAtTime,
   trimClipWithRipple,
   trimClipEndWithSnap,
   trimClipStartWithSnap,
   VIDEO_EDITOR_ASPECT_RATIO_PRESETS,
   VIDEO_EDITOR_RESOLUTION_PRESETS,
+  VIDEO_EDITOR_TRACK_DEFINITIONS,
 } from '../videoEditorModel';
 
 const DEFAULT_PX_PER_SECOND = 88;
@@ -34,9 +39,10 @@ const MIN_TIMELINE_ZOOM = 1;
 const MAX_TIMELINE_ZOOM = 600;
 const TIMELINE_WIDTH_PADDING = 120;
 const MIN_VISIBLE_TIMELINE_SECONDS = 6;
-const TIMELINE_FRAME_RATE = 30;
+const TIMELINE_FRAME_RATE = DEFAULT_VIDEO_EDITOR_FRAME_RATE;
 const MAX_VIDEO_TIMELINE_FRAMES = 240;
 const MAX_IMAGE_TIMELINE_FRAMES = 48;
+const TIMELINE_TRACK_HEADER_WIDTH = 132;
 const AUTO_SAVE_DEBOUNCE_MS = 650;
 const PREVIEW_MEDIA_WIDTH_RATIO = 58;
 const PREVIEW_SNAP_THRESHOLD_PX = 12;
@@ -55,13 +61,24 @@ const EDITOR_LAYOUT_LIMITS = {
   resizeHandleWidth: 12,
 };
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const VIDEO_EDITOR_TRACK_ICON = {
+  video: 'video',
+  image: 'image',
+  audio: 'volume',
+};
+const VIDEO_EDITOR_TRACK_LABEL = Object.fromEntries(
+  VIDEO_EDITOR_TRACK_DEFINITIONS.map(track => [track.type, track.label]),
+);
 
 const formatTimelineClock = (seconds = 0) => {
-  const safeSeconds = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
-  const minutes = Math.floor(safeSeconds / 60);
-  const remainingSeconds = safeSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+  return formatVideoEditorFrameClock(seconds, TIMELINE_FRAME_RATE);
 };
+
+const snapTimelineFrameTime = (time) => snapVideoEditorTimeToFrame(time, TIMELINE_FRAME_RATE);
+
+const clampTimelineTime = (time, maxTime) => (
+  clamp(snapTimelineFrameTime(time), 0, snapTimelineFrameTime(maxTime))
+);
 
 const getTimelineClipFrameCount = (clip, pxPerSecond) => {
   const clipWidth = Math.max(46, (clip?.duration || 0) * pxPerSecond);
@@ -302,6 +319,7 @@ function VideoEditorDialog({
   const isPlayingRef = useRef(false);
   const playbackRunRef = useRef(0);
   const previewSeekRef = useRef({ clipId: '', mediaTime: -1 });
+  const gestureStartScaleRef = useRef(DEFAULT_PX_PER_SECOND);
 
   const selectedClip = draft.clips.find(clip => clip.id === selectedClipId) || null;
   const timelineDuration = getTimelineDuration(draft.clips);
@@ -314,9 +332,10 @@ function VideoEditorDialog({
       MAX_TIMELINE_ZOOM,
     );
   }, [timelineViewportWidth, totalDuration]);
-  const timelineWidth = Math.max(timelineViewportWidth, totalDuration * pxPerSecond + TIMELINE_WIDTH_PADDING);
+  const timelineWidth = Math.max(timelineViewportWidth, TIMELINE_TRACK_HEADER_WIDTH + totalDuration * pxPerSecond + TIMELINE_WIDTH_PADDING);
   const snapThreshold = useMemo(() => Math.max(0.06, 10 / pxPerSecond), [pxPerSecond]);
   const canvasAspectRatio = draft.canvas.width / draft.canvas.height;
+  const frameStepSeconds = 1 / TIMELINE_FRAME_RATE;
 
   const getConstrainedEditorLayout = useCallback((nextLayout) => {
     const shellRect = shellRef.current?.getBoundingClientRect();
@@ -417,7 +436,7 @@ function VideoEditorDialog({
     if (isPlayingRef.current) return;
     const playbackRunId = playbackRunRef.current + 1;
     playbackRunRef.current = playbackRunId;
-    const startTime = playheadTime >= timelineDuration - 0.01 ? 0 : playheadTime;
+    const startTime = playheadTime >= timelineDuration - 0.01 ? 0 : clampTimelineTime(playheadTime, timelineDuration);
     const initialState = getTimelinePlaybackState(draft.clips, startTime);
     if (initialState?.clip) setSelectedClipId(initialState.clip.id);
     setPlayheadTime(startTime);
@@ -432,10 +451,10 @@ function VideoEditorDialog({
     const advance = (now) => {
       if (!isPlayingRef.current || playbackRunRef.current !== playbackRunId) return;
       const elapsed = (now - playbackAnchorRef.current.startedAt) / 1000;
-      const nextTime = Math.min(
+      const nextTime = clampTimelineTime(Math.min(
         timelineDuration,
         playbackAnchorRef.current.timelineTime + elapsed,
-      );
+      ), timelineDuration);
       const playbackState = getTimelinePlaybackState(draft.clips, Math.min(nextTime, Math.max(0, timelineDuration - 0.001)));
       if (playbackState?.clip) {
         setSelectedClipId(current => (
@@ -445,7 +464,7 @@ function VideoEditorDialog({
       setPlayheadTime(nextTime);
       const timelineElement = timelineRef.current;
       if (timelineElement) {
-        const playheadX = nextTime * pxPerSecond + 16;
+        const playheadX = TIMELINE_TRACK_HEADER_WIDTH + nextTime * pxPerSecond;
         const visibleLeft = timelineElement.scrollLeft + 56;
         const visibleRight = timelineElement.scrollLeft + timelineElement.clientWidth - 72;
         if (playheadX > visibleRight) {
@@ -608,12 +627,13 @@ function VideoEditorDialog({
     if (!source?.url) return;
     pauseTimelinePlayback();
     setDraft(current => {
-      const { clip } = createSourceClip(source, playheadTime);
-      const result = insertClipAtTime(current.clips, clip, playheadTime);
+      const insertTime = clampTimelineTime(playheadTime, getTimelineDuration(current.clips));
+      const { clip } = createSourceClip(source, insertTime);
+      const result = insertClipAtTime(current.clips, clip, insertTime);
       const insertedClip = result.clips.find(item => item.id === clip.id);
       setSelectedClipId(clip.id);
       setPlayheadTime(insertedClip?.start || 0);
-      setStatusMessage(`已在 ${formatSeconds(playheadTime)} 插入素材，后续片段已顺延`);
+      setStatusMessage(`已在 ${formatTimelineClock(insertTime)} 插入素材，后续片段已顺延`);
       return {
         ...current,
         clips: result.clips,
@@ -641,7 +661,8 @@ function VideoEditorDialog({
     if (!selectedClipId) return;
     pauseTimelinePlayback();
     setDraft(current => {
-      const splitClips = splitClipAtTime(current.clips, selectedClipId, playheadTime);
+      const splitTime = clampTimelineTime(playheadTime, getTimelineDuration(current.clips));
+      const splitClips = splitClipAtTime(current.clips, selectedClipId, splitTime);
       if (splitClips === current.clips) {
         setStatusMessage('播放头需要落在片段中间才能切割');
         return current;
@@ -649,7 +670,7 @@ function VideoEditorDialog({
       const nextClips = compactTimelineClips(splitClips);
       const createdClip = nextClips.find(clip => !current.clips.some(item => item.id === clip.id));
       if (createdClip) setSelectedClipId(createdClip.id);
-      setStatusMessage(`已在 ${formatSeconds(playheadTime)} 切割片段`);
+      setStatusMessage(`已在 ${formatTimelineClock(splitTime)} 切割片段`);
       return { ...current, clips: nextClips };
     });
     setContextMenu(null);
@@ -700,8 +721,9 @@ function VideoEditorDialog({
     const scale = createTimelineScale({
       pxPerSecond,
       scrollLeft: timelineRef.current.scrollLeft,
+      gutter: TIMELINE_TRACK_HEADER_WIDTH,
     });
-    return clamp(scale.pxToTime(event.clientX - rect.left), 0, totalDuration);
+    return clampTimelineTime(scale.pxToTime(event.clientX - rect.left), totalDuration);
   }, [playheadTime, pxPerSecond, totalDuration]);
 
   const setPlayheadFromPointerEvent = useCallback((event) => {
@@ -717,14 +739,14 @@ function VideoEditorDialog({
     const compacted = compactTimelineClips(clips);
     const timelineEnd = getTimelineDuration(compacted);
     const pointerTime = getTimelineTimeFromPointerEvent(event);
-    let insertionTime = clamp(pointerTime, 0, timelineEnd);
+    let insertionTime = clampTimelineTime(pointerTime, timelineEnd);
     let snapPoint = null;
 
     if (snapEnabled) {
       const points = [
         0,
         timelineEnd,
-        clamp(playheadTime, 0, timelineEnd),
+        clampTimelineTime(playheadTime, timelineEnd),
         ...compacted.flatMap(clip => [clip.start, clip.start + clip.duration]),
       ];
       snapPoint = points.reduce((nearest, point) => {
@@ -742,6 +764,7 @@ function VideoEditorDialog({
       mode: 'source-insert',
       sourceId: source.id,
       sourceName: source.name || clip.name,
+      type: clip.type,
       start: insertionTime,
       duration: clip.duration,
       snapPoint,
@@ -884,6 +907,7 @@ function VideoEditorDialog({
       setDragPreview({
         mode: 'move',
         clipId: dragState.clipId,
+        type: dragState.type,
         start: insertionTime,
         duration: dragState.duration,
         targetIndex,
@@ -892,7 +916,7 @@ function VideoEditorDialog({
       return;
     }
     if (dragState.mode === 'trim-start') {
-      const result = trimClipStartWithSnap(originalClip, dragState.clips, dragState.start + deltaSeconds, {
+      const result = trimClipStartWithSnap(originalClip, dragState.clips, snapTimelineFrameTime(dragState.start + deltaSeconds), {
         playheadTime,
         snapEnabled,
         threshold: snapThreshold,
@@ -907,6 +931,7 @@ function VideoEditorDialog({
       setDragPreview({
         mode: 'trim-start',
         clipId: dragState.clipId,
+        type: dragState.type,
         start: trimmedClip?.start || 0,
         duration: result.duration,
         inPoint: result.inPoint,
@@ -915,7 +940,7 @@ function VideoEditorDialog({
       return;
     }
     if (dragState.mode !== 'trim-end') return;
-    const result = trimClipEndWithSnap(originalClip, dragState.clips, dragState.start + dragState.duration + deltaSeconds, {
+    const result = trimClipEndWithSnap(originalClip, dragState.clips, snapTimelineFrameTime(dragState.start + dragState.duration + deltaSeconds), {
       playheadTime,
       snapEnabled,
       threshold: snapThreshold,
@@ -929,6 +954,7 @@ function VideoEditorDialog({
     setDragPreview({
       mode: 'trim-end',
       clipId: dragState.clipId,
+      type: dragState.type,
       start: trimmedClip?.start || 0,
       duration: result.duration,
       snapPoint: result.snapPoint,
@@ -1201,6 +1227,25 @@ function VideoEditorDialog({
     [...draft.clips].sort((a, b) => a.start - b.start)
   ), [draft.clips]);
 
+  const timelineTracks = useMemo(() => {
+    const tracks = createVideoEditorTracks(sortedClips);
+    const displayOrder = ['image', 'video', 'audio'];
+    return displayOrder
+      .map(type => tracks.find(track => track.type === type))
+      .filter(Boolean);
+  }, [sortedClips]);
+
+  const getTrackClipTop = useCallback((type) => {
+    const trackIndex = Math.max(0, timelineTracks.findIndex(track => track.type === type));
+    return 42 + trackIndex * 82;
+  }, [timelineTracks]);
+
+  const getTimelineX = useCallback((time) => (
+    TIMELINE_TRACK_HEADER_WIDTH + time * pxPerSecond
+  ), [pxPerSecond]);
+
+  const timelineTrackHeight = 48 + Math.max(1, timelineTracks.length) * 82 + 8;
+
   const timelineTicks = useMemo(() => {
     const config = getTimelineRulerConfig(pxPerSecond);
     if (config.mode === 'frame') {
@@ -1259,10 +1304,34 @@ function VideoEditorDialog({
     setPxPerSecond(current => clamp(current + delta, minTimelineZoom, MAX_TIMELINE_ZOOM));
   }, [minTimelineZoom]);
 
+  const zoomTimelineAtClientX = useCallback((clientX, nextScale) => {
+    const scrollElement = timelineRef.current;
+    if (!scrollElement) return;
+    const rect = scrollElement.getBoundingClientRect();
+    const pointerX = clamp(
+      normalizeAspectRatioNumber(1, 1) * (Number(clientX) || rect.left + rect.width / 2) - rect.left,
+      0,
+      rect.width,
+    );
+    const timeAtPointer = Math.max(
+      0,
+      (scrollElement.scrollLeft + pointerX - TIMELINE_TRACK_HEADER_WIDTH) / pxPerSecond,
+    );
+    const clampedScale = clamp(nextScale, minTimelineZoom, MAX_TIMELINE_ZOOM);
+    if (clampedScale === pxPerSecond) return;
+    setPxPerSecond(clampedScale);
+    requestAnimationFrame(() => {
+      scrollElement.scrollLeft = Math.max(
+        0,
+        TIMELINE_TRACK_HEADER_WIDTH + timeAtPointer * clampedScale - pointerX,
+      );
+    });
+  }, [minTimelineZoom, pxPerSecond]);
+
   const fitTimelineZoom = useCallback(() => {
     const viewportWidth = timelineRef.current?.clientWidth || 720;
     const nextScale = clamp(
-      Math.floor((viewportWidth - TIMELINE_WIDTH_PADDING) / Math.max(1, totalDuration)),
+      Math.floor((viewportWidth - TIMELINE_WIDTH_PADDING - TIMELINE_TRACK_HEADER_WIDTH) / Math.max(1, totalDuration)),
       minTimelineZoom,
       MAX_TIMELINE_ZOOM,
     );
@@ -1373,18 +1442,33 @@ function VideoEditorDialog({
   const handleTimelineWheel = useCallback((event) => {
     if (!(event.ctrlKey || event.metaKey) || !timelineRef.current) return;
     event.preventDefault();
-    const scrollElement = timelineRef.current;
-    const rect = scrollElement.getBoundingClientRect();
-    const pointerX = event.clientX - rect.left;
-    const timeAtPointer = Math.max(0, (scrollElement.scrollLeft + pointerX - 16) / pxPerSecond);
-    const direction = event.deltaY > 0 ? -1 : 1;
-    const nextScale = clamp(pxPerSecond + direction * getTimelineZoomStep(pxPerSecond), minTimelineZoom, MAX_TIMELINE_ZOOM);
-    if (nextScale === pxPerSecond) return;
-    setPxPerSecond(nextScale);
-    requestAnimationFrame(() => {
-      scrollElement.scrollLeft = Math.max(0, timeAtPointer * nextScale + 16 - pointerX);
-    });
-  }, [minTimelineZoom, pxPerSecond]);
+    const fallbackStep = getTimelineZoomStep(pxPerSecond);
+    const proportionalScale = pxPerSecond * Math.exp(-event.deltaY * 0.01);
+    const fallbackScale = pxPerSecond + (event.deltaY > 0 ? -fallbackStep : fallbackStep);
+    const nextScale = Number.isFinite(proportionalScale) ? proportionalScale : fallbackScale;
+    zoomTimelineAtClientX(event.clientX, nextScale);
+  }, [pxPerSecond, zoomTimelineAtClientX]);
+
+  useEffect(() => {
+    const element = timelineRef.current;
+    if (!element) return undefined;
+    const handleGestureStart = (event) => {
+      event.preventDefault();
+      gestureStartScaleRef.current = pxPerSecond;
+    };
+    const handleGestureChange = (event) => {
+      event.preventDefault();
+      const scale = Number(event.scale);
+      if (!Number.isFinite(scale) || scale <= 0) return;
+      zoomTimelineAtClientX(event.clientX, gestureStartScaleRef.current * scale);
+    };
+    element.addEventListener('gesturestart', handleGestureStart);
+    element.addEventListener('gesturechange', handleGestureChange);
+    return () => {
+      element.removeEventListener('gesturestart', handleGestureStart);
+      element.removeEventListener('gesturechange', handleGestureChange);
+    };
+  }, [pxPerSecond, zoomTimelineAtClientX]);
 
   useEffect(() => {
     if (!dragState || !TIMELINE_DRAG_MODES.has(dragState.mode)) return undefined;
@@ -1520,15 +1604,15 @@ function VideoEditorDialog({
         claimEditorShortcut();
         pauseTimelinePlayback();
         const direction = event.key === 'ArrowRight' ? 1 : -1;
-        const step = event.shiftKey ? 1 : 0.1;
-        const nextTime = clamp(playheadTime + direction * step, 0, totalDuration);
+        const step = event.shiftKey ? frameStepSeconds * 10 : frameStepSeconds;
+        const nextTime = clampTimelineTime(playheadTime + direction * step, totalDuration);
         setPlayheadTime(nextTime);
-        setStatusMessage(`播放头 ${formatSeconds(nextTime)}`);
+        setStatusMessage(`播放头 ${formatTimelineClock(nextTime)}`);
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [pauseTimelinePlayback, playheadTime, removeSelectedClip, selectedClip, splitSelectedClip, toggleTimelinePlayback, totalDuration]);
+  }, [frameStepSeconds, pauseTimelinePlayback, playheadTime, removeSelectedClip, selectedClip, splitSelectedClip, toggleTimelinePlayback, totalDuration]);
 
   const currentStatus = renderError
     || (dragPreview?.mode === 'source-insert' ? `释放后插入 ${dragPreview.sourceName || '素材'} · ${formatSeconds(dragPreview.start)}` : '')
@@ -1536,7 +1620,7 @@ function VideoEditorDialog({
     || (dragPreview?.mode === 'move' ? `将片段插入到 ${formatSeconds(dragPreview.start)}` : '')
     || (dragState?.mode?.startsWith('trim') ? '正在裁剪片段' : '')
     || (dragState?.mode === 'preview-move' ? '拖动素材位置' : '')
-    || (dragState?.mode === 'playhead' ? `播放头 ${formatSeconds(playheadTime)}` : '')
+    || (dragState?.mode === 'playhead' ? `播放头 ${formatTimelineClock(playheadTime)}` : '')
     || (isPlaying ? '播放中' : '')
     || statusMessage;
   const autoSaveMessage = {
@@ -1582,7 +1666,6 @@ function VideoEditorDialog({
             <Icon name="movieAi" size={20} />
             <div>
               <strong>{title}</strong>
-              <span>{draft.clips.length} 个片段 · {formatSeconds(getTimelineDuration(draft.clips))} · 播放头 {formatSeconds(playheadTime)}</span>
             </div>
           </div>
           <div className="video-editor-actions">
@@ -1952,32 +2035,50 @@ function VideoEditorDialog({
               className={`video-editor-track density-${timelineDensity}`}
               style={{
                 width: timelineWidth,
+                height: timelineTrackHeight,
                 '--timeline-second-width': `${Math.max(4, pxPerSecond)}px`,
                 '--timeline-frame-width': `${Math.max(2, pxPerSecond / TIMELINE_FRAME_RATE)}px`,
               }}
             >
-              <div className="video-editor-track-controls" aria-hidden="true">
-                <Icon name="video" size={15} />
-                <Icon name="volume" size={15} />
+              <div className="video-editor-track-rows">
+                {timelineTracks.map((track, trackIndex) => (
+                  <div
+                    key={track.id}
+                    className={`video-editor-track-row ${track.type}`}
+                    style={{ top: 42 + trackIndex * 82 }}
+                  >
+                    <span className="video-editor-track-row-label">
+                      <Icon name={VIDEO_EDITOR_TRACK_ICON[track.type] || 'layers'} size={14} />
+                      <span>{VIDEO_EDITOR_TRACK_LABEL[track.type] || track.label}</span>
+                    </span>
+                    <span className="video-editor-track-row-controls">
+                      <button type="button" aria-label={`${VIDEO_EDITOR_TRACK_LABEL[track.type] || track.label}显示控制`} title="显示控制" onClick={event => event.stopPropagation()}>
+                        <Icon name="eye" size={13} />
+                      </button>
+                      <button type="button" aria-label={`${VIDEO_EDITOR_TRACK_LABEL[track.type] || track.label}声音控制`} title="声音控制" onClick={event => event.stopPropagation()}>
+                        <Icon name="volume" size={13} />
+                      </button>
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div className="video-editor-track-label">主轨</div>
               <div className="video-editor-ruler-marks" aria-hidden="true">
                 {timelineTicks.map(tick => (
                   <span
                     key={`${tick.time}-${tick.kind}`}
                     className={tick.kind}
-                    style={{ left: tick.time * pxPerSecond }}
+                    style={{ left: getTimelineX(tick.time) }}
                   >
                     {tick.label}
                   </span>
                 ))}
               </div>
               {dragPreview?.snapPoint != null && (
-                <div className="video-editor-snap-line" style={{ left: dragPreview.snapPoint * pxPerSecond }} aria-hidden="true" />
+                <div className="video-editor-snap-line" style={{ left: getTimelineX(dragPreview.snapPoint) }} aria-hidden="true" />
               )}
               <div
                 className={`video-editor-playhead ${isPlaying ? 'playing' : ''}`}
-                style={{ left: playheadTime * pxPerSecond }}
+                style={{ left: getTimelineX(playheadTime) }}
                 onPointerDown={startPlayheadDrag}
                 aria-label="拖动播放头"
                 role="slider"
@@ -1992,8 +2093,9 @@ function VideoEditorDialog({
                 <div
                   className={`video-editor-clip-ghost ${dragPreview.mode || ''} ${dragPreview.snapPoint != null ? 'snapped' : ''}`}
                   style={{
-                    left: dragPreview.start * pxPerSecond,
+                    left: getTimelineX(dragPreview.start),
                     width: Math.max(46, dragPreview.duration * pxPerSecond),
+                    top: getTrackClipTop(dragPreview.type),
                   }}
                   aria-hidden="true"
                 />
@@ -2001,7 +2103,7 @@ function VideoEditorDialog({
               {(dragPreview?.mode === 'move' || dragPreview?.mode === 'source-insert') && (
                 <div
                   className={`video-editor-insertion-marker ${dragPreview.mode}`}
-                  style={{ left: dragPreview.start * pxPerSecond }}
+                  style={{ left: getTimelineX(dragPreview.start) }}
                   aria-hidden="true"
                 >
                   <span />
@@ -2010,7 +2112,7 @@ function VideoEditorDialog({
               {dragPreview && (
                 <div
                   className={`video-editor-time-tooltip ${dragPreview.mode}`}
-                  style={{ left: dragPreview.start * pxPerSecond }}
+                  style={{ left: getTimelineX(dragPreview.start) }}
                   aria-hidden="true"
                 >
                   {dragPreview.mode === 'move'
@@ -2020,55 +2122,64 @@ function VideoEditorDialog({
                     : `${formatSeconds(dragPreview.start)} - ${formatSeconds(dragPreview.start + dragPreview.duration)} · ${formatSeconds(dragPreview.duration)}`}
                 </div>
               )}
-              {sortedClips.map((clip) => {
-                const timelineFrames = getClipTimelineFrames(clip);
-                const isTimelineDrag = dragState?.clipId === clip.id
-                  && ['move', 'trim-start', 'trim-end'].includes(dragState.mode);
-                return (
-                  <button
-                    key={clip.id}
-                    type="button"
-                    className={`video-editor-clip ${clip.id === selectedClipId ? 'selected' : ''} ${isTimelineDrag ? 'dragging' : ''} ${isTimelineDrag && dragState.mode?.startsWith('trim') ? 'trimming' : ''} ${clip.duration * pxPerSecond < 92 ? 'short' : ''}`}
-                    style={{
-                      left: clip.start * pxPerSecond,
-                      width: Math.max(46, clip.duration * pxPerSecond),
-                    }}
-                    onPointerDown={event => startTimelineDrag(event, clip, 'move')}
-                    onContextMenu={event => openTimelineClipMenu(event, clip)}
-                  >
-                    <span className="clip-handle left" onPointerDown={event => startTimelineDrag(event, clip, 'trim-start')} />
-                    <span className={`clip-media ${clip.type}`}>
-                      {clip.type === 'video' && !timelineFrames.length ? (
-                        <video
-                          className="clip-cover-video"
-                          src={clip.sourceUrl}
-                          muted
-                          playsInline
-                          preload="metadata"
-                        />
-                      ) : null}
-                      <span
-                        className="clip-filmstrip"
-                        style={{ '--clip-frame-count': Math.max(1, timelineFrames.length) }}
-                      >
-                        {timelineFrames.map((frameUrl, frameIndex) => (
-                          <span
-                            key={`${clip.id}-frame-${frameIndex}`}
-                            className="clip-frame"
-                            style={frameUrl ? { backgroundImage: `url(${JSON.stringify(frameUrl)})` } : undefined}
+              {timelineTracks.flatMap(track => track.clips.map((clip) => {
+                  const timelineFrames = getClipTimelineFrames(clip);
+                  const isTimelineDrag = dragState?.clipId === clip.id
+                    && ['move', 'trim-start', 'trim-end'].includes(dragState.mode);
+                  return (
+                    <button
+                      key={clip.id}
+                      type="button"
+                      className={`video-editor-clip ${clip.type} ${clip.id === selectedClipId ? 'selected' : ''} ${isTimelineDrag ? 'dragging' : ''} ${isTimelineDrag && dragState.mode?.startsWith('trim') ? 'trimming' : ''} ${clip.duration * pxPerSecond < 92 ? 'short' : ''}`}
+                      style={{
+                        left: getTimelineX(clip.start),
+                        top: getTrackClipTop(clip.type),
+                        width: Math.max(46, clip.duration * pxPerSecond),
+                      }}
+                      onPointerDown={event => startTimelineDrag(event, clip, 'move')}
+                      onContextMenu={event => openTimelineClipMenu(event, clip)}
+                    >
+                      <span className="clip-handle left" onPointerDown={event => startTimelineDrag(event, clip, 'trim-start')} />
+                      <span className={`clip-media ${clip.type}`}>
+                        {clip.type === 'video' && !timelineFrames.length ? (
+                          <video
+                            className="clip-cover-video"
+                            src={clip.sourceUrl}
+                            muted
+                            playsInline
+                            preload="metadata"
                           />
-                        ))}
+                        ) : null}
+                        {clip.type === 'audio' ? (
+                          <span className="clip-audio-bars" aria-hidden="true">
+                            {Array.from({ length: 28 }, (_, index) => (
+                              <i key={`${clip.id}-audio-bar-${index}`} style={{ '--bar-scale': 0.32 + ((index * 7) % 11) / 16 }} />
+                            ))}
+                          </span>
+                        ) : (
+                          <span
+                            className="clip-filmstrip"
+                            style={{ '--clip-frame-count': Math.max(1, timelineFrames.length) }}
+                          >
+                            {timelineFrames.map((frameUrl, frameIndex) => (
+                              <span
+                                key={`${clip.id}-frame-${frameIndex}`}
+                                className="clip-frame"
+                                style={frameUrl ? { backgroundImage: `url(${JSON.stringify(frameUrl)})` } : undefined}
+                              />
+                            ))}
+                          </span>
+                        )}
                       </span>
-                    </span>
-                    <span className="clip-content">
-                      <span className="clip-name">{clip.name}</span>
-                      <small>{clip.type === 'video' ? '视频' : '图片'} · {formatSeconds(clip.duration)}</small>
-                    </span>
-                    <span className={`clip-accent ${clip.type}`} />
-                    <span className="clip-handle right" onPointerDown={event => startTimelineDrag(event, clip, 'trim-end')} />
-                  </button>
-                );
-              })}
+                      <span className="clip-content">
+                        <span className="clip-name">{clip.name}</span>
+                        <small>{VIDEO_EDITOR_TRACK_LABEL[clip.type] || '素材'} · {formatTimelineClock(clip.duration)}</small>
+                      </span>
+                      <span className={`clip-accent ${clip.type}`} />
+                      <span className="clip-handle right" onPointerDown={event => startTimelineDrag(event, clip, 'trim-end')} />
+                    </button>
+                  );
+                }))}
             </div>
           </div>
         </footer>

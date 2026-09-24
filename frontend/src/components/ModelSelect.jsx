@@ -146,7 +146,7 @@ export default function ModelSelect({
   const menu = open ? (
     <div
       ref={menuRef}
-      className={`processor-model-menu ${menuClassName}`.trim()}
+      className={`processor-model-menu ${menuPortal ? 'is-portaled' : ''} ${menuClassName}`.trim()}
       style={menuPortal ? menuStyle || undefined : undefined}
       role="listbox"
     >
