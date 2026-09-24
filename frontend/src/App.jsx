@@ -18,6 +18,7 @@ import CanvasMaterialDrawer from './components/CanvasMaterialDrawer';
 import CanvasHistoryDrawer from './components/CanvasHistoryDrawer';
 import TaskCenterDrawer from './components/TaskCenterDrawer';
 import CanvasBottomToolbar from './components/CanvasBottomToolbar';
+import CanvasAddMenuPanel, { CanvasAddMenuItem } from './components/CanvasAddMenuPanel';
 import NodeSearchDialog from './components/NodeSearchDialog';
 import CanvasHoverGlow from './components/CanvasHoverGlow';
 import CanvasFlowHoverBorder from './components/CanvasFlowHoverBorder';
@@ -1561,7 +1562,7 @@ const getDefaultNodeLabel = (node) => {
   if (node.type === 'videoAssembler') return '已移除成片编排';
   if (node.type === 'smartSplitter') return '智能拆分器';
   if (node.type === 'playlist') return 'Playlist';
-  if (node.type === 'threeD') return '3D Viewfinder';
+  if (node.type === 'threeD') return '3D';
   if (node.type === 'result') {
     if (node.data?.resultType === 'generateImage') return '图片';
     if (node.data?.resultType === 'generateVideo') return '视频';
@@ -1587,7 +1588,7 @@ const INPUT_NODE_DEFAULT_SIZES = {
   imageEditor: { width: 300, height: 230 },
   videoEditor: { width: 300, height: 210 },
   playlist: { width: 360, height: 220 },
-  threeD: { width: 360, height: 330 },
+  threeD: { width: 360, height: 430 },
   character: { width: 320, height: 560 },
 };
 
@@ -1854,7 +1855,7 @@ const getCanvasNodeDisplayName = (node) => {
   if (node?.type === 'group') return '组合';
   if (node?.type === 'stack') return '素材堆';
   if (node?.type === 'playlist') return 'Playlist';
-  if (node?.type === 'threeD') return '3D Viewfinder';
+  if (node?.type === 'threeD') return '3D';
   return '节点';
 };
 
@@ -5386,6 +5387,14 @@ const ALIGN_SNAP_THRESHOLD = 5;
             },
             data: { ...n.data, imageEditorState },
           }
+        : n
+    )));
+  }, [setNodes]);
+
+  const onThreeDNodeChange = useCallback((nodeId, patch) => {
+    setNodes(nds => nds.map(n => (
+      n.id === nodeId
+        ? { ...n, data: { ...n.data, ...patch } }
         : n
     )));
   }, [setNodes]);
@@ -11192,8 +11201,8 @@ const ALIGN_SNAP_THRESHOLD = 5;
         id: createdNodeId,
         type: 'threeD',
         position,
-        style: { width: 360, height: 330 },
-        data: { label: '3D Viewfinder', onCaptureViewfinder: createViewfinderCapture, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, ...extraData },
+        style: { width: 360 },
+        data: { label: '3D', threeDMaterial: 'pbr', threeDModelId: 'tripo-3d', onCaptureViewfinder: createViewfinderCapture, onThreeDNodeChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, ...extraData },
       }]);
     } else if (type === 'character') {
       createdNodeId = `character_${ts}`;
@@ -11286,7 +11295,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
 
     setMenu(null);
     return createdNodeId;
-  }, [setNodes, onVideoInputChange, onOpenVideoEditor, onImageEditorStateChange, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, handleImageAction, onImageActionEditingChange, runtimeSettings.activeProviderId, runtimeSettings.providers, onNodeTitleChange, onInteractiveDragCreate, deleteCanvasNode, onNodeResize, downloadNodeVideos, downloadNodeAudios, createGeneratePair, createViewfinderCapture, menu, connectCanvasNodes, connectMultipleCanvasNodes, createSmartSplitterRuntimeData]);
+  }, [setNodes, onVideoInputChange, onOpenVideoEditor, onImageEditorStateChange, onThreeDNodeChange, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, handleImageAction, onImageActionEditingChange, runtimeSettings.activeProviderId, runtimeSettings.providers, onNodeTitleChange, onInteractiveDragCreate, deleteCanvasNode, onNodeResize, downloadNodeVideos, downloadNodeAudios, createGeneratePair, createViewfinderCapture, menu, connectCanvasNodes, connectMultipleCanvasNodes, createSmartSplitterRuntimeData]);
 
   const getCopilotCanvasState = useCallback(() => {
     const currentNodes = nodesRef.current;
@@ -11774,7 +11783,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         }
 
         if (n.type === 'threeD') {
-          return { ...n, data: { ...n.data, onCaptureViewfinder: createViewfinderCapture, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+          return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), threeDMaterial: n.data?.threeDMaterial || 'pbr', threeDModelId: n.data?.threeDModelId || 'tripo-3d', onCaptureViewfinder: createViewfinderCapture, onThreeDNodeChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
         }
 
         if (n.type === 'storyboardCard') {
@@ -11791,7 +11800,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
 
       return hydrated;
     });
-  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onGroupNameChange, onGroupResize, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onInteractiveDragCreate, onWorkflowNodeDataChange, openSaveTemplateDialog, openVideoWorkbench, runImageGeneration, runTextGeneration, runVideoGeneration, setGenerating, setNodes, ungroupNodes, runtimeSettings]);
+  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onGroupNameChange, onGroupResize, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onThreeDNodeChange, onInteractiveDragCreate, onWorkflowNodeDataChange, openSaveTemplateDialog, openVideoWorkbench, runImageGeneration, runTextGeneration, runVideoGeneration, setGenerating, setNodes, ungroupNodes, runtimeSettings]);
 
   useEffect(() => {
     setNodes(nds => nds.map(n => {
@@ -11811,7 +11820,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
         return { ...n, data: { ...n.data, onPlaylistChange: (id, clips) => setNodes(current => current.map(node => node.id === id ? { ...node, data: { ...node.data, clips } } : node)), onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
       }
       if (n.type === 'threeD') {
-        return { ...n, data: { ...n.data, onCaptureViewfinder: createViewfinderCapture, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
+        return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), threeDMaterial: n.data?.threeDMaterial || 'pbr', threeDModelId: n.data?.threeDModelId || 'tripo-3d', onCaptureViewfinder: createViewfinderCapture, onThreeDNodeChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
       }
       if (n.type === 'videoInput') {
         return { ...n, data: { ...n.data, label: n.data?.label || getDefaultNodeLabel(n), onVideosChange: onVideoInputChange, onNodeTitleChange, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onNodeResize, onVideoAspectChange, onDownloadVideo: downloadNodeVideos } };
@@ -11871,7 +11880,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
       }
       return n;
     }));
-  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGroupNameChange, onGroupResize, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, openSaveTemplateDialog, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, setNodes, ungroupNodes, runtimeSettings]);
+  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasEdge, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGroupNameChange, onGroupResize, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onThreeDNodeChange, openSaveTemplateDialog, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, setNodes, ungroupNodes, runtimeSettings]);
 
   const hydrateTemplateNode = useCallback((node) => {
     if (node.type === 'result') {
@@ -11997,7 +12006,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
       return { ...node, data: { ...node.data, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode, onStoryboardCardUpdate, onCardPlaceholderClick } };
     }
     return { ...node, data: { ...node.data, onInteractiveDragCreate, onDeleteNode: deleteCanvasNode } };
-  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, runtimeSettings.activeProviderId, runtimeSettings.allowedModels, runtimeSettings.maxTextTokens]);
+  }, [apiConfigs, apiProviders, cancelGenerationTask, createSmartSplitterRuntimeData, createVideoEditorFromAssembler, createVideoFromShot, createVideoEnhancementPrototype, createVideoExtensionPrototype, createVideoRetakePrototype, createVideoSubjectRemovalPrototype, createVideoSubjectReplacementPrototype, deleteCanvasNode, getCanvasImageChoices, getCanvasMediaChoices, handleImageAction, onImageActionEditingChange, officialPromptStyles, onCardPlaceholderClick, onCharacterChange, openCharacterProfileGenerator, openCharacterImageGenerator, submitCharacterAvatarCertification, generateCharacterVoice, saveCharacterToLibrary, onCharacterMainVisualUpload, onGenerate, onGeneratorDataChange, onGeneratorPromptChange, onInteractiveDragCreate, onNodeResize, onNodeTitleChange, onOpenVideoEditor, onWorkflowNodeDataChange, onResultAudioUpload, onResultCardUpdate, onResultDataChange, onResultExpandStateChange, onResultImageUpload, onResultMediaAspectChange, onResultTextChange, onResultTextEditingChange, onResultVideoUpload, onStoryboardCardClickPlaceholder, onStoryboardCardUpdate, onStoryboardPromptUpdate, onVideoAspectChange, onVideoInputChange, onThreeDNodeChange, openVideoWorkbench, runAudioGeneration, runImageGeneration, runTextGeneration, runVideoGeneration, runtimeSettings.activeProviderId, runtimeSettings.allowedModels, runtimeSettings.maxTextTokens]);
 
   const addWorkflowTemplateToCanvas = useCallback((template) => {
     if (!template) return;
@@ -12218,9 +12227,46 @@ const ALIGN_SNAP_THRESHOLD = 5;
     return () => window.removeEventListener('pplai:close-pane-context-menu', closePaneContextMenu);
   }, []);
 
+  const toggleCommentMode = useCallback(() => {
+    setCommentMode(open => !open);
+    setMenu(null);
+    setMaterialDrawerOpen(false);
+    setCharacterDrawerOpen(false);
+    setHistoryDrawerOpen(false);
+    setTaskCenterOpen(false);
+    setTemplateRunnerOpen(false);
+    setCopilotOpen(false);
+    setCopilotPickingNode(false);
+    updateGeneratorVisibility(null);
+    setActiveSmartSplitterId(null);
+  }, [updateGeneratorVisibility]);
+
+  useEffect(() => {
+    const handleCommentModeShortcut = (event) => {
+      if (
+        event.defaultPrevented
+        || event.repeat
+        || event.metaKey
+        || event.ctrlKey
+        || event.altKey
+        || event.key.toLowerCase() !== 'c'
+        || isEditableKeyTarget(event.target)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      toggleCommentMode();
+    };
+
+    window.addEventListener('keydown', handleCommentModeShortcut);
+    return () => window.removeEventListener('keydown', handleCommentModeShortcut);
+  }, [toggleCommentMode]);
+
   const handleMenuHover = useCallback((item) => {
-    if (!item.children) return;
-    setMenu(prev => prev ? { ...prev, submenu: item } : prev);
+    setMenu(prev => {
+      if (!prev) return prev;
+      return { ...prev, submenu: item.children ? item : null };
+    });
   }, []);
 
   const handleMenuClick = useCallback((item, e) => {
@@ -13315,6 +13361,13 @@ const ALIGN_SNAP_THRESHOLD = 5;
     const isDragCreateMenu = menu.items === NODE_CREATE_MENU || menu.items === CANVAS_ADD_MENU;
     const menuWidth = isPaneMenu || isDragCreateMenu ? 220 : 184;
     const menuColumns = menu.items.some(item => item.children) ? 2 : 1;
+    if (menu.items === CANVAS_ADD_MENU) {
+      const menuHeight = 8 * 2 + 11 * 48 + 2 * 19;
+      return {
+        x: Math.max(8, Math.min(menu.x, window.innerWidth - menuWidth - 8)),
+        y: Math.max(8, Math.min(menu.y, window.innerHeight - menuHeight - 8)),
+      };
+    }
     const dividerHeight = menu.items.filter(item => item.dividerBefore).length * 9;
     const sectionDividerHeight = menu.items.filter(item => item.kind === 'divider').length * 9;
     const sectionTitleHeight = menu.items.filter(item => item.kind === 'section-title').length * 26;
@@ -13863,17 +13916,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
           setCommentMode(false);
         }}
         onToggleComments={() => {
-          setCommentMode(open => !open);
-          setMenu(null);
-          setMaterialDrawerOpen(false);
-          setCharacterDrawerOpen(false);
-          setHistoryDrawerOpen(false);
-          setTaskCenterOpen(false);
-          setTemplateRunnerOpen(false);
-          setCopilotOpen(false);
-          setCopilotPickingNode(false);
-          updateGeneratorVisibility(null);
-          setActiveSmartSplitterId(null);
+          toggleCommentMode();
         }}
         onToggleHistory={() => {
           setHistoryDrawerOpen(open => !open);
@@ -14051,45 +14094,61 @@ const ALIGN_SNAP_THRESHOLD = 5;
               })()}
             </svg>
           )}
-          <div
-            ref={menuRef}
-            className={[
-              'context-menu',
-              menu.items === PANE_CONTEXT_MENU && 'pane-context-menu',
-              (menu.items === NODE_CREATE_MENU || menu.items === CANVAS_ADD_MENU) && 'drag-create-menu',
-            ].filter(Boolean).join(' ')}
-            style={{ position: 'fixed', left: renderedMenuPosition.x, top: renderedMenuPosition.y, zIndex: 1000 }}
-          >
-            {menu.items !== PANE_CONTEXT_MENU && menu.items !== CANVAS_ADD_MENU && (
-              <div className="context-menu-title">{menu.parentLabel || '选择操作'}</div>
-            )}
-            {menu.items.map((item, i) => (
-              <Fragment key={`${item.label}_${i}`}>
-                {(item.dividerBefore || item.kind === 'divider') && <div className="context-menu-divider" role="separator" />}
-                {item.kind === 'section-title' ? (
-                  <div className="context-menu-section-title">{item.label}</div>
-                ) : item.kind ? null : (
-                  <div
-                    className={`context-menu-item ${menu.submenu?.label === item.label ? 'active' : ''}`}
-                    onMouseEnter={() => handleMenuHover(item)}
-                    onPointerEnter={() => handleMenuHover(item)}
-                    onClick={(e) => handleMenuClick(item, e)}
-                  >
-                    <span className="menu-icon">
-                      <Icon name={item.icon} size={16} />
-                    </span>
-                    <span className="menu-label">{item.label}</span>
-                    {item.shortcut && <span className="menu-shortcut">{item.shortcut}</span>}
-                    {item.children && <span className="menu-arrow">›</span>}
-                  </div>
-                )}
-              </Fragment>
-            ))}
-          </div>
+          {menu.items === CANVAS_ADD_MENU ? (
+            <CanvasAddMenuPanel
+              panelRef={menuRef}
+              labels={canvasText}
+              onItemClick={handleMenuClick}
+              className="canvas-add-menu-floating"
+              style={{
+                position: 'fixed',
+                left: renderedMenuPosition.x,
+                top: renderedMenuPosition.y,
+                zIndex: 1000,
+                transform: 'none',
+              }}
+            />
+          ) : (
+            <div
+              ref={menuRef}
+              className={[
+                'context-menu',
+                menu.items === PANE_CONTEXT_MENU && 'pane-context-menu',
+                menu.items === NODE_CREATE_MENU && 'drag-create-menu',
+              ].filter(Boolean).join(' ')}
+              style={{ position: 'fixed', left: renderedMenuPosition.x, top: renderedMenuPosition.y, zIndex: 1000 }}
+            >
+              {menu.items !== PANE_CONTEXT_MENU && (
+                <div className="context-menu-title">{menu.parentLabel || '选择操作'}</div>
+              )}
+              {menu.items.map((item, i) => (
+                <Fragment key={`${item.label}_${i}`}>
+                  {(item.dividerBefore || item.kind === 'divider') && <div className="context-menu-divider" role="separator" />}
+                  {item.kind === 'section-title' ? (
+                    <div className="context-menu-section-title">{item.label}</div>
+                  ) : item.kind ? null : (
+                    <div
+                      className={`context-menu-item ${menu.submenu?.label === item.label ? 'active' : ''}`}
+                      onMouseEnter={() => handleMenuHover(item)}
+                      onPointerEnter={() => handleMenuHover(item)}
+                      onClick={(e) => handleMenuClick(item, e)}
+                    >
+                      <span className="menu-icon">
+                        <Icon name={item.icon} size={16} />
+                      </span>
+                      <span className="menu-label">{item.label}</span>
+                      {item.shortcut && <span className="menu-shortcut">{item.shortcut}</span>}
+                      {item.children && <span className="menu-arrow">›</span>}
+                    </div>
+                  )}
+                </Fragment>
+              ))}
+            </div>
+          )}
 
           {menu.submenu?.children && (
             <div
-              className="context-menu submenu pane-context-menu"
+              className="context-menu submenu pane-context-menu pane-context-submenu"
               style={{
                 position: 'fixed',
                 left: renderedMenuPosition.x + 224,
@@ -14101,16 +14160,7 @@ const ALIGN_SNAP_THRESHOLD = 5;
               {menu.submenu.children.map((item, i) => (
                 <Fragment key={`${item.label}_${i}`}>
                   {item.dividerBefore && <div className="context-menu-divider" role="separator" />}
-                  <div
-                    className="context-menu-item"
-                    onClick={(e) => handleMenuClick(item, e)}
-                >
-                    <span className="menu-icon">
-                      <Icon name={item.icon} size={16} />
-                    </span>
-                    <span className="menu-label">{item.label}</span>
-                    {item.shortcut && <span className="menu-shortcut">{item.shortcut}</span>}
-                  </div>
+                  <CanvasAddMenuItem item={item} labels={canvasText} onClick={handleMenuClick} />
                 </Fragment>
               ))}
             </div>
@@ -14398,6 +14448,16 @@ const createDefaultProject = (name = 'Untitled') => ({
   viewport: { x: 0, y: 0, zoom: 1 },
   tagColorLabels: {},
 });
+
+const getNextUntitledProjectName = (projects = []) => {
+  const names = new Set(projects.map(project => String(project?.name || '').trim()));
+  if (!names.has('Untitled')) return 'Untitled';
+  let index = 2;
+  while (names.has(`Untitled ${index}`)) {
+    index += 1;
+  }
+  return `Untitled ${index}`;
+};
 
 const createDefaultMaterialGroup = () => ({
   id: `material_group_${Date.now()}_${Math.random().toString(16).slice(2)}`,
@@ -15059,7 +15119,7 @@ function ProjectsView({ projects, onCreateProject, onOpenProject, onRenameProjec
       <div className="project-grid">
         <button
           className={`new-project-card ${bulkMode ? 'disabled' : ''}`}
-          onClick={onCreateProject}
+          onClick={() => onCreateProject?.()}
           disabled={bulkMode}
         >
           <span className="new-project-plus"><Icon name="add" size={40} strokeWidth={1.8} /></span>
@@ -15275,6 +15335,13 @@ function ModelPickerModal({ data, onConfirm, onCancel }) {
     }
     return initial;
   });
+  const [searchQueries, setSearchQueries] = useState(() => {
+    const initial = {};
+    for (const key of Object.keys(data)) {
+      initial[key] = '';
+    }
+    return initial;
+  });
 
   const toggleModel = useCallback((groupKey, model) => {
     setSelected(prev => {
@@ -15299,26 +15366,38 @@ function ModelPickerModal({ data, onConfirm, onCancel }) {
 
   const totalCount = Object.values(data).reduce((sum, g) => sum + g.models.length, 0);
   const selectedCount = Object.values(selected).reduce((sum, list) => sum + list.length, 0);
+  const getFilteredModels = useCallback((groupKey, models) => {
+    const query = (searchQueries[groupKey] || '').trim().toLowerCase();
+    if (!query) return models;
+    return models.filter(model => String(model).toLowerCase().includes(query));
+  }, [searchQueries]);
 
   return (
     <div className="model-picker-overlay" onClick={onCancel}>
       <div className="model-picker-modal" onClick={e => e.stopPropagation()}>
         <div className="model-picker-header">
-          <h3>选择启用的模型</h3>
-          <span className="model-picker-summary">已拉取 {totalCount} 个模型，已选 {selectedCount} 个</span>
+          <div className="model-picker-header-top">
+            <div>
+              <h3>选择启用的模型</h3>
+              <span className="model-picker-summary">已拉取 {totalCount} 个模型，已选 {selectedCount} 个</span>
+            </div>
+          </div>
         </div>
         <div className="model-picker-body">
           {Object.entries(data).map(([key, group]) => {
             const allList = group.models;
+            const filteredList = getFilteredModels(key, allList);
             const selectedList = selected[key] || [];
             const allChecked = allList.length > 0 && selectedList.length === allList.length;
+            const groupSearchQuery = searchQueries[key] || '';
+            const hasGroupSearch = groupSearchQuery.trim().length > 0;
             if (allList.length === 0) return null;
             return (
               <div key={key} className="model-picker-group">
                 <div className="model-picker-group-header">
                   <span className="model-picker-group-title">
                     {group.title}
-                    <span className="model-picker-group-count">{selectedList.length}/{allList.length}</span>
+                    <span className="model-picker-group-count">{selectedList.length}/{hasGroupSearch ? filteredList.length : allList.length}</span>
                   </span>
                   <button
                     type="button"
@@ -15328,8 +15407,29 @@ function ModelPickerModal({ data, onConfirm, onCancel }) {
                     {allChecked ? '取消全选' : '全选'}
                   </button>
                 </div>
+                <label className="model-picker-search">
+                  <Icon name="search" size={14} />
+                  <input
+                    type="search"
+                    value={groupSearchQuery}
+                    onChange={event => setSearchQueries(current => ({ ...current, [key]: event.target.value }))}
+                    placeholder={`搜索${group.title}`}
+                    aria-label={`搜索${group.title}`}
+                  />
+                  {groupSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQueries(current => ({ ...current, [key]: '' }))}
+                      aria-label={`清空${group.title}搜索`}
+                    >
+                      <Icon name="x" size={13} />
+                    </button>
+                  )}
+                </label>
                 <div className="model-picker-list">
-                  {allList.map(model => (
+                  {filteredList.length === 0 ? (
+                    <div className="model-picker-empty">没有匹配的模型</div>
+                  ) : filteredList.map(model => (
                     <label key={model} className="model-picker-item" title={model}>
                       <input
                         type="checkbox"
@@ -15358,7 +15458,7 @@ function ModelPickerModal({ data, onConfirm, onCancel }) {
 
 
 
-function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, onRenameProject, onCanvasChange, materials, setMaterials, materialGroups, setMaterialGroups, workflowTemplates, setWorkflowTemplates, officialTemplates, officialPromptStyles, pendingInjectRef, runtimeSettings, crossProjectClipboardRef, refreshLocalAssets, currentLanguage = 'zh-CN', onLanguageChange }) {
+function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, onRenameProject, onCanvasChange, onOpenProject, onCreateProject, materials, setMaterials, materialGroups, setMaterialGroups, workflowTemplates, setWorkflowTemplates, officialTemplates, officialPromptStyles, pendingInjectRef, runtimeSettings, crossProjectClipboardRef, refreshLocalAssets, currentLanguage = 'zh-CN', onLanguageChange }) {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [canvasSwitcherOpen, setCanvasSwitcherOpen] = useState(false);
@@ -15492,9 +15592,13 @@ function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, 
                       type="button"
                       className={item.id === project.id ? 'active' : ''}
                       role="menuitem"
+                      aria-current={item.id === project.id ? 'page' : undefined}
                       onClick={() => {
-                        window.alert(`原型功能：切换到画布“${item.name || 'Untitled'}”。`);
                         setCanvasSwitcherOpen(false);
+                        setCanvasSwitcherQuery('');
+                        if (item.id !== project.id) {
+                          onOpenProject?.(item.id);
+                        }
                       }}
                     >
                       <span className={`canvas-switcher-cover ${covers.length > 0 ? 'has-cover' : ''}`}>
@@ -15511,8 +15615,9 @@ function CanvasPage({ project, projects = [], apiConfigs, apiProviders, onBack, 
                 type="button"
                 className="canvas-switcher-create"
                 onClick={() => {
-                  window.alert('原型功能：新建画布。');
                   setCanvasSwitcherOpen(false);
+                  setCanvasSwitcherQuery('');
+                  onCreateProject?.();
                 }}
               >
                 <Icon name="add" size={17} />
@@ -16040,7 +16145,7 @@ function App() {
   }, []);
 
   const createProject = useCallback((initialPrompt) => {
-    const project = createDefaultProject();
+    const project = createDefaultProject(getNextUntitledProjectName(projects));
     const request = buildHomeCreationRequest(
       typeof initialPrompt === 'object' && initialPrompt
         ? initialPrompt
@@ -16060,7 +16165,7 @@ function App() {
     setProjects(prev => [project, ...prev]);
     setActiveProjectId(project.id);
     setView('canvas');
-  }, []);
+  }, [projects]);
 
   const useLibraryItemInNewProject = useCallback((kind, item) => {
     if (!item) return;
@@ -16192,6 +16297,8 @@ function App() {
           onBack={() => navigate('projects')}
           onRenameProject={renameProject}
           onCanvasChange={updateProjectCanvas}
+          onOpenProject={openProject}
+          onCreateProject={createProject}
           materials={materials}
           setMaterials={setMaterials}
           materialGroups={materialGroups}

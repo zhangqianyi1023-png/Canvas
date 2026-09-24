@@ -433,11 +433,11 @@ function TextFormatToolbarPortal({
           type="button"
           className="text-format-type-btn"
           aria-label={title}
-          title={title}
           aria-pressed={state.block === action}
           onClick={() => apply(action)}
         >
           {label}
+          <span className="text-format-toolbar-tooltip" role="tooltip" aria-hidden="true">{title}</span>
         </button>
       ))}
       <span className="text-format-divider" />
@@ -3580,6 +3580,8 @@ function ResultNode({ id, selected, data }) {
           onDelete={() => data?.onDeleteNode?.(id)}
           forceVisible={!isNodeDragging && !isMultiSelected && selected}
           portalToolbar
+          tagColors={data?.tagColors}
+          onTagToggle={(colorId) => data?.onNodeTagToggle?.(id, colorId)}
           apiConfigs={data?.apiConfigs}
           apiProviders={data?.apiProviders}
           rotationAutoOpenToken={data?.imageRotationAutoOpenToken}

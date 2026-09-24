@@ -955,6 +955,7 @@ function ImageActionOverlay({
   const cropPointerCleanupRef = useRef(null);
   const gridPointerCleanupRef = useRef(null);
   const isResultImageToolbar = sourceType === 'result';
+  const isEmptyResultImageToolbar = isResultImageToolbar && !imageUrl;
   const imageActions = imageUrl ? actionItems.filter(item => (
     isRegisteredImplementedAction(item.action)
     && (!item.sourceTypes || item.sourceTypes.includes(sourceType))
@@ -962,8 +963,9 @@ function ImageActionOverlay({
   const uploadAction = onUpload
     ? {
         action: 'upload',
-        label: imageUrl ? '重新上传' : '上传图片',
-        icon: 'image',
+        label: isEmptyResultImageToolbar ? '上传' : imageUrl ? '重新上传' : '上传图片',
+        title: isEmptyResultImageToolbar ? '上传' : imageUrl ? '重新上传' : '上传图片',
+        icon: isEmptyResultImageToolbar ? 'upload' : 'image',
         toolbarIcon: toolbarUploadIcon,
         iconOnly: Boolean(imageUrl),
       }
@@ -1014,7 +1016,7 @@ function ImageActionOverlay({
         label: tagPickerTitle,
         title: tagPickerTitle,
         icon: 'tag',
-        iconOnly: true,
+        iconOnly: !isEmptyResultImageToolbar,
         active: normalizedTagColors.length > 0,
         nodeTagPicker: true,
         menuLabel: '节点标记颜色',
@@ -1027,8 +1029,11 @@ function ImageActionOverlay({
         ? { ...item, label: '添加到资料库', title: '添加到资料库' }
         : item
     ));
+  const uploadToolbarActions = (!isResultImageToolbar || isEmptyResultImageToolbar) && uploadAction
+    ? [uploadAction]
+    : [];
   const secondaryToolbarActions = [
-    ...(!isResultImageToolbar && uploadAction ? [uploadAction] : []),
+    ...uploadToolbarActions,
     ...afterUploadActions,
   ];
   const pendingToolbarAction = hasPendingTasks
@@ -1038,10 +1043,13 @@ function ImageActionOverlay({
     ...(!isResultImageToolbar && editToolbarActions.length > 0
       ? [{ key: 'edit', actions: [...editToolbarActions, ...moreToolbarActions] }]
       : []),
-    ...(markerToolbarActions.length > 0
-      ? [{ key: 'marker', actions: markerToolbarActions, separatorBefore: !isResultImageToolbar && editToolbarActions.length > 0 }]
+    ...(isEmptyResultImageToolbar && uploadToolbarActions.length > 0
+      ? [{ key: 'upload', actions: uploadToolbarActions }]
       : []),
-    ...(secondaryToolbarActions.length > 0
+    ...(markerToolbarActions.length > 0
+      ? [{ key: 'marker', actions: markerToolbarActions, separatorBefore: (!isResultImageToolbar && editToolbarActions.length > 0) || isEmptyResultImageToolbar }]
+      : []),
+    ...(!isEmptyResultImageToolbar && secondaryToolbarActions.length > 0
       ? [{ key: 'secondary', actions: secondaryToolbarActions, separatorBefore: (!isResultImageToolbar && editToolbarActions.length > 0) || markerToolbarActions.length > 0 }]
       : []),
     ...(pendingToolbarAction

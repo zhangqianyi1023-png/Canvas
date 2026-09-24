@@ -203,6 +203,9 @@ function ModelPickerModal({ data, onAppend, onOverwrite, onCancel }) {
   const [selected, setSelected] = useState(() => (
     API_MODEL_GROUPS.reduce((acc, group) => ({ ...acc, [group.key]: [] }), {})
   ));
+  const [searchQueries, setSearchQueries] = useState(() => (
+    API_MODEL_GROUPS.reduce((acc, group) => ({ ...acc, [group.key]: '' }), {})
+  ));
 
   const toggleModel = useCallback((groupKey, model) => {
     if (!isPulledModelSelectable(data, groupKey, model)) return;
@@ -228,37 +231,83 @@ function ModelPickerModal({ data, onAppend, onOverwrite, onCancel }) {
   const imageModels = data.image || [];
   const adaptedImageCount = filterSelectableModels(data, 'image', imageModels).length;
 
+  const getFilteredModels = useCallback((groupKey, models) => {
+    const normalizedSearchQuery = (searchQueries[groupKey] || '').trim().toLowerCase();
+    if (!normalizedSearchQuery) return models;
+    return models.filter(model => {
+      const support = groupKey === 'image'
+        ? getPulledImageModelSupport(data, model)
+        : groupKey === 'video'
+          ? normalizeImageModelCapabilities(data?.videoSupport)[model] || null
+          : null;
+      const capabilityLabel = support?.adapted === true ? getCapabilityLabel(support) : '';
+      const reason = support?.reason || '';
+      return [model, capabilityLabel, reason]
+        .filter(Boolean)
+        .some(value => String(value).toLowerCase().includes(normalizedSearchQuery));
+    });
+  }, [data, searchQueries]);
+
   return (
     <div className="model-picker-overlay" onClick={onCancel}>
       <section className="model-picker-modal" role="dialog" aria-modal="true" aria-label="选择模型" onClick={event => event.stopPropagation()}>
         <header className="model-picker-header">
-          <div>
-            <h3>选择模型</h3>
-            <span className="model-picker-summary">
-              已拉取 {totalCount} 个模型
-              {data.enforceImageAdaptation ? ` · 图片模型已适配 ${adaptedImageCount}/${imageModels.length}` : ''}
-              {` · 已选 ${selectedCount} 个`}
-            </span>
+          <div className="model-picker-header-top">
+            <div>
+              <h3>选择模型</h3>
+              <span className="model-picker-summary">
+                已拉取 {totalCount} 个模型
+                {data.enforceImageAdaptation ? ` · 图片模型已适配 ${adaptedImageCount}/${imageModels.length}` : ''}
+                {` · 已选 ${selectedCount} 个`}
+              </span>
+            </div>
+            <button type="button" className="icon-button" onClick={onCancel} aria-label="关闭模型选择">
+              <Icon name="x" size={18} />
+            </button>
           </div>
-          <button type="button" className="icon-button" onClick={onCancel} aria-label="关闭模型选择">
-            <Icon name="x" size={18} />
-          </button>
         </header>
         <div className="model-picker-body">
           {API_MODEL_GROUPS.map(group => {
             const models = data[group.key] || [];
+            const filteredModels = getFilteredModels(group.key, models);
             const selectedModels = selected[group.key] || [];
             const selectableModels = filterSelectableModels(data, group.key, models);
+            const filteredSelectableModels = filterSelectableModels(data, group.key, filteredModels);
+            const groupSearchQuery = searchQueries[group.key] || '';
+            const hasGroupSearch = groupSearchQuery.trim().length > 0;
             return (
               <div key={group.key} className="model-picker-group">
                 <div className="model-picker-group-header">
                   <span className="model-picker-group-title">{group.title}</span>
-                  <span className="model-picker-group-count">{selectedModels.length}/{selectableModels.length} 可选</span>
+                  <span className="model-picker-group-count">
+                    {selectedModels.length}/{hasGroupSearch ? filteredSelectableModels.length : selectableModels.length} 可选
+                  </span>
                 </div>
+                <label className="model-picker-search">
+                  <Icon name="search" size={14} />
+                  <input
+                    type="search"
+                    value={groupSearchQuery}
+                    onChange={event => setSearchQueries(current => ({ ...current, [group.key]: event.target.value }))}
+                    placeholder={`搜索${group.title}`}
+                    aria-label={`搜索${group.title}`}
+                  />
+                  {groupSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQueries(current => ({ ...current, [group.key]: '' }))}
+                      aria-label={`清空${group.title}搜索`}
+                    >
+                      <Icon name="x" size={13} />
+                    </button>
+                  )}
+                </label>
                 <div className="model-picker-list">
                   {models.length === 0 ? (
                     <div className="model-picker-empty">没有拉取到模型</div>
-                  ) : models.map(model => {
+                  ) : filteredModels.length === 0 ? (
+                    <div className="model-picker-empty">没有匹配的模型</div>
+                  ) : filteredModels.map(model => {
                     const support = group.key === 'image'
                       ? getPulledImageModelSupport(data, model)
                       : group.key === 'video'

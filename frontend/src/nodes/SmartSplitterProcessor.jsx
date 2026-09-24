@@ -1,5 +1,6 @@
 import { memo, useMemo, useRef, useState } from 'react';
 import Icon from '../components/Icon';
+import ModelSelect from '../components/ModelSelect';
 import { SUPPORTED_IMAGE_ACCEPT, isSupportedImageFile, getUnsupportedImageMessage } from '../imageFormats';
 import { uploadImageFile } from '../uploadImage';
 import {
@@ -256,9 +257,16 @@ function SmartSplitterProcessor({ id, data }) {
                 <select value={selectedTextProvider?.id || ''} disabled={isRunning} onChange={event => updateField('text_api_id', event.target.value)}>
                   {textProviders.length ? textProviders.map(provider => <option key={provider.id} value={provider.id}>{provider.name || 'LLM'}</option>) : <option value="">未配置文本模型</option>}
                 </select>
-                <select value={selectedTextModel || ''} disabled={isRunning} onChange={event => updateField('text_model', event.target.value)}>
-                  {textModels.length ? textModels.map(model => <option key={model} value={model}>{model}</option>) : <option value="">未配置</option>}
-                </select>
+                <ModelSelect
+                  value={selectedTextModel || ''}
+                  options={textModels.length ? textModels : [{ value: '', label: '未配置', disabled: true }]}
+                  onChange={value => updateField('text_model', value)}
+                  disabled={isRunning || textModels.length === 0}
+                  placeholder="未配置"
+                  menuPortal
+                  className="smart-splitter-model-select"
+                  menuMinWidth={280}
+                />
               </div>
             </div>
             <div className="settings-section">
@@ -267,9 +275,16 @@ function SmartSplitterProcessor({ id, data }) {
                 <select value={selectedImageProvider?.id || ''} disabled={isRunning} onChange={event => updateField('image_api_id', event.target.value)}>
                   {imageProviders.length ? imageProviders.map(provider => <option key={provider.id} value={provider.id}>{provider.name || '图片 API'}</option>) : <option value="">未配置图片模型</option>}
                 </select>
-                <select value={selectedImageModel || ''} disabled={isRunning} onChange={event => updateField('image_model', event.target.value)}>
-                  {imageModels.length ? imageModels.map(model => <option key={model} value={model}>{model}</option>) : <option value="">未配置</option>}
-                </select>
+                <ModelSelect
+                  value={selectedImageModel || ''}
+                  options={imageModels.length ? imageModels : [{ value: '', label: '未配置', disabled: true }]}
+                  onChange={value => updateField('image_model', value)}
+                  disabled={isRunning || imageModels.length === 0}
+                  placeholder="未配置"
+                  menuPortal
+                  className="smart-splitter-model-select"
+                  menuMinWidth={280}
+                />
               </div>
             </div>
           </div>

@@ -12,6 +12,7 @@ const SHORTCUT_GROUPS = [
       ['select', 'Select All', ['⌘', 'A']],
       ['add', 'Add node', ['Tab', 'or', 'Double-click']],
       ['start', 'Start Generation', ['Enter']],
+      ['comment', 'Comment mode', ['C']],
     ],
   },
   {
@@ -24,7 +25,7 @@ const SHORTCUT_GROUPS = [
   {
     title: 'Timeline',
     items: [
-      ['cut', 'Cut', ['C']],
+      ['cut', 'Cut', ['S']],
       ['leftCut', 'Left cut', ['Q']],
       ['rightCut', 'Right cut', ['E']],
     ],
@@ -39,7 +40,7 @@ const SHORTCUT_GROUPS = [
 
 const ICONS = {
   undo: 'undo', redo: 'redo', move: 'focus', copy: 'copy', paste: 'fileText', select: 'focus', add: 'add', start: 'arrowUp',
-  zoomIn: 'zoomIn', zoomOut: 'zoomOut', cut: 'split', leftCut: 'split', rightCut: 'split', agent: 'messageAi3',
+  comment: 'comment', zoomIn: 'zoomIn', zoomOut: 'zoomOut', cut: 'split', leftCut: 'split', rightCut: 'split', agent: 'messageAi3',
 };
 
 function ShortcutKeys({ keys }) {

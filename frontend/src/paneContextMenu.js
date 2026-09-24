@@ -8,6 +8,7 @@ export const CANVAS_NODE_CREATE_MENU = [
 export const CANVAS_ADD_NODE_MENU = [
   ...CANVAS_NODE_CREATE_MENU,
   { label: '角色', icon: 'user', nodeType: 'character', toolbarId: 'tool-character' },
+  { label: '3D', icon: 'cube', nodeType: 'threeD', toolbarId: 'tool-three-d' },
 ];
 
 export const CANVAS_ASSISTANT_TOOL_MENU = [
@@ -42,7 +43,7 @@ export const CANVAS_ADD_MENU = [
 export const PANE_CONTEXT_MENU = [
   { label: '上传', icon: 'upload', action: 'upload-media' },
   { label: '添加资产', icon: 'folder', action: 'open-materials' },
-  { label: '添加节点', icon: 'add', children: CANVAS_NODE_CREATE_MENU, dividerBefore: true },
+  { label: '添加节点', icon: 'add', children: CANVAS_ADD_NODE_MENU, dividerBefore: true },
   { label: '添加辅助工具', icon: 'apps', children: CANVAS_ASSISTANT_TOOL_MENU },
   { label: '撤销', icon: 'undo', action: 'undo-canvas', shortcut: '⌘Z', dividerBefore: true },
   { label: '重做', icon: 'redo', action: 'redo-canvas', shortcut: '⇧⌘Z' },

@@ -32,6 +32,7 @@ test('double-click canvas add menu matches the grouped creation menu', () => {
       { kind: undefined, label: '视频', action: undefined, nodeType: 'generateVideo' },
       { kind: undefined, label: '音频', action: undefined, nodeType: 'generateAudio' },
       { kind: undefined, label: '角色', action: undefined, nodeType: 'character' },
+      { kind: undefined, label: '3D', action: undefined, nodeType: 'threeD' },
       { kind: 'divider', label: undefined, action: undefined, nodeType: undefined },
       { kind: 'section-title', label: '辅助工具', action: undefined, nodeType: undefined },
       { kind: undefined, label: '智能拆分器', action: undefined, nodeType: 'smartSplitter' },
@@ -51,6 +52,7 @@ test('large add menu node group includes character after media nodes', () => {
       { label: '视频', nodeType: 'generateVideo' },
       { label: '音频', nodeType: 'generateAudio' },
       { label: '角色', nodeType: 'character' },
+      { label: '3D', nodeType: 'threeD' },
     ],
   );
 });
@@ -63,6 +65,21 @@ test('assistant tool submenu contains the requested tools', () => {
       { label: '分镜工作台', nodeType: 'generateStoryboardScript' },
       { label: '视频编辑器', nodeType: 'videoEditor' },
       { label: '图片编辑器', nodeType: 'imageEditor' },
+    ],
+  );
+});
+
+test('right-click add node submenu uses the full node group', () => {
+  const addNodeItem = PANE_CONTEXT_MENU.find(item => item.label === '添加节点');
+  assert.deepEqual(
+    addNodeItem.children.map(({ label, nodeType }) => ({ label, nodeType })),
+    [
+      { label: '文本', nodeType: 'generateText' },
+      { label: '图片', nodeType: 'generateImage' },
+      { label: '视频', nodeType: 'generateVideo' },
+      { label: '音频', nodeType: 'generateAudio' },
+      { label: '角色', nodeType: 'character' },
+      { label: '3D', nodeType: 'threeD' },
     ],
   );
 });

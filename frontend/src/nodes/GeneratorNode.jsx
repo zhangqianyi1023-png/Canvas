@@ -1,9 +1,10 @@
-import { memo, useState, useCallback, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useReactFlow, useStore } from 'reactflow';
 import Icon from '../components/Icon';
 import GenerateCreditButton from '../components/GenerateCreditButton';
 import ImageMentionTextarea from '../components/ImageMentionTextarea';
+import ProcessorModelDropdown from '../components/ModelSelect';
 import QuickPromptControl from '../components/QuickPromptControl';
 import useQuickPrompts from '../useQuickPrompts';
 import { composeQuickPromptText, findQuickPrompt } from '../quickPrompts';
@@ -78,6 +79,7 @@ const VIDEO_FORM_DATA_KEYS = {
 const VOICE_INPUT_BAR_COUNT = 22;
 const VOICE_INPUT_DEMO_TEXT = '用自然清晰的画面表达主体动作和场景氛围，节奏流畅，细节丰富。';
 const createVoiceBars = () => Array.from({ length: VOICE_INPUT_BAR_COUNT }, () => 0.18);
+
 const GENERATOR_LANGUAGE_TEXT = {
   en: {
     voiceInput: 'Voice input',
@@ -655,159 +657,6 @@ const DurationSlider = ({
         />
         <span>{max}s</span>
       </div>
-    </div>
-  );
-};
-
-const ProcessorModelDropdown = ({
-  value,
-  options = [],
-  onChange,
-  disabled = false,
-  placeholder = '未配置',
-  menuPortal = false,
-  menuClassName = '',
-  menuMinWidth = 220,
-}) => {
-  const [open, setOpen] = useState(false);
-  const [menuStyle, setMenuStyle] = useState(null);
-  const wrapRef = useRef(null);
-  const menuRef = useRef(null);
-  const normalizedOptions = useMemo(() => (
-    options
-      .map(option => (typeof option === 'string' ? { value: option, label: option } : option))
-      .filter(option => option && option.value !== undefined)
-  ), [options]);
-  const selectedOption = normalizedOptions.find(option => option.value === value);
-  const displayLabel = selectedOption?.label || value || placeholder;
-  const hasEnabledOptions = normalizedOptions.some(option => !option.disabled);
-  const isDisabled = disabled || !hasEnabledOptions;
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handlePointerDown = (event) => {
-      if (wrapRef.current?.contains(event.target)) return;
-      if (menuRef.current?.contains(event.target)) return;
-      setOpen(false);
-    };
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    document.addEventListener('keydown', handleKeyDown, true);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown, true);
-      document.removeEventListener('keydown', handleKeyDown, true);
-    };
-  }, [open]);
-
-  const updateMenuPosition = useCallback(() => {
-    if (!menuPortal) return;
-    const trigger = wrapRef.current?.querySelector('.processor-model-trigger');
-    if (!trigger || typeof window === 'undefined') return;
-    const rect = trigger.getBoundingClientRect();
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || rect.width;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 400;
-    const width = Math.min(
-      Math.max(rect.width, Number(menuMinWidth) || 220),
-      Math.max(160, viewportWidth - 16),
-    );
-    const left = Math.min(Math.max(8, rect.left), Math.max(8, viewportWidth - width - 8));
-    const below = viewportHeight - rect.bottom - 8;
-    const above = rect.top - 8;
-    const openUp = below < 220 && above > below;
-    setMenuStyle({
-      position: 'fixed',
-      left,
-      top: openUp ? 'auto' : rect.bottom + 6,
-      bottom: openUp ? viewportHeight - rect.top + 6 : 'auto',
-      width,
-      maxHeight: Math.max(120, Math.min(320, openUp ? above : below)),
-      zIndex: 820,
-    });
-  }, [menuMinWidth, menuPortal]);
-
-  useLayoutEffect(() => {
-    if (!open || !menuPortal) return undefined;
-    updateMenuPosition();
-    const handlePositionChange = () => updateMenuPosition();
-    window.addEventListener('resize', handlePositionChange);
-    window.addEventListener('scroll', handlePositionChange, true);
-    return () => {
-      window.removeEventListener('resize', handlePositionChange);
-      window.removeEventListener('scroll', handlePositionChange, true);
-    };
-  }, [menuPortal, open, updateMenuPosition]);
-
-  const handleToggle = useCallback((event) => {
-    event.stopPropagation();
-    if (isDisabled) return;
-    setOpen(prev => !prev);
-  }, [isDisabled]);
-
-  const handleSelect = useCallback((option) => {
-    if (option.disabled || option.value === value) {
-      setOpen(false);
-      return;
-    }
-    onChange?.(option.value);
-    setOpen(false);
-  }, [onChange, value]);
-
-  const menu = open ? (
-    <div
-      ref={menuRef}
-      className={`processor-model-menu ${menuClassName}`.trim()}
-      style={menuPortal ? menuStyle || undefined : undefined}
-      role="listbox"
-    >
-      {normalizedOptions.map(option => {
-        const active = option.value === value;
-        return (
-          <button
-            key={`${option.value}-${option.label}`}
-            type="button"
-            className={`processor-model-option ${active ? 'active' : ''}`}
-            onClick={() => handleSelect(option)}
-            disabled={option.disabled}
-            role="option"
-            aria-selected={active}
-            title={option.label || option.value}
-          >
-            {option.imageUrl ? (
-              <span className="processor-model-option-content">
-                <img src={option.imageUrl} alt="" />
-                <span>{option.label || option.value}</span>
-              </span>
-            ) : (
-              <span>{option.label || option.value}</span>
-            )}
-            {active && <Icon name="check" size={14} />}
-          </button>
-        );
-      })}
-    </div>
-  ) : null;
-
-  return (
-    <div
-      className={`processor-model-dropdown nodrag ${open ? 'open' : ''}`}
-      ref={wrapRef}
-      onMouseDown={event => event.stopPropagation()}
-    >
-      <button
-        type="button"
-        className="processor-model-trigger"
-        onClick={handleToggle}
-        disabled={isDisabled}
-        title={displayLabel}
-      >
-        <span>{displayLabel}</span>
-        <Icon name="chevronDown" size={14} />
-      </button>
-      {menuPortal && typeof document !== 'undefined' ? createPortal(menu, document.body) : menu}
     </div>
   );
 };
@@ -2687,11 +2536,11 @@ function GeneratorNode({ id, data }) {
                 disabled={isGenerationLocked || (!selectedVideoApi && !hasVideoModelOptions)}
                 placeholder={labels.noVideoModel}
               />
+              <button className="processor-settings-btn video-processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
+                <Icon name="settings" size={15} />
+                <span className="processor-settings-summary">{videoGenerationModeOptions.find(option => option.value === resolvedVideoGenerationMode)?.label || labels.omniReference},{resolvedVideoAspectRatio},{resolvedVideoDuration === -1 ? labels.auto : `${resolvedVideoDuration}s`},{resolvedVideoResolution}</span>
+              </button>
             </div>
-            <button className="processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
-              <Icon name="settings" size={15} />
-              <span className="processor-settings-summary">{videoGenerationModeOptions.find(option => option.value === resolvedVideoGenerationMode)?.label || labels.omniReference},{resolvedVideoAspectRatio},{resolvedVideoDuration === -1 ? labels.auto : `${resolvedVideoDuration}s`},{resolvedVideoResolution}</span>
-            </button>
             <VoicePromptInput
               disabled={isGenerationLocked}
               labels={labels}
@@ -2811,6 +2660,9 @@ function GeneratorNode({ id, data }) {
                 disabled={isGenerationLocked || (!selectedImageApi && !hasImageModelOptions)}
                 placeholder={labels.noImageModel}
               />
+              <button className="processor-settings-btn image-processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
+                <span className="processor-settings-summary">{imageSettingsSummary}</span>
+              </button>
               <QuickPromptControl
                 selectedPromptId={form.image_quick_prompt_id}
                 disabled={isGenerationLocked}
@@ -2818,9 +2670,6 @@ function GeneratorNode({ id, data }) {
                 onSelect={handleQuickPromptSelect}
               />
             </div>
-            <button className="processor-settings-btn" onClick={() => setShowSettings(!showSettings)}>
-              <span className="processor-settings-summary">{imageSettingsSummary}</span>
-            </button>
             <VoicePromptInput
               disabled={isGenerationLocked}
               labels={labels}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useStore } from 'reactflow';
 import Icon from './Icon';
 import GenerateCreditButton from './GenerateCreditButton';
+import ModelSelect from './ModelSelect';
 import { IMAGE_RATIO_PRESETS, getDefaultImageRatioPresetId, getImageRatioSummary } from '../imageRatioPresets';
 import {
   buildCapabilityOptions,
@@ -765,28 +766,17 @@ function InlineImageInpaintEditor({
                 : <div className="inline-inpaint-popover-empty">未配置 API</div>}
             </InpaintPopoverControl>
           ) : null}
-          <InpaintPopoverControl
-            label="图片模型"
-            value={activeModel || '选择模型'}
-            open={openPopover === 'model'}
+          <ModelSelect
+            value={activeModel}
+            options={modelOptions}
+            onChange={selectModel}
             disabled={isGenerating || modelOptions.length === 0}
-            onToggle={() => togglePopover('model')}
-          >
-            {modelOptions.length > 0
-              ? modelOptions.map(model => (
-                <button
-                  type="button"
-                  key={model}
-                  className={model === activeModel ? 'active' : ''}
-                  onClick={() => selectModel(model)}
-                  role="menuitem"
-                >
-                  <span>{model}</span>
-                  {model === activeModel ? <Icon name="check" size={14} /> : null}
-                </button>
-              ))
-              : <div className="inline-inpaint-popover-empty">暂无模型</div>}
-          </InpaintPopoverControl>
+            placeholder="选择模型"
+            menuPortal
+            className="inline-inpaint-model-select"
+            menuMinWidth={280}
+            onOpenChange={open => setOpenPopover(open ? 'model' : null)}
+          />
           <InpaintPopoverControl
             label={isEraseMode ? '擦除参数' : '局部修改参数'}
             value={settingsSummary}

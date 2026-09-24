@@ -1,47 +1,7 @@
-import { Fragment, useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Icon from './Icon';
+import CanvasAddMenuPanel, { toolbarLabel } from './CanvasAddMenuPanel';
 import KeyboardShortcutsDialog from './KeyboardShortcutsDialog';
-import { CANVAS_ADD_MENU_SECTIONS, CANVAS_ADD_MENU_UPLOAD } from '../paneContextMenu';
-
-function tooltipLabel(id, labels = {}) {
-  const map = {
-    'tool-add': labels.toolAdd || '添加',
-    'tool-node-search': labels.toolNodeSearch || 'Node search',
-    'tool-upload-file': labels.toolUploadFile || '上传文件',
-    'tool-character': labels.toolCharacter || '角色',
-    'tool-text-gen': labels.toolText || '文本',
-    'tool-image-gen': labels.toolImage || '图片',
-    'tool-audio-gen': labels.toolAudio || '音频',
-    'tool-video-editor': labels.toolVideoEditor || '视频编辑器',
-    'tool-smart-splitter': labels.toolSmartSplitter || '智能拆分器',
-    'tool-video-gen': labels.toolVideo || '视频',
-    'tool-storyboard': labels.toolStoryboard || '分镜工作台',
-    'tool-image-editor': labels.toolImageEditor || '图片编辑器',
-    'tool-materials': labels.toolMaterials || '素材库',
-    'tool-characters': labels.toolCharacters || '角色',
-    'tool-comments': labels.toolComments || '评论',
-    'tool-history': labels.toolHistory || '历史',
-    'tool-apps': labels.toolTemplates || labels.toolApps || '模板库',
-    'tool-shortcuts': labels.toolShortcuts || 'Keyboard shortcuts',
-    'tool-clear': labels.toolClear || '清空画布',
-  };
-  return map[id] || '';
-}
-
-const TOOLBAR_ID_BY_NODE_TYPE = {
-  generateText: 'tool-text-gen',
-  generateImage: 'tool-image-gen',
-  generateVideo: 'tool-video-gen',
-  generateAudio: 'tool-audio-gen',
-  smartSplitter: 'tool-smart-splitter',
-  generateStoryboardScript: 'tool-storyboard',
-  videoEditor: 'tool-video-editor',
-  imageEditor: 'tool-image-editor',
-};
-
-function getToolbarItemId(item) {
-  return item.toolbarId || TOOLBAR_ID_BY_NODE_TYPE[item.nodeType] || item.id || '';
-}
 
 export default function CanvasBottomToolbar({
   onAddNode,
@@ -67,7 +27,7 @@ export default function CanvasBottomToolbar({
   const [tipY, setTipY] = useState(0);
   const [open, setOpen] = useState(false);
 
-  const tipLabel = hovered ? tooltipLabel(hovered, labels) : '';
+  const tipLabel = hovered ? toolbarLabel(hovered, labels) : '';
 
   const getTipY = useCallback((el) => {
     if (!wrapRef.current || !el) return 0;
@@ -186,44 +146,9 @@ export default function CanvasBottomToolbar({
       </div>
       <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => onToggleShortcuts?.(false)} />
       {open && (
-        <div className="canvas-toolbar-panel" role="toolbar" aria-label={labels.addNode || '添加节点'}>
-          <div className="canvas-toolbar-panel-group">
-            <ToolbarPanelItem item={CANVAS_ADD_MENU_UPLOAD} labels={labels} onClick={handleClick} />
-          </div>
-          {CANVAS_ADD_MENU_SECTIONS.map((section) => (
-            <Fragment key={section.label}>
-              <Divider />
-              <section className="canvas-toolbar-panel-section" aria-label={section.label}>
-                <div className="canvas-toolbar-panel-section-title">{section.label}</div>
-                <div className="canvas-toolbar-panel-group">
-                  {section.items.map(item => (
-                    <ToolbarPanelItem
-                      item={item}
-                      labels={labels}
-                      onClick={handleClick}
-                      key={item.toolbarId || item.nodeType || item.action || item.label}
-                    />
-                  ))}
-                </div>
-              </section>
-            </Fragment>
-          ))}
-        </div>
+        <CanvasAddMenuPanel labels={labels} onItemClick={handleClick} />
       )}
     </div>
-  );
-}
-
-function ToolbarPanelItem({ item, labels, onClick }) {
-  return (
-    <button
-      type="button"
-      className="canvas-toolbar-panel-item"
-      onClick={event => onClick(item, event)}
-    >
-      <Icon name={item.icon} size={18} />
-      <span>{tooltipLabel(getToolbarItemId(item), labels) || item.label}</span>
-    </button>
   );
 }
 
@@ -239,7 +164,7 @@ function RailButton({ id, icon, text, active, hovered, onMouseEnter, onMouseLeav
     <button
       type="button"
       className={cls}
-      aria-label={tooltipLabel(id, labels)}
+      aria-label={toolbarLabel(id, labels)}
       onMouseEnter={(e) => onMouseEnter(id, e.currentTarget)}
       onMouseLeave={onMouseLeave}
       onClick={onClick}

@@ -5,6 +5,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
+import ModelSelect from './ModelSelect';
 import {
   SUPPORTED_IMAGE_ACCEPT,
   getUnsupportedImageMessage,
@@ -447,16 +448,16 @@ function StoryboardImageGenerator({
               ))
               : <option value="">未配置 API</option>}
           </select>
-          <select
-            className="processor-model-select storyboard-generator-model-select"
+          <ModelSelect
             value={selectedImageModel}
-            onChange={(e) => setImageModel(e.target.value)}
+            options={imageModelOptions.length > 0 ? imageModelOptions : ['gpt-image-2']}
+            onChange={setImageModel}
             disabled={!selectedImageApi && imageModelOptions.length === 0}
-          >
-            {imageModelOptions.length > 0
-              ? imageModelOptions.map(m => <option key={m} value={m}>{m}</option>)
-              : <option value="gpt-image-2">gpt-image-2</option>}
-          </select>
+            placeholder="选择模型"
+            menuPortal
+            className="storyboard-generator-model-select"
+            menuMinWidth={280}
+          />
           <button className="modal-btn cancel" onClick={onClose}>取消</button>
           <button
             className="modal-btn confirm"
